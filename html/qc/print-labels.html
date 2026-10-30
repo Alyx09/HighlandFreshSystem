@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Labels - Quality Control | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+    <!-- Self-hosted CODE128 renderer. Compact tokens keep bars wide enough for phones. -->
+    <script src="../../js/vendor/JsBarcode.all.min.js"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .bento-card {
+            @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ── Label studio layout ── */
+        .pl-studio {
+            display: grid;
+            gap: 1.25rem;
+        }
+        @media (min-width: 1024px) {
+            .pl-studio {
+                grid-template-columns: minmax(280px, 360px) 1fr;
+                align-items: start;
+            }
+        }
+        .pl-panel {
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--bc) / 0.1);
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        .pl-panel__head {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.08);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+        }
+        .pl-panel__body {
+            padding: 1.25rem;
+        }
+        .pl-field-label {
+            display: block;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            margin-bottom: 0.35rem;
+        }
+        .pl-meta {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .pl-meta__item span {
+            display: block;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: oklch(var(--bc) / 0.45);
+            margin-bottom: 0.15rem;
+        }
+        .pl-meta__item strong {
+            font-size: 0.875rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+        .pl-serial-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.75rem 0.875rem;
+            border-radius: 0.65rem;
+            background: oklch(var(--in) / 0.1);
+            border: 1px solid oklch(var(--in) / 0.25);
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: oklch(var(--bc) / 0.85);
+        }
+        .pl-serial-banner i {
+            color: oklch(var(--in));
+            margin-top: 0.15rem;
+        }
+        .pl-preview-stage {
+            background: linear-gradient(160deg, oklch(var(--bc) / 0.12), oklch(var(--bc) / 0.06));
+            border-radius: 1rem;
+            min-height: 420px;
+            padding: 1.5rem 1.25rem 1.25rem;
+            border: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .pl-preview-stage__title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            color: oklch(var(--bc) / 0.55);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .pl-preview-scroll {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.25rem;
+            justify-content: center;
+            align-items: flex-start;
+            max-height: 560px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding: 0.5rem 0.25rem 1rem;
+        }
+        /* Strict isolation: each card is a fixed bounding box */
+        .pl-label-card {
+            background: #fff;
+            color: #111;
+            border-radius: 0.5rem;
+            box-shadow:
+                0 1px 2px oklch(0% 0 0 / 0.08),
+                0 12px 28px -8px oklch(0% 0 0 / 0.28);
+            border: 1px solid #e5e5e5;
+            page-break-inside: avoid;
+            position: relative;
+            overflow: hidden;
+            box-sizing: border-box;
+            flex: 0 0 auto;
+            flex-shrink: 0;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .pl-label-card * {
+            box-sizing: border-box;
+            max-width: 100%;
+        }
+        .pl-label-card__inner {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            min-height: 0;
+            min-width: 0;
+            padding: 0.45rem 0.55rem 0.4rem;
+            overflow: hidden;
+        }
+        .pl-label-card__head {
+            flex: 0 0 auto;
+            min-width: 0;
+            padding-right: 2.5rem; /* room for serial badge */
+        }
+        .pl-label-card__title {
+            flex: 0 0 auto;
+            text-align: center;
+            font-weight: 800;
+            line-height: 1.15;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin: 0.15rem 0 0.25rem;
+            min-width: 0;
+        }
+        .pl-label-card__barcode-wrap {
+            flex: 1 1 auto;
+            min-height: 0;
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 0.15rem 0;
+        }
+        /* The encoded value is intentionally short. That gives CODE128 wide,
+           high-contrast modules and generous quiet zones for phone cameras. */
+        .pl-label-card .barcode-svg {
+            display: block !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: auto !important;
+            max-height: 54px;
+            margin: 0 auto;
+            overflow: visible;
+        }
+        .pl-label-card--small .barcode-svg {
+            max-height: 30px;
+        }
+        .pl-label-card--large .barcode-svg {
+            max-height: 68px;
+        }
+        .pl-label-card__serial-text {
+            flex: 0 0 auto;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.55rem;
+            font-weight: 700;
+            text-align: center;
+            color: #374151;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-top: 0.15rem;
+        }
+        .pl-label-card__meta {
+            flex: 0 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.2rem 0.4rem;
+            width: 100%;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 0.3rem;
+            margin-top: 0.25rem;
+            font-size: 0.6rem;
+            line-height: 1.2;
+            min-width: 0;
+        }
+        .pl-label-card__foot {
+            flex: 0 0 auto;
+            text-align: center;
+            font-size: 0.55rem;
+            color: #9ca3af;
+            margin-top: 0.2rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .pl-label-card__serial {
+            position: absolute;
+            top: 0.3rem;
+            right: 0.35rem;
+            z-index: 2;
+            font-size: 0.6rem;
+            font-weight: 800;
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            color: #166534;
+            background: #dcfce7;
+            padding: 0.1rem 0.3rem;
+            border-radius: 0.25rem;
+            letter-spacing: 0.02em;
+            max-width: 40%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .pl-empty {
+            text-align: center;
+            color: oklch(var(--bc) / 0.4);
+            padding: 3.5rem 1rem;
+            width: 100%;
+        }
+        .pl-cta {
+            width: 100%;
+            margin-top: 1.25rem;
+            min-height: 3.25rem;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+        }
+        .pl-sequence {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.75rem;
+            justify-content: center;
+        }
+        .pl-sequence span {
+            font-family: ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.3rem;
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--bc) / 0.1);
+            color: oklch(var(--bc) / 0.7);
+        }
+        .pl-sequence span.pl-seq-more {
+            background: oklch(var(--p) / 0.1);
+            border-color: oklch(var(--p) / 0.2);
+            color: oklch(var(--p));
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            #sidebar, #sidebarBackdrop {
+                display: none !important;
+            }
+
+            .lg\:ml-72 {
+                margin-left: 0 !important;
+            }
+
+            main {
+                padding: 0 !important;
+            }
+
+            .pl-preview-stage {
+                background: white !important;
+                border: none !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                max-height: none !important;
+            }
+
+            .pl-preview-scroll {
+                display: flex !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+                max-height: none !important;
+                overflow: visible !important;
+                gap: 0.25in !important;
+                padding: 0 !important;
+            }
+
+            .pl-label-card {
+                page-break-inside: avoid;
+                margin: 0.15in !important;
+                box-shadow: none !important;
+                border: 1.5px solid #000 !important;
+                border-radius: 0 !important;
+                overflow: hidden !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .pl-label-card .barcode-svg {
+                width: 100% !important;
+                height: auto !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+
+            @page {
+                size: auto;
+                margin: 0.4in;
+            }
+        }
+
+        @media screen {
+            .print-only {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Quality Control</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <!-- Main Menu -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Inbound Milk -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inbound Milk
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="milk_receiving.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck-loading w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Milk Receiving</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="milk_grading.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-flask w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Milk Grading</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="farmers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Farmers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Production QC -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Production QC
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="batch_release.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-check-double w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Batch Release</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="print-labels.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-barcode w-5 text-center"></i>
+                            <span class="flex-1">Print Labels</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Inventory QC -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inventory QC
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="expiry_management.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-calendar-times w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Expiry Management</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="disposals.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-trash-alt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Disposals</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recalls.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-exclamation-triangle w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Batch Recalls</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Reports -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="reports/daily.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-chart-bar w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Daily Reports</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="reports/farmer_summary.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-file-invoice-dollar w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Farmer Summary</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section (same structure as other QC pages) -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">QC</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">QC Officer</p>
+                    <p class="text-xs text-base-content/60 truncate">Quality Control</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a><i class="fas fa-user-cog w-4"></i> Profile</a></li>
+                        <li><a><i class="fas fa-cog w-4"></i> Settings</a></li>
+                        <li class="border-t border-base-300 mt-1 pt-1">
+                            <a onclick="(typeof AuthService !== 'undefined' ? AuthService.logout() : logout())" class="text-error">
+                                <i class="fas fa-sign-out-alt w-4"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <!-- Top Bar -->
+        <header class="bg-base-100 border-b border-base-300 sticky top-0 z-30 no-print">
+            <div class="flex items-center justify-between px-4 py-3">
+                <div class="flex items-center gap-3">
+                    <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div>
+                        <h1 class="text-lg font-bold">Print Barcode Labels</h1>
+                        <p class="text-xs text-base-content/60">Generate phone-scannable CODE128 labels for released batches</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="batch_release.html" class="btn btn-ghost btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Batch Release
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content -->
+        <main class="flex-1 p-4 lg:p-6">
+            <div class="pl-studio">
+                <!-- Controls panel -->
+                <section class="pl-panel no-print">
+                    <div class="pl-panel__head">Label setup</div>
+                    <div class="pl-panel__body space-y-4">
+                        <div>
+                            <label class="pl-field-label" for="batchSelect">Released batch</label>
+                            <select id="batchSelect" class="select select-bordered w-full" onchange="onBatchChange()">
+                                <option value="">Loading batches...</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="pl-field-label" for="skuSelect">Product size / SKU</label>
+                            <select id="skuSelect" class="select select-bordered w-full" onchange="onSkuChange()" disabled>
+                                <option value="">Select a released batch first...</option>
+                            </select>
+                            <p class="text-xs text-base-content/50 mt-1.5 m-0">
+                                Labels and serial numbers are generated only for this exact packaged SKU.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="pl-field-label" for="labelMode">Label type</label>
+                            <select id="labelMode" class="select select-bordered w-full" onchange="onLabelModeChange()">
+                                <option value="unit">Individual product labels</option>
+                                <option value="box" id="boxLabelModeOption">Outside box labels</option>
+                            </select>
+                            <p class="text-xs text-base-content/50 mt-1.5 m-0" id="labelModeHint">
+                                Print one label for each individual product.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="pl-field-label" for="labelCount">Number of labels to print</label>
+                            <input type="number" id="labelCount" class="input input-bordered w-full"
+                                value="1" min="1" max="5000" step="1"
+                                oninput="onLabelCountChange()" onchange="onLabelCountChange()">
+                            <p class="text-xs text-base-content/50 mt-1.5 m-0" id="labelCountHint">
+                                Select the exact product size first.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="pl-field-label" for="labelSize">Label size</label>
+                            <select id="labelSize" class="select select-bordered w-full" onchange="refreshPreview()">
+                                <option value="large">Large (4&quot; × 3&quot;)</option>
+                                <option value="medium" selected>Medium (3&quot; × 2&quot;)</option>
+                                <option value="small">Small (2&quot; × 1&quot;)</option>
+                            </select>
+                        </div>
+
+                        <div id="batchInfoCard" class="pl-meta" style="display: none;">
+                            <div class="pl-meta__item">
+                                <span>Batch code</span>
+                                <strong class="font-mono" id="infoBatchCode">—</strong>
+                            </div>
+                            <div class="pl-meta__item">
+                                <span>Base barcode</span>
+                                <strong class="font-mono text-sm" id="infoBarcode">—</strong>
+                            </div>
+                            <div class="pl-meta__item">
+                                <span>Product</span>
+                                <strong id="infoProduct">—</strong>
+                            </div>
+                            <div class="pl-meta__item">
+                                <span>Released SKU qty</span>
+                                <strong id="infoQuantity">—</strong>
+                            </div>
+                            <div class="pl-meta__item">
+                                <span>Mfg date</span>
+                                <strong id="infoMfgDate">—</strong>
+                            </div>
+                            <div class="pl-meta__item">
+                                <span>Expiry</span>
+                                <strong class="text-error" id="infoExpDate">—</strong>
+                            </div>
+                            <div class="pl-meta__item sm:col-span-2">
+                                <span>Status</span>
+                                <strong id="infoStatus">—</strong>
+                            </div>
+                        </div>
+
+                        <div class="pl-serial-banner">
+                            <i class="fas fa-fingerprint"></i>
+                            <div>
+                                <strong class="block text-base-content mb-0.5" id="serializationTitle">Unique product labels</strong>
+                                <span id="serializationHelp">Each label identifies one product from the selected batch.</span>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-primary pl-cta gap-2" id="printBtn" disabled
+                            onclick="printLabels()">
+                            <i class="fas fa-print"></i>
+                            <span id="printBtnLabel">Print labels</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Preview pane -->
+                <section class="pl-preview-stage print-area">
+                    <div class="pl-preview-stage__title no-print">
+                        <span><i class="fas fa-eye mr-1.5 opacity-70"></i> Print preview</span>
+                        <span id="previewCountBadge" class="badge badge-ghost badge-sm font-normal normal-case tracking-normal">No batch selected</span>
+                    </div>
+
+                    <div id="sequenceStrip" class="pl-sequence no-print" style="display: none;"></div>
+
+                    <div id="labelsContainer" class="pl-preview-scroll">
+                        <div class="pl-empty no-print">
+                            <i class="fas fa-tags text-5xl mb-3 opacity-40"></i>
+                            <p class="font-medium text-base-content/50">Select a released batch to preview serialized labels</p>
+                            <p class="text-xs mt-1 opacity-70">Preview updates automatically when you change batch, qty, or size</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="qc_officer,general_manager"></script>
+    <script src="../../js/utils/product-display.js?v=20260909-sizefix1"></script>
+
+    <script>
+        let currentBatch = null;
+        let currentSku = null;
+        let batchUnitQty = 0;
+        let previewTimer = null;
+        let batchSelectionRevision = 0;
+        /** Max labels fully rendered in on-screen preview (all still print) */
+        const PREVIEW_RENDER_CAP = 24;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                const nameEl = document.getElementById('sidebarUserName') || document.getElementById('userName');
+                if (nameEl) nameEl.textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'QC Officer';
+                document.getElementById('userInitials').textContent =
+                    (user.first_name?.charAt(0) || '') + (user.last_name?.charAt(0) || '');
+            }
+
+            await loadReleasedBatches();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const batchId = urlParams.get('batch_id');
+            if (batchId) {
+                document.getElementById('batchSelect').value = batchId;
+                await onBatchChange();
+            }
+        });
+
+        function getBatchUnitQty(batch) {
+            if (!batch) return 0;
+            const candidates = [
+                batch.qc_released_total,
+                batch.quantity_produced,
+                batch.actual_yield,
+                batch.expected_yield,
+                batch.quantity,
+                batch.total_units,
+                batch.units_produced
+            ];
+            for (const c of candidates) {
+                const n = parseInt(c, 10);
+                if (n > 0) return n;
+            }
+            return 1;
+        }
+
+        /**
+         * Compact CODE128 seed: batch ID + product ID. The full descriptive
+         * batch code remains printed on the label, but is not forced into bars.
+         */
+        function getBaseBarcode(batch, sku = currentSku) {
+            const batchId = Number(batch?.id || 0);
+            const productId = Number(sku?.product_id || 0);
+            if (batchId > 0 && productId > 0) return `HF4-${batchId}-${productId}`;
+
+            // Legacy fallback for incomplete historical records.
+            const batchCode = (batch?.barcode || batch?.batch_code || '').toString().trim();
+            if (!batchCode || !sku) return '';
+            return `${batchCode}-${ProductDisplay.barcodeToken(sku)}`.replace(/\s+/g, '');
+        }
+
+        function getLabelMode() {
+            return document.getElementById('labelMode')?.value === 'box' ? 'box' : 'unit';
+        }
+
+        function getUnitsPerPack(sku = currentSku) {
+            return Math.max(1, parseInt(sku?.pieces_per_box, 10) || 1);
+        }
+
+        function getAvailableLabelCount() {
+            if (!currentSku || batchUnitQty < 1) return 0;
+            return getLabelMode() === 'box'
+                ? Math.floor(batchUnitQty / getUnitsPerPack())
+                : batchUnitQty;
+        }
+
+        function buildBoxSerial(batch, sku, boxIndex) {
+            const batchId = Number(batch?.id || 0);
+            const productId = Number(sku?.product_id || 0);
+            if (batchId < 1 || productId < 1 || boxIndex < 1) return '';
+            return `HFB-${batchId}-${productId}-${getUnitsPerPack(sku)}-${String(boxIndex).padStart(4, '0')}`;
+        }
+
+        function buildPrintedSerial(batch, sku, labelIndex, total) {
+            return getLabelMode() === 'box'
+                ? buildBoxSerial(batch, sku, labelIndex)
+                : buildUnitSerial(batch, sku, labelIndex, total);
+        }
+
+        function readableUnit(unit, quantity) {
+            const value = String(unit || 'unit').replace(/[_-]+/g, ' ');
+            return quantity === 1 || /s$/i.test(value) ? value : `${value}s`;
+        }
+
+        /**
+         * Unique serialized unit ID for bottle index (1-based).
+         * e.g. HF4-62-11-0001 … HF4-62-11-0095
+         */
+        function buildUnitSerial(batch, sku, unitIndex, total) {
+            const base = getBaseBarcode(batch, sku);
+            const pad = Math.max(4, String(total).length);
+            const seq = String(unitIndex).padStart(pad, '0');
+            return `${base}-${seq}`;
+        }
+
+        function updatePrintCta() {
+            const btn = document.getElementById('printBtn');
+            const label = document.getElementById('printBtnLabel');
+            const count = Math.max(0, parseInt(document.getElementById('labelCount').value, 10) || 0);
+            const ready = !!(currentBatch && currentSku && getBaseBarcode(currentBatch, currentSku)
+                && count > 0 && getAvailableLabelCount() > 0);
+            btn.disabled = !ready;
+            const noun = getLabelMode() === 'box' ? 'box label' : 'product label';
+            label.textContent = ready
+                ? `Print ${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`
+                : 'Print labels';
+        }
+
+        async function loadReleasedBatches() {
+            try {
+                const response = await api.get('/qc/batch_release.php?action=list&status=released&limit=50');
+                const batches = response.data || [];
+
+                const select = document.getElementById('batchSelect');
+                select.replaceChildren(new Option('Select a released batch...', ''));
+
+                batches.forEach(b => {
+                    const expiry = b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : 'N/A';
+                    const productName = b.product_name || 'Unknown Product';
+                    const qty = getBatchUnitQty(b);
+                    const option = new Option(
+                        `${b.batch_code || 'Batch'} - ${productName} - ${qty.toLocaleString()} units (Exp: ${expiry})`,
+                        String(Number(b.id) || '')
+                    );
+                    option.dataset.qty = String(qty);
+                    select.add(option);
+                });
+
+                if (batches.length === 0) {
+                    select.innerHTML = '<option value="">No released batches found</option>';
+                }
+            } catch (error) {
+                console.error('Error loading batches:', error);
+                document.getElementById('batchSelect').innerHTML = '<option value="">Error loading batches</option>';
+            }
+        }
+
+        async function onBatchChange() {
+            const select = document.getElementById('batchSelect');
+            const batchId = select.value;
+            const revision = ++batchSelectionRevision;
+
+            if (!batchId) {
+                currentBatch = null;
+                currentSku = null;
+                batchUnitQty = 0;
+                const skuSelect = document.getElementById('skuSelect');
+                skuSelect.replaceChildren(new Option('Select a released batch first...', ''));
+                skuSelect.disabled = true;
+                document.getElementById('batchInfoCard').style.display = 'none';
+                document.getElementById('labelCount').value = 1;
+                document.getElementById('labelMode').value = 'unit';
+                clearPreview();
+                updatePrintCta();
+                return;
+            }
+
+            try {
+                const response = await api.get(`/qc/batch_release.php?batch_id=${batchId}`);
+                if (revision !== batchSelectionRevision) return;
+                currentBatch = response.data;
+                currentSku = null;
+                batchUnitQty = 0;
+
+                document.getElementById('batchInfoCard').style.display = 'grid';
+                document.getElementById('infoBatchCode').textContent = currentBatch.batch_code || '—';
+
+                document.getElementById('infoBarcode').textContent = 'Select a SKU';
+                document.getElementById('infoBarcode').className = 'font-mono text-sm text-base-content/60';
+                document.getElementById('infoProduct').textContent = 'Select a product size';
+                document.getElementById('infoQuantity').textContent = '—';
+                document.getElementById('infoMfgDate').textContent = currentBatch.manufacturing_date
+                    ? new Date(currentBatch.manufacturing_date).toLocaleDateString() : '—';
+                document.getElementById('infoExpDate').textContent = currentBatch.expiry_date
+                    ? new Date(currentBatch.expiry_date).toLocaleDateString() : '—';
+
+                const status = document.getElementById('infoStatus');
+                status.replaceChildren();
+                const statusBadge = document.createElement('span');
+                statusBadge.className = currentBatch.qc_status === 'released'
+                    ? 'badge badge-success badge-sm'
+                    : 'badge badge-sm';
+                statusBadge.textContent = currentBatch.qc_status === 'released'
+                    ? 'Released'
+                    : String(currentBatch.qc_status || 'Unknown');
+                status.appendChild(statusBadge);
+
+                populateSkuOptions(currentBatch.label_packaging_lines || currentBatch.released_packaging_lines || currentBatch.packaging_lines || []);
+            } catch (error) {
+                if (revision !== batchSelectionRevision) return;
+                console.error('Error loading batch details:', error);
+                currentBatch = null;
+                currentSku = null;
+                document.getElementById('batchInfoCard').style.display = 'none';
+                clearPreview();
+                updatePrintCta();
+            }
+        }
+
+        function populateSkuOptions(lines) {
+            const select = document.getElementById('skuSelect');
+            select.replaceChildren(new Option('Select the product size to print...', ''));
+            const usable = (Array.isArray(lines) ? lines : []).filter(line => Number(line.quantity || 0) > 0);
+            usable.forEach((line, index) => {
+                const quantity = Number(line.quantity || 0);
+                const label = `${ProductDisplay.name(line, { includeCode: true })} — ${quantity.toLocaleString()} released`;
+                select.add(new Option(label, String(index)));
+            });
+            select.disabled = usable.length === 0;
+            select.dataset.lines = JSON.stringify(usable);
+
+            if (usable.length === 0) {
+                const isDemoBatch = /^(?:LOCAL-)?DEF26-/.test(String(currentBatch?.batch_code || ''));
+                select.replaceChildren(new Option(isDemoBatch
+                    ? 'No available finished-goods SKU for this demo batch'
+                    : 'No packaged SKU details recorded', ''));
+                document.getElementById('labelCount').value = 1;
+                document.getElementById('labelMode').value = 'unit';
+                document.getElementById('labelModeHint').textContent = 'Print one label for each individual product.';
+                document.getElementById('labelCountHint').textContent =
+                    isDemoBatch
+                        ? 'Printing is blocked because this demo batch has no available, unexpired finished-goods stock.'
+                        : 'Printing is blocked because this batch has no size-specific packaging record.';
+                clearPreview();
+                return;
+            }
+            if (usable.length === 1) {
+                select.value = '0';
+                onSkuChange();
+            } else {
+                document.getElementById('labelCountHint').textContent =
+                    `${usable.length} product sizes were released. Choose one before printing.`;
+                clearPreview();
+            }
+        }
+
+        function onSkuChange() {
+            const select = document.getElementById('skuSelect');
+            const lines = JSON.parse(select.dataset.lines || '[]');
+            currentSku = select.value === '' ? null : lines[Number(select.value)] || null;
+            batchUnitQty = currentSku ? Math.max(0, Number(currentSku.quantity || 0)) : 0;
+
+            if (!currentSku || batchUnitQty < 1) {
+                document.getElementById('infoBarcode').textContent = 'Select a SKU';
+                document.getElementById('infoProduct').textContent = 'Select a product size';
+                document.getElementById('infoQuantity').textContent = '—';
+                clearPreview();
+                return;
+            }
+
+            const base = getBaseBarcode(currentBatch, currentSku);
+            const barcode = document.getElementById('infoBarcode');
+            barcode.textContent = base || 'Missing';
+            barcode.className = base
+                ? 'font-mono font-semibold text-success'
+                : 'font-mono font-semibold text-error';
+            document.getElementById('infoProduct').textContent = ProductDisplay.name(currentSku, { includeCode: true });
+            document.getElementById('infoQuantity').textContent = `${batchUnitQty.toLocaleString()} units`;
+
+            onLabelModeChange();
+        }
+
+        function onLabelModeChange() {
+            const modeSelect = document.getElementById('labelMode');
+            const boxOption = document.getElementById('boxLabelModeOption');
+            const packSize = getUnitsPerPack();
+            const fullBoxes = packSize > 1 ? Math.floor(batchUnitQty / packSize) : 0;
+            const canPrintBoxes = !!currentSku && packSize > 1 && fullBoxes > 0;
+            boxOption.disabled = !canPrintBoxes;
+            if (modeSelect.value === 'box' && !canPrintBoxes) modeSelect.value = 'unit';
+
+            const boxMode = modeSelect.value === 'box';
+            const available = boxMode ? fullBoxes : batchUnitQty;
+            const printLimit = Math.min(Math.max(0, available), 5000);
+            const countInput = document.getElementById('labelCount');
+            countInput.max = Math.max(1, printLimit);
+            countInput.value = printLimit > 0 ? printLimit : 1;
+
+            const baseUnit = readableUnit(currentSku?.base_unit, packSize);
+            const packUnit = String(currentSku?.box_unit || 'box').replace(/[_-]+/g, ' ');
+            document.getElementById('labelModeHint').textContent = boxMode
+                ? `${fullBoxes.toLocaleString()} complete ${readableUnit(packUnit, fullBoxes)} available; each holds ${packSize} ${baseUnit}.`
+                : (canPrintBoxes
+                    ? `Choose outside box labels to print ${fullBoxes.toLocaleString()} sealed ${readableUnit(packUnit, fullBoxes)} without opening them.`
+                    : 'Print one label for each individual product.');
+            document.getElementById('labelCountHint').textContent = boxMode
+                ? `Loose products are not included in the box-label count.`
+                : `${batchUnitQty.toLocaleString()} individual product label${batchUnitQty === 1 ? '' : 's'} available.`;
+            document.getElementById('serializationTitle').textContent = boxMode ? 'Unique outside-box labels' : 'Unique product labels';
+            document.getElementById('serializationHelp').textContent = boxMode
+                ? 'Place one label on each sealed box. The cashier scans this label without opening the box.'
+                : 'Each label identifies one product from the selected batch.';
+            refreshPreview();
+        }
+
+        function onLabelCountChange() {
+            const input = document.getElementById('labelCount');
+            let n = parseInt(input.value, 10);
+            if (Number.isNaN(n) || n < 1) n = 1;
+            const max = parseInt(input.max, 10) || 5000;
+            if (n > max) n = max;
+            input.value = n;
+            debouncedRefresh();
+            updatePrintCta();
+        }
+
+        function debouncedRefresh() {
+            clearTimeout(previewTimer);
+            previewTimer = setTimeout(() => refreshPreview(), 180);
+        }
+
+        function clearPreview() {
+            document.getElementById('labelsContainer').innerHTML = `
+                <div class="pl-empty no-print">
+                    <i class="fas fa-tags text-5xl mb-3 opacity-40"></i>
+                    <p class="font-medium text-base-content/50">Select a released batch and product size to preview labels</p>
+                    <p class="text-xs mt-1 opacity-70">Preview updates automatically when you change the SKU, quantity, or label size</p>
+                </div>`;
+            document.getElementById('sequenceStrip').style.display = 'none';
+            document.getElementById('sequenceStrip').innerHTML = '';
+            document.getElementById('previewCountBadge').textContent = 'No batch selected';
+            updatePrintCta();
+        }
+
+        function getSizeConfig() {
+            const size = document.getElementById('labelSize').value;
+            const sizes = {
+                large: { key: 'large', width: '4in', height: '3in', barcodeHeight: 58, fontSize: 13 },
+                medium: { key: 'medium', width: '3in', height: '2in', barcodeHeight: 44, fontSize: 11 },
+                small: { key: 'small', width: '2in', height: '1.15in', barcodeHeight: 28, fontSize: 9 }
+            };
+            return sizes[size] || sizes.medium;
+        }
+
+        function refreshPreview() {
+            if (!currentBatch || !currentSku) {
+                clearPreview();
+                return;
+            }
+
+            const total = Math.max(1, parseInt(document.getElementById('labelCount').value, 10) || 1);
+            const sizeConfig = getSizeConfig();
+            const container = document.getElementById('labelsContainer');
+            container.innerHTML = '';
+
+            // Screen: render up to PREVIEW_RENDER_CAP; print job uses full set via data attribute
+            const renderCount = Math.min(total, PREVIEW_RENDER_CAP);
+            for (let i = 1; i <= renderCount; i++) {
+                const serial = buildPrintedSerial(currentBatch, currentSku, i, total);
+                container.appendChild(createLabel(currentBatch, currentSku, sizeConfig, serial, i, total));
+            }
+
+            if (total > PREVIEW_RENDER_CAP) {
+                const more = document.createElement('div');
+                more.className = 'pl-empty no-print py-6';
+                more.innerHTML = `
+                    <p class="text-sm font-medium text-base-content/60">
+                        Showing first ${PREVIEW_RENDER_CAP.toLocaleString()} of ${total.toLocaleString()} unique labels
+                    </p>
+                    <p class="text-xs opacity-60 mt-1">Print will output the full serialized sequence (…${String(total).padStart(4, '0')})</p>`;
+                container.appendChild(more);
+            }
+
+            renderBarcodesIn(container, sizeConfig);
+
+            // Sequence strip (first / middle / last samples)
+            renderSequenceStrip(total);
+            document.getElementById('previewCountBadge').textContent =
+                `${total.toLocaleString()} ${getLabelMode() === 'box' ? 'outside box' : 'individual'} label${total === 1 ? '' : 's'}`;
+            updatePrintCta();
+        }
+
+        function renderSequenceStrip(total) {
+            const strip = document.getElementById('sequenceStrip');
+            if (!currentBatch || !currentSku || total < 1) {
+                strip.style.display = 'none';
+                return;
+            }
+            strip.style.display = 'flex';
+            const samples = new Set([1, 2, 3]);
+            if (total > 4) samples.add(total);
+            if (total > 6) samples.add(Math.ceil(total / 2));
+            const ordered = [...samples].filter(n => n <= total).sort((a, b) => a - b);
+
+            let html = '';
+            ordered.forEach((n, idx) => {
+                if (idx > 0 && ordered[idx] - ordered[idx - 1] > 1) {
+                    html += '<span class="pl-seq-more">…</span>';
+                }
+                const noun = getLabelMode() === 'box' ? 'Box' : 'Unit';
+                html += `<span title="${noun} ${n} of ${total}">${buildPrintedSerial(currentBatch, currentSku, n, total)}</span>`;
+            });
+            strip.innerHTML = html;
+        }
+
+        function createLabel(batch, sku, sizeConfig, unitSerial, unitIndex, total) {
+            const div = document.createElement('div');
+            div.className = `pl-label-card pl-label-card--${sizeConfig.key}`;
+            div.style.width = sizeConfig.width;
+            div.style.height = sizeConfig.height;
+            div.style.minWidth = sizeConfig.width;
+            div.style.maxWidth = sizeConfig.width;
+            div.setAttribute('data-unit-serial', unitSerial);
+            div.setAttribute('data-unit-index', String(unitIndex));
+
+            const mfgDate = batch.manufacturing_date
+                ? new Date(batch.manufacturing_date).toLocaleDateString('en-PH') : '—';
+            const expDate = batch.expiry_date
+                ? new Date(batch.expiry_date).toLocaleDateString('en-PH') : '—';
+            const product = ProductDisplay.name(sku);
+            const boxMode = getLabelMode() === 'box';
+            const packSize = getUnitsPerPack(sku);
+            const baseUnits = readableUnit(sku.base_unit, packSize);
+            const packUnit = String(sku.box_unit || 'box').replace(/[_-]+/g, ' ');
+            const positionLabel = boxMode ? `BOX ${unitIndex}/${total}` : `${unitIndex}/${total}`;
+            const contentsLabel = boxMode ? `${packSize} ${baseUnits}` : '';
+            const skuCode = sku.product_code || (sku.product_id ? `SKU-${sku.product_id}` : '');
+            const batchCode = batch.batch_code || '—';
+            const batchShort = batchCode === '—'
+                ? batchCode
+                : `#${String(batchCode).split('-').filter(Boolean).pop()}`;
+            const brandSize = sizeConfig.key === 'large' ? '0.95rem' : sizeConfig.key === 'medium' ? '0.8rem' : '0.65rem';
+            const titleSize = sizeConfig.key === 'large' ? '0.95rem' : sizeConfig.key === 'medium' ? '0.8rem' : '0.6rem';
+
+            if (sizeConfig.key === 'small') {
+                div.innerHTML = `
+                    <div class="pl-label-card__serial">${positionLabel}</div>
+                    <div class="pl-label-card__inner" style="padding:0.3rem 0.35rem;">
+                        <div class="pl-label-card__title" style="font-size:${titleSize}; margin:0;">${escapeHtml(product)}</div>
+                        <div style="font-size:0.42rem;text-align:center;color:#6b7280;">${escapeHtml([skuCode, contentsLabel].filter(Boolean).join(' · '))}</div>
+                        <div class="pl-label-card__barcode-wrap">
+                            <svg class="barcode-svg" data-serial="${escapeAttr(unitSerial)}" role="img" aria-label="Serialized product barcode"></svg>
+                        </div>
+                        <div class="pl-label-card__serial-text" style="font-size:0.45rem;">${escapeHtml(unitSerial)}</div>
+                        <div class="pl-label-card__foot" style="margin-top:0.1rem;">EXP ${escapeHtml(expDate)}</div>
+                    </div>`;
+            } else {
+                div.innerHTML = `
+                    <div class="pl-label-card__serial">${boxMode ? 'BOX ' : '#'}${String(unitIndex).padStart(4, '0')}</div>
+                    <div class="pl-label-card__inner">
+                        <div class="pl-label-card__head" style="display:flex;justify-content:space-between;gap:0.35rem;align-items:flex-start;">
+                            <div style="min-width:0;flex:1;">
+                                <div style="font-size:${brandSize};font-weight:800;line-height:1.1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Highland Fresh</div>
+                                <div style="font-size:0.55rem;color:#6b7280;line-height:1.2;">Quality Dairy Products</div>
+                            </div>
+                            <div style="text-align:right;min-width:0;max-width:42%;">
+                                <div style="font-size:0.5rem;color:#9ca3af;text-transform:uppercase;letter-spacing:0.04em;">Batch</div>
+                                <div title="${escapeAttr(batchCode)}" style="font-size:0.65rem;font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:800;white-space:nowrap;">${escapeHtml(batchShort)}</div>
+                            </div>
+                        </div>
+                        <div class="pl-label-card__title" style="font-size:${titleSize};">${escapeHtml(product)}</div>
+                        <div style="font-size:0.5rem;text-align:center;color:#6b7280;margin-top:-0.15rem;">${escapeHtml(boxMode ? `${contentsLabel} per ${packUnit}` : `SKU ${skuCode}`)}</div>
+                        <div class="pl-label-card__barcode-wrap">
+                            <svg class="barcode-svg" data-serial="${escapeAttr(unitSerial)}" role="img" aria-label="${boxMode ? 'Outside box' : 'Individual product'} barcode"></svg>
+                            <div class="pl-label-card__serial-text">${escapeHtml(unitSerial)}</div>
+                            <div title="${escapeAttr(batchCode)}" style="font-size:0.48rem;color:#6b7280;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">${escapeHtml(batchCode)} · ${boxMode ? 'Box' : 'Unit'} ${unitIndex} of ${total}</div>
+                        </div>
+                        <div class="pl-label-card__meta">
+                            <div><span style="color:#6b7280;">MFG</span> <strong>${escapeHtml(mfgDate)}</strong></div>
+                            <div style="text-align:right;"><span style="color:#6b7280;">EXP</span> <strong style="color:#dc2626;">${escapeHtml(expDate)}</strong></div>
+                        </div>
+                        ${sizeConfig.key === 'large' ? `
+                        <div class="pl-label-card__foot">Store at 4°C or below · ${boxMode ? 'Sealed wholesale box' : 'Individual product label'}</div>` : ''}
+                    </div>`;
+            }
+            return div;
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+        function escapeAttr(str) {
+            return escapeHtml(str).replace(/'/g, '&#39;');
+        }
+
+        /**
+         * Build full serialized set into a print-only container, then print.
+         * Preview may show a subset; print always includes every unit serial.
+         */
+        function printLabels() {
+            if (!currentBatch || !currentSku) return;
+            const total = Math.max(1, parseInt(document.getElementById('labelCount').value, 10) || 1);
+            const sizeConfig = getSizeConfig();
+
+            // Ensure all labels exist for print: rebuild container with full count
+            const container = document.getElementById('labelsContainer');
+            const prevHTML = container.innerHTML;
+            container.innerHTML = '';
+
+            for (let i = 1; i <= total; i++) {
+                const serial = buildPrintedSerial(currentBatch, currentSku, i, total);
+                container.appendChild(createLabel(currentBatch, currentSku, sizeConfig, serial, i, total));
+            }
+
+            renderBarcodesIn(container, sizeConfig);
+
+            // Barcode rendering is synchronous; allow one paint before print.
+            setTimeout(() => {
+                window.print();
+                // Restore lighter preview after print dialog closes
+                setTimeout(() => refreshPreview(), 400);
+            }, 150);
+        }
+
+        function renderBarcodesIn(root, sizeConfig) {
+            const barWidth = sizeConfig.key === 'small' ? 1.8 : sizeConfig.key === 'medium' ? 2.2 : 2.5;
+            root.querySelectorAll('.barcode-svg').forEach(svg => {
+                const code = svg.getAttribute('data-serial');
+                if (!code) return;
+                try {
+                    JsBarcode(svg, code, {
+                        format: 'CODE128',
+                        width: barWidth,
+                        height: sizeConfig.barcodeHeight,
+                        displayValue: false,
+                        margin: sizeConfig.key === 'small' ? 8 : 12,
+                        background: '#ffffff',
+                        lineColor: '#000000'
+                    });
+                    svg.removeAttribute('width');
+                    svg.removeAttribute('height');
+                    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+                } catch (e) {
+                    console.warn('CODE128 generation failed for', code, e);
+                }
+            });
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        function logout() {
+            AuthService.logout();
+            window.location.href = '../login.html';
+        }
+    </script>
+</body>
+
+</html>

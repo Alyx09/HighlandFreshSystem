@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recipes - Production | Highland Fresh</title>
+    
+    <!-- Tailwind CSS + DaisyUI CDN -->
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        /* Recipe card icons */
+        .recipe-icon.bottled_milk { @apply bg-primary/10 text-primary; }
+        .recipe-icon.cheese { @apply bg-amber-100 text-amber-600; }
+        .recipe-icon.butter { @apply bg-yellow-100 text-yellow-600; }
+        .recipe-icon.yogurt { @apply bg-pink-100 text-pink-600; }
+        .recipe-icon.milk_bar { @apply bg-indigo-100 text-indigo-600; }
+        .recipe-icon.cream { @apply bg-orange-100 text-orange-600; }
+        .recipe-icon.flavored_milk { @apply bg-purple-100 text-purple-600; }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <!-- Mobile Sidebar Backdrop (filled/used by ProductionSidebar) -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar shell — content filled by ProductionSidebar -->
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col"></aside>
+
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <div>
+                    <h1 class="text-lg lg:text-xl font-bold text-base-content">Master Recipes</h1>
+                    <div class="text-sm breadcrumbs py-0">
+                        <ul class="text-xs">
+                            <li><a href="dashboard.html">Dashboard</a></li>
+                            <li>Recipes</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <!-- Theme toggle -->
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+        
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6 space-y-6">
+            
+            <!-- What are Recipes? Explainer -->
+            <div class="card bg-gradient-to-br from-primary/10 to-base-100 border-l-4 border-primary shadow-sm">
+                <div class="card-body">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center text-2xl shrink-0">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-primary mb-1">What are Recipes?</h3>
+                            <p class="text-base-content/70">
+                                <strong>Recipes are the instructions and ingredients</strong> for making each product. 
+                                Click on any recipe card to see the full details and start a production run.
+                            </p>
+                            <div class="mt-3 bg-amber-100 text-amber-800 px-3 py-2 rounded-lg inline-block text-sm">
+                                <i class="fas fa-lightbulb mr-1"></i> <strong>Tip:</strong> To make a product, find its recipe and click "Start Production"!
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filters Card -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold text-base-content mb-3">
+                        <i class="fas fa-search text-primary mr-2"></i>
+                        Find a Recipe
+                    </h3>
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <div class="form-control flex-1 min-w-[200px] max-w-[300px]">
+                            <div class="input-group">
+                                <span class="bg-base-200">
+                                    <i class="fas fa-search text-base-content/50"></i>
+                                </span>
+                                <input type="text" id="searchInput" class="input input-bordered flex-1" placeholder="Type product name..." onkeyup="filterRecipes()">
+                            </div>
+                        </div>
+                        <div class="form-control min-w-[180px]">
+                            <select id="productTypeFilter" class="select select-bordered" onchange="loadRecipes()">
+                                <option value="">All Products</option>
+                                <option value="bottled_milk">Bottled Milk</option>
+                                <option value="cheese">Cheese</option>
+                                <option value="butter">Butter</option>
+                                <option value="yogurt">Yogurt</option>
+                                <option value="milk_bar">Milk Bar</option>
+                                <option value="cream">Cream</option>
+                                <option value="flavored_milk">Flavored Milk</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Product Type Quick Buttons -->
+            <div class="flex flex-wrap gap-2">
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('')">
+                    <i class="fas fa-box"></i> All
+                </button>
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('bottled_milk')">
+                    <i class="fas fa-wine-bottle"></i> Milk
+                </button>
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('cheese')">
+                    <i class="fas fa-cheese"></i> Cheese
+                </button>
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('butter')">
+                    <i class="fas fa-cube"></i> Butter
+                </button>
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('yogurt')">
+                    <i class="fas fa-bowl-food"></i> Yogurt
+                </button>
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('milk_bar')">
+                    <i class="fas fa-candy-cane"></i> Milk Bar
+                </button>
+                <button class="btn btn-outline btn-sm gap-2" onclick="selectProductType('cream')">
+                    <i class="fas fa-droplet"></i> Cream
+                </button>
+            </div>
+            
+            <!-- Recipes Grid Card -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-semibold text-base-content">
+                            <i class="fas fa-list text-primary mr-2"></i>
+                            Available Recipes
+                        </h3>
+                        <span class="text-sm text-base-content/60" id="recipeCount">Loading...</span>
+                    </div>
+                    <p class="text-base-content/60 text-sm mb-4">
+                        <i class="fas fa-hand-pointer mr-1"></i> <strong>Click on any recipe card</strong> to see ingredients and start production
+                    </p>
+                    <div id="recipesGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <div class="card bg-base-200 animate-pulse">
+                            <div class="card-body items-center">
+                                <i class="fas fa-spinner fa-spin text-2xl text-base-content/40"></i>
+                                <span class="text-base-content/60">Loading recipes...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+    
+    <!-- Recipe Details Modal (DaisyUI dialog) -->
+    <dialog id="recipeModal" class="modal">
+        <div class="modal-box max-w-4xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">
+                    <i class="fas fa-times"></i>
+                </button>
+            </form>
+            <h3 class="font-bold text-lg mb-4" id="recipeModalTitle">Recipe Details</h3>
+            <div id="recipeModalContent" class="py-4">
+                <div class="flex justify-center">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            </div>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn btn-ghost">Close</button>
+                </form>
+                <a href="#" id="startProductionBtn" class="btn btn-primary">
+                    <i class="fas fa-clipboard-list mr-2"></i> Request Materials
+                </a>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+    
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-bottom z-50"></div>
+    
+    <!-- Scripts -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="production_staff,general_manager"></script>
+    <script>window.PRODUCTION_ACTIVE_PAGE = "recipes";</script>
+    <script src="../../js/production/sidebar.js"></script>
+    <script src="../../js/production/production.service.js"></script>
+<script>
+        let allRecipes = [];
+        
+        // Toggle sidebar for mobile
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+        
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+        });
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+            
+            // Update user info in sidebar
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                const initials = user.full_name ? user.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : 'PR';
+                document.getElementById('userInitials').textContent = initials;
+                document.getElementById('sidebarUserName').textContent = user.full_name || 'Production Staff';
+            }
+            
+            loadRecipes();
+        });
+        
+        async function loadRecipes() {
+            try {
+                const params = {
+                    limit: 100,
+                    product_type: document.getElementById('productTypeFilter').value
+                };
+                
+                const response = await ProductionService.getRecipes(params);
+                
+                if (response.success) {
+                    allRecipes = response.data || [];
+                    renderRecipes(allRecipes);
+                    const countEl = document.getElementById('recipeCount');
+                    if (countEl) {
+                        countEl.textContent = `${allRecipes.length} recipe${allRecipes.length !== 1 ? 's' : ''} found`;
+                    }
+                } else {
+                    // API returned error - show empty state
+                    allRecipes = [];
+                    renderRecipes([]);
+                }
+            } catch (error) {
+                console.error('Error loading recipes:', error);
+                // Show empty state instead of error toast for production
+                allRecipes = [];
+                renderRecipes([]);
+            }
+        }
+        
+        function selectProductType(type) {
+            document.getElementById('productTypeFilter').value = type;
+            loadRecipes();
+        }
+        
+        function filterRecipes() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            const filtered = allRecipes.filter(recipe => 
+                recipe.product_name.toLowerCase().includes(search) ||
+                recipe.recipe_code.toLowerCase().includes(search) ||
+                (recipe.variant && recipe.variant.toLowerCase().includes(search))
+            );
+            
+            renderRecipes(filtered);
+            const countEl = document.getElementById('recipeCount');
+            if (countEl) {
+                countEl.textContent = `${filtered.length} recipe${filtered.length !== 1 ? 's' : ''} found`;
+            }
+        }
+        
+        function renderRecipes(recipes) {
+            const grid = document.getElementById('recipesGrid');
+            
+            if (!recipes.length) {
+                grid.innerHTML = `
+                    <div class="col-span-full">
+                        <div class="card bg-base-200">
+                            <div class="card-body items-center py-12">
+                                <div class="text-6xl mb-4 text-base-content/30"><i class="fas fa-book"></i></div>
+                                <h3 class="text-lg font-semibold text-base-content/70">No Recipes Found</h3>
+                                <p class="text-base-content/50">Try searching with different keywords or select a different product type</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const icons = {
+                'bottled_milk': 'fa-wine-bottle',
+                'cheese': 'fa-cheese',
+                'butter': 'fa-cube',
+                'yogurt': 'fa-glass-water',
+                'milk_bar': 'fa-ice-cream',
+                'cream': 'fa-droplet',
+                'flavored_milk': 'fa-glass-water-droplet'
+            };
+            
+            grid.innerHTML = recipes.map(recipe => `
+                <div class="card bg-base-100 border border-base-300 hover:border-primary hover:shadow-md transition-all cursor-pointer" onclick="viewRecipe(${recipe.id})">
+                    <div class="card-body p-4">
+                        <div class="flex items-start gap-3">
+                            <div class="w-12 h-12 rounded-xl recipe-icon ${recipe.product_type} flex items-center justify-center text-xl shrink-0">
+                                <i class="fas ${icons[recipe.product_type] || 'fa-box'}"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="font-semibold text-base-content truncate">${escapeHtml(recipe.product_name)}</h4>
+                                <p class="text-sm text-base-content/60 font-mono">${escapeHtml(recipe.recipe_code)}</p>
+                                ${recipe.variant ? `<span class="badge badge-primary badge-sm mt-1">${escapeHtml(recipe.variant)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="divider my-2"></div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <div class="font-semibold text-primary">${recipe.base_milk_liters}L</div>
+                                <div class="text-xs text-base-content/50">Milk</div>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-primary">${recipe.expected_yield}</div>
+                                <div class="text-xs text-base-content/50">Standard ${escapeHtml(recipe.yield_unit)} (reference)</div>
+                            </div>
+                            <div>
+                                <div class="font-semibold text-primary">${recipe.ingredient_count || 0}</div>
+                                <div class="text-xs text-base-content/50">Ingredients</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function viewRecipe(id) {
+            try {
+                const response = await ProductionService.getRecipe(id);
+                
+                if (response.success) {
+                    renderRecipeDetails(response.data);
+                    document.getElementById('startProductionBtn').href = `requisitions.html?action=new&recipe_id=${id}`;
+                    document.getElementById('recipeModal').showModal();
+                }
+            } catch (error) {
+                showToast('Failed to load recipe details', 'error');
+            }
+        }
+        
+        function renderRecipeDetails(recipe) {
+            document.getElementById('recipeModalTitle').textContent = `${recipe.product_name} ${recipe.variant || ''}`;
+            
+            document.getElementById('recipeModalContent').innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div>
+                        <h4 class="font-semibold text-base-content mb-3">Recipe Information</h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr><td class="text-base-content/60">Recipe Code</td><td class="font-mono">${escapeHtml(recipe.recipe_code)}</td></tr>
+                                    <tr><td class="text-base-content/60">Product Type</td><td class="capitalize">${escapeHtml(String(recipe.product_type || '').replace('_', ' '))}</td></tr>
+                                    <tr><td class="text-base-content/60">Variant</td><td>${escapeHtml(recipe.variant || '-')}</td></tr>
+                                    <tr><td class="text-base-content/60">Standard Yield (reference)</td><td class="font-semibold">${Number(recipe.expected_yield) || 0} ${escapeHtml(recipe.yield_unit)}</td></tr>
+                                    <tr><td class="text-base-content/60">Shelf Life</td><td>${recipe.shelf_life_days} days</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-base-content mb-3">Production Parameters</h4>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr><td class="text-base-content/60">Base Milk Required</td><td class="font-semibold">${recipe.base_milk_liters} L</td></tr>
+                                    <tr><td class="text-base-content/60">Pasteurization Temp</td><td>${recipe.pasteurization_temp}°C</td></tr>
+                                    <tr><td class="text-base-content/60">Pasteurization Time</td><td>${recipe.pasteurization_time_mins} mins</td></tr>
+                                    <tr><td class="text-base-content/60">Cooling Temp</td><td>≤${recipe.cooling_temp}°C</td></tr>
+                                    <tr><td class="text-base-content/60">Status</td><td><span class="badge ${recipe.is_active ? 'badge-success' : 'badge-ghost'}">${recipe.is_active ? 'Active' : 'Inactive'}</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                ${recipe.ingredients && recipe.ingredients.length ? `
+                <h4 class="font-semibold text-base-content mb-3">Bill of Materials (BOM)</h4>
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra">
+                        <thead>
+                            <tr>
+                                <th>Ingredient</th>
+                                <th class="text-right">Quantity</th>
+                                <th>Unit</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${recipe.ingredients.map(ing => `
+                                <tr>
+                                    <td>${escapeHtml(ing.ingredient_name)}</td>
+                                    <td class="text-right font-semibold">${ing.quantity}</td>
+                                    <td>${escapeHtml(ing.unit)}</td>
+                                    <td class="text-base-content/60">${escapeHtml(ing.notes || '-')}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ` : `
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span>No additional ingredients specified. Only base milk is required.</span>
+                </div>
+                `}
+                
+                ${recipe.special_instructions ? `
+                <div class="mt-4">
+                    <h4 class="font-semibold text-base-content mb-2">Special Instructions</h4>
+                    <p class="text-base-content/70">${escapeHtml(recipe.special_instructions)}</p>
+                </div>
+                ` : ''}
+            `;
+        }
+        
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info';
+            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message, `fas ${icon}`);
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1132 @@
+<?php
+/**
+ * Highland Fresh System - POS/Cash Sales Transactions API
+ * 
+ * Point of Sale for walk-in customers and cash sales
+ * Generates Sales Invoice (SI) documents
+ * Immediate inventory deduction on sale
+ * 
+ * GET - List transactions, get details, today's sales, by date range
+ * POST - Create cash sale with immediate inventory deduction
+ * 
+ * @package HighlandFresh
+ * @version 4.0
+ */
+
+require_once dirname(__DIR__) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/warehouse/fg/inventory_helpers.php';
+require_once dirname(__DIR__) . '/helpers/pos_vat.php';
+require_once dirname(__DIR__) . '/helpers/sellable_expiry_policy.php';
+require_once dirname(__DIR__) . '/helpers/pos_wholesale.php';
+require_once dirname(__DIR__) . '/helpers/finished_goods_barcode.php';
+require_once dirname(__DIR__) . '/helpers/lookup_normalization.php';
+require_once dirname(__DIR__) . '/helpers/qc_count_discrepancy.php';
+
+// Require Cashier or GM role
+$currentUser = Auth::requireRole(['cashier', 'general_manager']);
+
+$action = getParam('action', 'list');
+
+try {
+    $db = Database::getInstance()->getConnection();
+    hfEnsurePosWholesaleSchema($db);
+    
+    switch ($requestMethod) {
+        case 'GET':
+            handleGet($db, $action, $currentUser);
+            break;
+        case 'POST':
+            handlePost($db, $action, $currentUser);
+            break;
+        default:
+            Response::error('Method not allowed', 405);
+    }
+} catch (Exception $e) {
+    error_log("POS Transactions API Error: " . $e->getMessage());
+    Response::error('Server error: ' . $e->getMessage(), 500);
+}
+
+/**
+ * Generate Sales Invoice transaction code
+ * Format: SI-YYYY-XXXXX (sequential)
+ */
+function generateSICode($db) {
+    $year = date('Y');
+    $prefix = "SI-{$year}-";
+    
+    // Get the last SI number for this year
+    $stmt = $db->prepare("
+        SELECT transaction_code 
+        FROM sales_transactions 
+        WHERE transaction_code LIKE ? 
+        ORDER BY id DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([$prefix . '%']);
+    $last = $stmt->fetch();
+    
+    if ($last) {
+        // Extract the sequence number and increment
+        $lastNum = intval(substr($last['transaction_code'], -5));
+        $newNum = $lastNum + 1;
+    } else {
+        $newNum = 1;
+    }
+    
+    return $prefix . str_pad($newNum, 5, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Deduct from finished goods inventory using FIFO
+ * Returns array of inventory deductions made
+ */
+function deductInventory($db, $productId, $quantityNeeded, $userId, $transactionId, $transactionCode, $inventoryId = null) {
+    $sellableExpiry = hfSellableExpirySql('fg.expiry_date');
+    $updateSellableExpiry = hfSellableExpirySql('expiry_date');
+    $exactInventorySql = $inventoryId ? ' AND fg.id = ?' : '';
+    $isWholesaleBox = $inventoryId !== null;
+    $physicalAvailabilitySql = $isWholesaleBox
+        ? 'AND COALESCE(fg.boxes_available, 0) > 0'
+        : "AND (
+            (GREATEST(COALESCE(p.pieces_per_box, 1), 1) > 1 AND COALESCE(fg.pieces_available, 0) > 0)
+            OR (GREATEST(COALESCE(p.pieces_per_box, 1), 1) = 1 AND COALESCE(fg.quantity_available, 0) > 0)
+        )";
+
+    // Lock sellable FG rows (FIFO by expiry). Race-safe: SELECT ... FOR UPDATE
+    // inside the caller's transaction so two cashiers cannot oversell the last unit.
+    $stmt = $db->prepare("
+        SELECT
+            fg.id,
+            fg.product_id,
+            fg.quantity_available,
+            fg.remaining_quantity,
+            fg.boxes_available,
+            fg.pieces_available,
+            fg.expiry_date,
+            fg.chiller_id,
+            p.pieces_per_box,
+            p.base_unit,
+            p.box_unit
+        FROM finished_goods_inventory fg
+        JOIN products p ON fg.product_id = p.id AND p.is_active = 1
+        LEFT JOIN chiller_locations cl ON cl.id = fg.chiller_id
+        WHERE fg.product_id = ?
+          {$exactInventorySql}
+          AND fg.status = 'available'
+          AND {$sellableExpiry}
+          AND COALESCE(fg.quantity_available, 0) > 0
+          {$physicalAvailabilitySql}
+          AND (cl.id IS NULL OR (cl.is_active = 1 AND cl.status IN ('available', 'full')))
+          AND (cl.id IS NULL OR cl.chiller_code NOT LIKE 'FREEZE%')
+          AND NOT EXISTS (
+              SELECT 1
+              FROM disposals open_disposal
+              WHERE open_disposal.source_type = 'finished_goods'
+                AND open_disposal.source_id = fg.id
+                AND open_disposal.status IN ('pending', 'approved')
+                AND COALESCE(open_disposal.notes, '') NOT LIKE 'Auto-created from delivery return.%'
+          )
+        ORDER BY fg.expiry_date ASC, fg.id ASC
+        FOR UPDATE
+    ");
+    $stmt->execute($inventoryId ? [$productId, (int) $inventoryId] : [$productId]);
+    $inventoryItems = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($inventoryItems)) {
+        throw new Exception(
+            $isWholesaleBox
+                ? 'The scanned box is no longer available from its recorded batch.'
+                : 'No loose Retail stock is available. Open one sealed box for Retail first; near-expiry stock is reserved for QC.'
+        );
+    }
+
+    $deductions = [];
+    $remaining = (int) $quantityNeeded;
+
+    foreach ($inventoryItems as $inv) {
+        if ($remaining <= 0) {
+            break;
+        }
+
+        $piecesPerBox = max(1, (int) ($inv['pieces_per_box'] ?: 1));
+        // Total units and physical packaging are both authoritative: a sealed
+        // box cannot silently become loose retail stock, or vice versa.
+        $totalAvailable = max(0, (int)($inv['quantity_available'] ?? 0));
+        $availableBoxes = max(0, (int)($inv['boxes_available'] ?? 0));
+        $availablePieces = max(0, (int)($inv['pieces_available'] ?? 0));
+
+        if ($totalAvailable <= 0) {
+            continue;
+        }
+
+        if ($isWholesaleBox) {
+            if ($remaining % $piecesPerBox !== 0) {
+                throw new Exception('Wholesale stock must be deducted as complete sealed boxes.');
+            }
+            $boxesToDeduct = min(intdiv($remaining, $piecesPerBox), $availableBoxes);
+            $deductAmount = $boxesToDeduct * $piecesPerBox;
+            $newBoxes = $availableBoxes - $boxesToDeduct;
+            $newPieces = $availablePieces;
+        } elseif ($piecesPerBox > 1) {
+            $deductAmount = min($remaining, $availablePieces, $totalAvailable);
+            $newBoxes = $availableBoxes;
+            $newPieces = $availablePieces - $deductAmount;
+        } else {
+            $deductAmount = min($remaining, $totalAvailable);
+            $piecesUsed = min($deductAmount, $availablePieces);
+            $boxesUsed = $deductAmount - $piecesUsed;
+            $newPieces = max(0, $availablePieces - $piecesUsed);
+            $newBoxes = max(0, $availableBoxes - $boxesUsed);
+        }
+
+        if ($deductAmount <= 0) {
+            continue;
+        }
+
+        $remaining -= $deductAmount;
+
+        $newTotal = $totalAvailable - $deductAmount;
+
+        // Conditional update: refuse if another transaction already depleted stock
+        $updateStmt = $db->prepare("
+            UPDATE finished_goods_inventory
+            SET quantity = ?,
+                quantity_available = ?,
+                remaining_quantity = ?,
+                quantity_boxes = ?,
+                quantity_pieces = ?,
+                boxes_available = ?,
+                pieces_available = ?,
+                last_movement_at = NOW()
+            WHERE id = ?
+              AND status = 'available'
+              AND {$updateSellableExpiry}
+              AND COALESCE(quantity_available, 0) >= ?
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM disposals open_disposal
+                  WHERE open_disposal.source_type = 'finished_goods'
+                    AND open_disposal.source_id = finished_goods_inventory.id
+                    AND open_disposal.status IN ('pending', 'approved')
+                    AND COALESCE(open_disposal.notes, '') NOT LIKE 'Auto-created from delivery return.%'
+              )
+        ");
+        $updateStmt->execute([
+            $newTotal,
+            $newTotal,
+            $newTotal,
+            $newBoxes,
+            $newPieces,
+            $newBoxes,
+            $newPieces,
+            $inv['id'],
+            $deductAmount,
+        ]);
+        if ($updateStmt->rowCount() === 0) {
+            throw new Exception('Stock changed while selling — please refresh cart and try again');
+        }
+        
+        // Rebuild the location cache from authoritative inventory.
+        if ($inv['chiller_id']) {
+            fgSyncChillerCount($db, (int)$inv['chiller_id']);
+        }
+        
+        // Log the transaction
+        $logStmt = $db->prepare("
+            INSERT INTO fg_inventory_transactions
+            (transaction_code, transaction_type, inventory_id, product_id, quantity,
+             boxes_quantity, pieces_quantity, quantity_before, quantity_after,
+             boxes_before, pieces_before, boxes_after, pieces_after,
+             from_chiller_id, performed_by, reason, reference_type, reference_id)
+            VALUES (?, 'sale', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $logStmt->execute([
+            'FGT-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT),
+            $inv['id'],
+            $productId,
+            $deductAmount,
+            $availableBoxes - $newBoxes,
+            $availablePieces - $newPieces,
+            $totalAvailable,
+            $newTotal,
+            $availableBoxes,
+            $availablePieces,
+            $newBoxes,
+            $newPieces,
+            $inv['chiller_id'],
+            $userId,
+            "POS Sale - {$transactionCode}",
+            'sales_transaction',
+            $transactionId
+        ]);
+        
+        $deductions[] = [
+            'inventory_id' => $inv['id'],
+            'quantity_deducted' => $deductAmount,
+            'boxes_deducted' => $availableBoxes - $newBoxes,
+            'pieces_deducted' => $availablePieces - $newPieces,
+            'expiry_date' => $inv['expiry_date']
+        ];
+    }
+    
+    if ($remaining > 0) {
+        throw new Exception(
+            $isWholesaleBox
+                ? 'Not enough sealed boxes remain in the scanned batch.'
+                : "Not enough loose Retail stock. Open a sealed box first; {$remaining} more item(s) are needed, and near-expiry stock is reserved for QC."
+        );
+    }
+    
+    return $deductions;
+}
+
+/**
+ * Validate every outside-box label and lock its exact Finished Goods row.
+ * One physical box label is required for every wholesale box in the cart.
+ */
+function resolveWholesaleBoxLabels(PDO $db, array $product, array $rawLabels, int $saleQuantity, array &$seenLabels): array
+{
+    if (count($rawLabels) !== $saleQuantity) {
+        throw new Exception('Scan the outside label of every wholesale box before checkout.');
+    }
+
+    $piecesPerBox = max(1, (int) ($product['pieces_per_box'] ?? 1));
+    $sellableExpiry = hfSellableExpirySql('fgi.expiry_date');
+    $resolved = [];
+    $requiredByInventory = [];
+    $printedCountByBatch = [];
+
+    foreach ($rawLabels as $rawLabel) {
+        $code = hfNormalizeBarcodeLookup($rawLabel);
+        $parsed = hfParseCompactFinishedGoodsBoxLabel($code);
+        if (!$parsed) {
+            throw new Exception('One scanned code is not an outside-box label.');
+        }
+        if ((int) $parsed['product_id'] !== (int) $product['id']) {
+            throw new Exception('A scanned box belongs to a different product.');
+        }
+        if ((int) $parsed['units_per_pack'] !== $piecesPerBox) {
+            throw new Exception('A scanned label has an old box size. Print a new outside-box label.');
+        }
+
+        $batchId = (int) $parsed['batch_id'];
+        if (!array_key_exists($batchId, $printedCountByBatch)) {
+            $releasedUnits = qcGetReleasedSkuQuantity($db, $batchId, (int) $product['id']);
+            $printedCountByBatch[$batchId] = intdiv($releasedUnits, $piecesPerBox);
+        }
+        if ($printedCountByBatch[$batchId] < 1 || (int) $parsed['sequence'] > $printedCountByBatch[$batchId]) {
+            throw new Exception('One box number was not issued for its batch.');
+        }
+        if (isset($seenLabels[$parsed['label_code']])) {
+            throw new Exception('The same box label was scanned more than once.');
+        }
+        $seenLabels[$parsed['label_code']] = true;
+
+        $usedStmt = $db->prepare("SELECT transaction_id FROM pos_sold_box_labels WHERE label_code = ? LIMIT 1 FOR UPDATE");
+        $usedStmt->execute([$parsed['label_code']]);
+        if ($usedStmt->fetchColumn()) {
+            throw new Exception('This box label was already sold. Use a different sealed box.');
+        }
+
+        $openedStmt = $db->prepare("SELECT opened_at FROM pos_opened_box_labels WHERE label_code = ? LIMIT 1 FOR UPDATE");
+        $openedStmt->execute([$parsed['label_code']]);
+        if ($openedStmt->fetchColumn()) {
+            throw new Exception('This box was opened for Retail and cannot be sold as a sealed box.');
+        }
+
+        $inventoryStmt = $db->prepare("
+            SELECT fgi.id AS inventory_id, fgi.batch_id, fgi.quantity_available,
+                   fgi.boxes_available,
+                   fgi.expiry_date, COALESCE(pb.batch_code, CONCAT('Batch ', fgi.batch_id)) AS batch_code
+            FROM finished_goods_inventory fgi
+            LEFT JOIN production_batches pb ON pb.id = fgi.batch_id
+            LEFT JOIN chiller_locations cl ON cl.id = fgi.chiller_id
+            WHERE fgi.batch_id = ?
+              AND fgi.product_id = ?
+              AND fgi.status = 'available'
+              AND {$sellableExpiry}
+              AND COALESCE(fgi.boxes_available, 0) > 0
+              AND (cl.id IS NULL OR (cl.is_active = 1 AND cl.status IN ('available', 'full')))
+              AND (cl.id IS NULL OR cl.chiller_code NOT LIKE 'FREEZE%')
+              AND NOT EXISTS (
+                  SELECT 1 FROM disposals open_disposal
+                  WHERE open_disposal.source_type = 'finished_goods'
+                    AND open_disposal.source_id = fgi.id
+                    AND open_disposal.status IN ('pending', 'approved')
+                    AND COALESCE(open_disposal.notes, '') NOT LIKE 'Auto-created from delivery return.%'
+              )
+            ORDER BY fgi.id ASC
+            LIMIT 1
+            FOR UPDATE
+        ");
+        $inventoryStmt->execute([$parsed['batch_id'], $parsed['product_id']]);
+        $inventory = $inventoryStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$inventory) {
+            throw new Exception('A scanned box is no longer available from its recorded batch.');
+        }
+
+        $inventoryId = (int) $inventory['inventory_id'];
+        $requiredByInventory[$inventoryId] = ($requiredByInventory[$inventoryId] ?? 0) + 1;
+        if ($requiredByInventory[$inventoryId] > (int) $inventory['boxes_available']) {
+            throw new Exception("There is not enough stock left in batch {$inventory['batch_code']} for all scanned boxes.");
+        }
+
+        $resolved[] = [
+            'label_code' => $parsed['label_code'],
+            'batch_id' => (int) $parsed['batch_id'],
+            'product_id' => (int) $parsed['product_id'],
+            'inventory_id' => $inventoryId,
+            'batch_code' => $inventory['batch_code'],
+            'expiry_date' => $inventory['expiry_date'],
+        ];
+    }
+
+    return $resolved;
+}
+
+// ========================================
+// GET HANDLERS
+// ========================================
+
+function handleGet($db, $action, $currentUser) {
+    switch ($action) {
+        case 'list':
+            $page = max(1, intval(getParam('page', 1)));
+            $limit = min(100, max(10, intval(getParam('limit', 20))));
+            $offset = ($page - 1) * $limit;
+            $status = getParam('status');
+            $type = getParam('type'); // cash, credit, csi
+            $fromDate = getParam('from_date');
+            $toDate = getParam('to_date');
+            $paymentMethod = getParam('payment_method');
+            $search = getParam('search');
+            
+            $sql = "
+                SELECT 
+                    st.*,
+                    u.first_name as cashier_first_name,
+                    u.last_name as cashier_last_name,
+                    c.name as customer_record_name,
+                    (SELECT COUNT(*) FROM sales_transaction_items WHERE transaction_id = st.id) as items_count
+                FROM sales_transactions st
+                LEFT JOIN users u ON st.cashier_id = u.id
+                LEFT JOIN customers c ON st.customer_id = c.id
+                WHERE 1=1
+            ";
+            $countSql = "SELECT COUNT(*) FROM sales_transactions st WHERE 1=1";
+            $params = [];
+            
+            if ($status) {
+                $sql .= " AND st.payment_status = ?";
+                $countSql .= " AND st.payment_status = ?";
+                $params[] = $status;
+            }
+            
+            if ($type) {
+                $sql .= " AND st.transaction_type = ?";
+                $countSql .= " AND st.transaction_type = ?";
+                $params[] = $type;
+            }
+            
+            if ($fromDate) {
+                $sql .= " AND DATE(st.created_at) >= ?";
+                $countSql .= " AND DATE(st.created_at) >= ?";
+                $params[] = $fromDate;
+            }
+            
+            if ($toDate) {
+                $sql .= " AND DATE(st.created_at) <= ?";
+                $countSql .= " AND DATE(st.created_at) <= ?";
+                $params[] = $toDate;
+            }
+            
+            if ($paymentMethod) {
+                $sql .= " AND st.payment_method = ?";
+                $countSql .= " AND st.payment_method = ?";
+                $params[] = $paymentMethod;
+            }
+            
+            if ($search) {
+                $sql .= " AND (st.transaction_code LIKE ? OR st.customer_name LIKE ?)";
+                $countSql .= " AND (st.transaction_code LIKE ? OR st.customer_name LIKE ?)";
+                $params[] = "%{$search}%";
+                $params[] = "%{$search}%";
+            }
+            
+            // Get total count
+            $countStmt = $db->prepare($countSql);
+            $countStmt->execute($params);
+            $total = $countStmt->fetchColumn();
+            
+            $sql .= " ORDER BY st.created_at DESC LIMIT ? OFFSET ?";
+            $params[] = $limit;
+            $params[] = $offset;
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $transactions = $stmt->fetchAll();
+            
+            Response::paginated($transactions, $total, $page, $limit, 'Transactions retrieved');
+            break;
+            
+        case 'detail':
+            $id = getParam('id');
+            $code = getParam('code');
+            
+            if (!$id && !$code) {
+                Response::error('Transaction ID or code required', 400);
+            }
+            
+            $sql = "
+                SELECT 
+                    st.*,
+                    u.first_name as cashier_first_name,
+                    u.last_name as cashier_last_name,
+                    c.name as customer_record_name,
+                    c.contact_person,
+                    c.contact_number,
+                    c.address
+                FROM sales_transactions st
+                LEFT JOIN users u ON st.cashier_id = u.id
+                LEFT JOIN customers c ON st.customer_id = c.id
+                WHERE " . ($id ? "st.id = ?" : "st.transaction_code = ?");
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$id ?: $code]);
+            $transaction = $stmt->fetch();
+            
+            if (!$transaction) {
+                Response::error('Transaction not found', 404);
+            }
+
+            $transaction['vatable_sales'] = round(
+                (float) $transaction['total_amount'] - (float) ($transaction['tax_amount'] ?? 0),
+                2
+            );
+            $transaction['vat_rate'] = 12;
+            $transaction['vat_inclusive'] = (float) ($transaction['tax_amount'] ?? 0) > 0;
+            
+            // Get transaction items
+            $itemsStmt = $db->prepare("
+                SELECT 
+                    sti.*,
+                    p.product_name,
+                    p.category,
+                    p.base_unit,
+                    p.box_unit
+                FROM sales_transaction_items sti
+                LEFT JOIN products p ON sti.product_id = p.id
+                WHERE sti.transaction_id = ?
+                ORDER BY sti.id ASC
+            ");
+            $itemsStmt->execute([$transaction['id']]);
+            $transaction['items'] = $itemsStmt->fetchAll();
+            
+            Response::success($transaction, 'Transaction details retrieved');
+            break;
+            
+        case 'today':
+            $sql = "
+                SELECT 
+                    st.*,
+                    u.first_name as cashier_first_name,
+                    u.last_name as cashier_last_name
+                FROM sales_transactions st
+                LEFT JOIN users u ON st.cashier_id = u.id
+                WHERE DATE(st.created_at) = CURDATE()
+                ORDER BY st.created_at DESC
+            ";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute();
+            $transactions = $stmt->fetchAll();
+            
+            // Calculate totals
+            $totals = [
+                'count' => count($transactions),
+                'total_sales' => 0,
+                'total_paid' => 0,
+                'cash_sales' => 0,
+                'gcash_sales' => 0,
+                'check_sales' => 0,
+                'bank_transfer_sales' => 0
+            ];
+            
+            foreach ($transactions as $t) {
+                $totals['total_sales'] += floatval($t['total_amount']);
+                $totals['total_paid'] += floatval($t['amount_paid']);
+                
+                if ($t['payment_status'] === 'paid') {
+                    switch ($t['payment_method']) {
+                        case 'cash':
+                            $totals['cash_sales'] += floatval($t['amount_paid']);
+                            break;
+                        case 'gcash':
+                            $totals['gcash_sales'] += floatval($t['amount_paid']);
+                            break;
+                        case 'check':
+                            $totals['check_sales'] += floatval($t['amount_paid']);
+                            break;
+                        case 'bank_transfer':
+                            $totals['bank_transfer_sales'] += floatval($t['amount_paid']);
+                            break;
+                    }
+                }
+            }
+            
+            Response::success([
+                'transactions' => $transactions,
+                'totals' => $totals
+            ], "Today's transactions retrieved");
+            break;
+            
+        case 'by_date_range':
+            $fromDate = getParam('from_date');
+            $toDate = getParam('to_date');
+            
+            if (!$fromDate || !$toDate) {
+                Response::error('from_date and to_date are required', 400);
+            }
+            
+            $sql = "
+                SELECT 
+                    st.*,
+                    u.first_name as cashier_first_name,
+                    u.last_name as cashier_last_name
+                FROM sales_transactions st
+                LEFT JOIN users u ON st.cashier_id = u.id
+                WHERE DATE(st.created_at) BETWEEN ? AND ?
+                ORDER BY st.created_at DESC
+            ";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$fromDate, $toDate]);
+            $transactions = $stmt->fetchAll();
+            
+            // Calculate totals by day
+            $dailyTotals = [];
+            foreach ($transactions as $t) {
+                $date = date('Y-m-d', strtotime($t['created_at']));
+                if (!isset($dailyTotals[$date])) {
+                    $dailyTotals[$date] = [
+                        'date' => $date,
+                        'count' => 0,
+                        'total_sales' => 0,
+                        'total_paid' => 0
+                    ];
+                }
+                $dailyTotals[$date]['count']++;
+                $dailyTotals[$date]['total_sales'] += floatval($t['total_amount']);
+                $dailyTotals[$date]['total_paid'] += floatval($t['amount_paid']);
+            }
+            
+            Response::success([
+                'transactions' => $transactions,
+                'daily_totals' => array_values($dailyTotals),
+                'total_count' => count($transactions)
+            ], 'Transactions by date range retrieved');
+            break;
+            
+        case 'receipt':
+            // Get receipt-ready data for printing
+            $id = getParam('id');
+            if (!$id) {
+                Response::error('Transaction ID required', 400);
+            }
+            
+            $stmt = $db->prepare("
+                SELECT 
+                    st.*,
+                    u.first_name as cashier_first_name,
+                    u.last_name as cashier_last_name
+                FROM sales_transactions st
+                LEFT JOIN users u ON st.cashier_id = u.id
+                WHERE st.id = ?
+            ");
+            $stmt->execute([$id]);
+            $transaction = $stmt->fetch();
+            
+            if (!$transaction) {
+                Response::error('Transaction not found', 404);
+            }
+            
+            // Get items
+            $itemsStmt = $db->prepare("
+                SELECT 
+                    sti.*,
+                    p.product_name,
+                    p.variant,
+                    p.unit_size,
+                    p.unit_measure
+                FROM sales_transaction_items sti
+                LEFT JOIN products p ON sti.product_id = p.id
+                WHERE sti.transaction_id = ?
+            ");
+            $itemsStmt->execute([$id]);
+            $items = $itemsStmt->fetchAll();
+            $calculatedChange = max(
+                0,
+                floatval($transaction['amount_paid']) - floatval($transaction['total_amount'])
+            );
+            $savedChange = isset($transaction['change_amount'])
+                ? max(0, floatval($transaction['change_amount']))
+                : $calculatedChange;
+            $taxAmount = max(0, (float) ($transaction['tax_amount'] ?? 0));
+            $vatableSales = round((float) $transaction['total_amount'] - $taxAmount, 2);
+            
+            $receipt = [
+                'header' => [
+                    'company_name' => 'Highland Fresh',
+                    'address' => 'Cagayan de Oro City',
+                    'document_type' => 'SALES INVOICE',
+                    'si_number' => $transaction['transaction_code']
+                ],
+                'transaction' => $transaction,
+                'items' => $items,
+                'payment' => [
+                    'subtotal' => $transaction['subtotal_amount'] ?? $transaction['total_amount'],
+                    'discount' => $transaction['discount_amount'],
+                    'vatable_sales' => $vatableSales,
+                    'tax_amount' => $taxAmount,
+                    'vat_rate' => 12,
+                    'vat_inclusive' => $taxAmount > 0,
+                    'total' => $transaction['total_amount'],
+                    'amount_paid' => $transaction['amount_paid'],
+                    'amount_tendered' => $transaction['amount_paid'],
+                    'change' => $savedChange,
+                    'change_amount' => $savedChange,
+                    'method' => $transaction['payment_method']
+                ],
+                'footer' => [
+                    'cashier' => trim($transaction['cashier_first_name'] . ' ' . $transaction['cashier_last_name']),
+                    'date' => $transaction['created_at'],
+                    'message' => 'Thank you for your purchase!'
+                ]
+            ];
+            
+            Response::success($receipt, 'Receipt data retrieved');
+            break;
+            
+        default:
+            Response::error('Invalid action', 400);
+    }
+}
+
+// ========================================
+// POST HANDLERS
+// ========================================
+
+function handlePost($db, $action, $currentUser) {
+    $data = getRequestBody();
+    
+    switch ($action) {
+        case 'create_cash_sale':
+            // Validate required fields
+            if (empty($data['items']) || !is_array($data['items'])) {
+                Response::error('Items are required', 400);
+            }
+            
+            $paymentMethod = $data['payment_method'] ?? 'cash';
+            $validMethods = ['cash', 'gcash', 'bank_transfer', 'check'];
+            if (!in_array($paymentMethod, $validMethods)) {
+                Response::error('Invalid payment method. Must be: ' . implode(', ', $validMethods), 400);
+            }
+            
+            // Validate check payment details
+            if ($paymentMethod === 'check') {
+                if (empty($data['check_bank'])) {
+                    Response::error('Check bank is required for check payments', 400);
+                }
+                if (empty($data['check_number'])) {
+                    Response::error('Check number is required for check payments', 400);
+                }
+                if (empty($data['check_date'])) {
+                    Response::error('Check date is required for check payments', 400);
+                }
+            }
+            
+            try {
+                $amountPaid = hfParseBusinessDecimal(
+                    $data['amount_paid'] ?? 0,
+                    'Amount paid',
+                    0.00,
+                    9999999999.99,
+                    2
+                );
+                $discountPercent = hfParseBusinessDecimal(
+                    $data['discount_percent'] ?? 0,
+                    'Discount percent',
+                    0.00,
+                    100.00,
+                    2
+                );
+            } catch (InvalidArgumentException $error) {
+                Response::validationError(['payment' => $error->getMessage()]);
+            }
+            $customerName = $data['customer_name'] ?? 'Walk-in Customer';
+            $customerId = $data['customer_id'] ?? null;
+            $notes = $data['notes'] ?? null;
+            $saleMode = hfPosSaleMode($data['sale_mode'] ?? 'retail');
+            
+            try {
+                $db->beginTransaction();
+                
+                // Calculate totals and validate items
+                $subtotal = 0;
+                $itemsData = [];
+                $seenBoxLabels = [];
+                
+                foreach ($data['items'] as $item) {
+                    $rawSaleQuantity = $item['sale_quantity'] ?? $item['quantity'] ?? null;
+                    if (empty($item['product_id']) || empty($rawSaleQuantity)) {
+                        throw new Exception('Each item must have a product and quantity');
+                    }
+                    
+                    // Verify product exists and get details
+                    $prodStmt = $db->prepare("
+                        SELECT id, product_code, product_name, variant, selling_price, unit_price,
+                               pieces_per_box, box_unit, base_unit, wholesale_box_price
+                        FROM products
+                        WHERE id = ? AND is_active = 1
+                    ");
+                    $prodStmt->execute([$item['product_id']]);
+                    $product = $prodStmt->fetch();
+                    
+                    if (!$product) {
+                        throw new Exception("Product not found: {$item['product_id']}");
+                    }
+                    
+                    try {
+                        $saleQuantity = hfParseBusinessInteger(
+                            $rawSaleQuantity,
+                            "Quantity for {$product['product_name']}",
+                            1,
+                            1000000
+                        );
+                        // Product master data is authoritative for retail price,
+                        // box capacity, and wholesale box price.
+                        $pricedLine = hfPosPriceLine($product, $saleMode, $saleQuantity);
+                    } catch (InvalidArgumentException $error) {
+                        throw new Exception($error->getMessage());
+                    }
+                    $quantity = $pricedLine['base_quantity'];
+                    $unitPrice = $pricedLine['unit_price'];
+                    $lineTotal = $pricedLine['line_total'];
+                    if (!is_finite($lineTotal) || $lineTotal > 9999999999.99) {
+                        throw new Exception("The total for {$product['product_name']} is outside the supported sales range");
+                    }
+                    $subtotal += $lineTotal;
+
+                    $boxLabels = [];
+                    if ($saleMode === 'wholesale') {
+                        $rawBoxLabels = is_array($item['box_labels'] ?? null) ? $item['box_labels'] : [];
+                        $boxLabels = resolveWholesaleBoxLabels(
+                            $db,
+                            $product,
+                            $rawBoxLabels,
+                            $pricedLine['sale_quantity'],
+                            $seenBoxLabels
+                        );
+                    }
+                    
+                    $itemsData[] = [
+                        'product_id' => $item['product_id'],
+                        'product_code' => $product['product_code'],
+                        'product_name' => $product['product_name'],
+                        'variant' => $product['variant'],
+                        'quantity' => $quantity,
+                        'sale_unit' => $pricedLine['sale_unit'],
+                        'sale_quantity' => $pricedLine['sale_quantity'],
+                        'pieces_per_box' => $pricedLine['pieces_per_box'],
+                        'unit_price' => $unitPrice,
+                        'line_total' => $lineTotal,
+                        'box_labels' => $boxLabels,
+                    ];
+                }
+                
+                // Calculate discount and total
+                $discountAmount = $subtotal * ($discountPercent / 100);
+                $totalAmount = round($subtotal - $discountAmount, 2);
+                $vatBreakdown = hfPosVatBreakdown($totalAmount);
+                $taxAmount = $vatBreakdown['tax_amount'];
+                if (!is_finite($subtotal) || $subtotal > 9999999999.99
+                    || !is_finite($totalAmount) || $totalAmount < 0 || $totalAmount > 9999999999.99) {
+                    throw new Exception('Sale total is outside the supported range');
+                }
+                
+                // Validate payment
+                if ($amountPaid < $totalAmount) {
+                    throw new Exception("Insufficient payment. Required: {$totalAmount}, Received: {$amountPaid}");
+                }
+                
+                // Generate SI code
+                $transactionCode = generateSICode($db);
+                
+                // Create transaction record
+                $changeAmount = $amountPaid - $totalAmount;
+                
+                $stmt = $db->prepare("
+                    INSERT INTO sales_transactions 
+                    (transaction_code, transaction_type, sale_mode, customer_id, customer_name,
+                     subtotal_amount, discount_value, discount_amount, tax_amount, total_amount,
+                     amount_paid, change_amount, payment_status, payment_method,
+                     payment_reference, cashier_id, notes)
+                    VALUES (?, 'cash', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?)
+                ");
+                
+                // Build payment reference for check/bank/gcash
+                $paymentRef = null;
+                if ($paymentMethod === 'check') {
+                    $paymentRef = 'Check: ' . ($data['check_bank'] ?? '') . ' #' . ($data['check_number'] ?? '') . ' dated ' . ($data['check_date'] ?? '');
+                } elseif ($paymentMethod === 'gcash') {
+                    $paymentRef = 'GCash: ' . ($data['gcash_ref'] ?? '');
+                } elseif ($paymentMethod === 'bank_transfer') {
+                    $paymentRef = 'Bank: ' . ($data['bank_name'] ?? '') . ' Ref#' . ($data['bank_ref'] ?? '');
+                }
+                
+                $stmt->execute([
+                    $transactionCode,
+                    $saleMode,
+                    $customerId,
+                    $customerName,
+                    $subtotal,
+                    $discountPercent,
+                    $discountAmount,
+                    $taxAmount,
+                    $totalAmount,
+                    $amountPaid,
+                    $changeAmount,
+                    $paymentMethod,
+                    $paymentRef,
+                    $currentUser['user_id'],
+                    $notes
+                ]);
+                
+                $transactionId = $db->lastInsertId();
+                
+                // Insert items and deduct inventory
+                $itemStmt = $db->prepare("
+                    INSERT INTO sales_transaction_items 
+                    (transaction_id, product_id, product_code, product_name, variant, quantity,
+                     sale_unit, sale_quantity, pieces_per_box_snapshot,
+                     unit_price, line_total, inventory_deductions)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                $allDeductions = [];
+                
+                foreach ($itemsData as $item) {
+                    $deductions = [];
+                    if ($saleMode === 'wholesale') {
+                        $labelsByInventory = [];
+                        foreach ($item['box_labels'] as $boxLabel) {
+                            $inventoryId = (int) $boxLabel['inventory_id'];
+                            $labelsByInventory[$inventoryId][] = $boxLabel;
+                        }
+                        foreach ($labelsByInventory as $inventoryId => $labels) {
+                            $batchDeductions = deductInventory(
+                                $db,
+                                $item['product_id'],
+                                count($labels) * $item['pieces_per_box'],
+                                $currentUser['user_id'],
+                                $transactionId,
+                                $transactionCode,
+                                $inventoryId
+                            );
+                            $deductions = array_merge($deductions, $batchDeductions);
+                        }
+
+                        $labelInsert = $db->prepare("
+                            INSERT INTO pos_sold_box_labels
+                                (label_code, batch_id, product_id, inventory_id, transaction_id)
+                            VALUES (?, ?, ?, ?, ?)
+                        ");
+                        foreach ($item['box_labels'] as $boxLabel) {
+                            try {
+                                $labelInsert->execute([
+                                    $boxLabel['label_code'],
+                                    $boxLabel['batch_id'],
+                                    $boxLabel['product_id'],
+                                    $boxLabel['inventory_id'],
+                                    $transactionId,
+                                ]);
+                            } catch (PDOException $error) {
+                                if ((string) $error->getCode() === '23000') {
+                                    throw new Exception('This box label was already sold. Use a different sealed box.');
+                                }
+                                throw $error;
+                            }
+                        }
+                    } else {
+                        // Retail stays automatic: take the earliest-expiring sellable units.
+                        $deductions = deductInventory(
+                            $db,
+                            $item['product_id'],
+                            $item['quantity'],
+                            $currentUser['user_id'],
+                            $transactionId,
+                            $transactionCode
+                        );
+                    }
+                    
+                    $itemStmt->execute([
+                        $transactionId,
+                        $item['product_id'],
+                        $item['product_code'],
+                        $item['product_name'],
+                        $item['variant'],
+                        $item['quantity'],
+                        $item['sale_unit'],
+                        $item['sale_quantity'],
+                        $item['pieces_per_box'],
+                        $item['unit_price'],
+                        $item['line_total'],
+                        json_encode($deductions)
+                    ]);
+                    
+                    $allDeductions[] = [
+                        'product_id' => $item['product_id'],
+                        'product_name' => $item['product_name'],
+                        'deductions' => $deductions
+                    ];
+                }
+                
+                // Log the audit
+                logAudit(
+                    $currentUser['user_id'],
+                    'create',
+                    'sales_transactions',
+                    $transactionId,
+                    null,
+                    ['transaction_code' => $transactionCode, 'sale_mode' => $saleMode, 'total' => $totalAmount, 'tax_amount' => $taxAmount, 'items' => count($itemsData)]
+                );
+                
+                $db->commit();
+                
+                Response::created([
+                    'transaction_id' => $transactionId,
+                    'transaction_code' => $transactionCode,
+                    'si_number' => $transactionCode,
+                    'subtotal' => $subtotal,
+                    'discount_amount' => $discountAmount,
+                    'vatable_sales' => $vatBreakdown['vatable_sales'],
+                    'tax_amount' => $taxAmount,
+                    'vat_rate' => $vatBreakdown['vat_rate'],
+                    'vat_inclusive' => true,
+                    'total_amount' => $totalAmount,
+                    'amount_paid' => $amountPaid,
+                    'amount_tendered' => $amountPaid,
+                    'change' => $changeAmount,
+                    'change_amount' => $changeAmount,
+                    'payment_method' => $paymentMethod,
+                    'sale_mode' => $saleMode,
+                    'items_count' => count($itemsData),
+                    'items' => $itemsData,
+                    'inventory_deductions' => $allDeductions
+                ], 'Cash sale created successfully');
+                
+            } catch (Exception $e) {
+                error_log("POS Cash Sale Error: " . $e->getMessage() . " | File: " . $e->getFile() . " | Line: " . $e->getLine());
+                if ($db->inTransaction()) {
+                    $db->rollBack();
+                }
+                Response::error($e->getMessage(), 400);
+            }
+            break;
+            
+        case 'void':
+            // Void a transaction (admin only - could add permission check)
+            $id = $data['id'] ?? null;
+            $reason = $data['reason'] ?? null;
+            
+            if (!$id) {
+                Response::error('Transaction ID required', 400);
+            }
+            if (!$reason) {
+                Response::error('Void reason is required', 400);
+            }
+            
+            $db->beginTransaction();
+            
+            try {
+                // Get transaction
+                $stmt = $db->prepare("SELECT * FROM sales_transactions WHERE id = ?");
+                $stmt->execute([$id]);
+                $transaction = $stmt->fetch();
+                
+                if (!$transaction) {
+                    throw new Exception('Transaction not found');
+                }
+                
+                if ($transaction['payment_status'] === 'voided') {
+                    throw new Exception('Transaction is already voided');
+                }
+                
+                // Restore inventory (get items and reverse deductions)
+                $itemsStmt = $db->prepare("SELECT * FROM sales_transaction_items WHERE transaction_id = ?");
+                $itemsStmt->execute([$id]);
+                $items = $itemsStmt->fetchAll();
+                
+                foreach ($items as $item) {
+                    $deductions = json_decode($item['inventory_deductions'], true);
+                    if ($deductions) {
+                        foreach ($deductions as $ded) {
+                            if (array_key_exists('boxes_deducted', $ded) && array_key_exists('pieces_deducted', $ded)) {
+                                fgInventoryRestockPhysicalUnits(
+                                    $db,
+                                    (int)$ded['inventory_id'],
+                                    (int)$ded['boxes_deducted'],
+                                    (int)$ded['pieces_deducted']
+                                );
+                            } else {
+                                // Older receipts did not record the package shape.
+                                fgInventoryRestockBaseUnits(
+                                    $db,
+                                    (int)$ded['inventory_id'],
+                                    (int)$ded['quantity_deducted']
+                                );
+                            }
+                        }
+                    }
+                }
+
+                // A voided wholesale sale returns its sealed labels to usable stock.
+                $releaseLabels = $db->prepare("DELETE FROM pos_sold_box_labels WHERE transaction_id = ?");
+                $releaseLabels->execute([$id]);
+                
+                // Mark transaction as voided
+                $updateStmt = $db->prepare("
+                    UPDATE sales_transactions 
+                    SET payment_status = 'voided', 
+                        notes = CONCAT(COALESCE(notes, ''), '\n[VOIDED: ', ?, ']')
+                    WHERE id = ?
+                ");
+                $updateStmt->execute([$reason, $id]);
+                
+                logAudit(
+                    $currentUser['user_id'],
+                    'void',
+                    'sales_transactions',
+                    $id,
+                    $transaction,
+                    ['reason' => $reason]
+                );
+                
+                $db->commit();
+                
+                Response::success([
+                    'transaction_id' => $id,
+                    'status' => 'voided'
+                ], 'Transaction voided successfully');
+                
+            } catch (Exception $e) {
+                $db->rollBack();
+                Response::error($e->getMessage(), 400);
+            }
+            break;
+            
+        default:
+            Response::error('Invalid action', 400);
+    }
+}

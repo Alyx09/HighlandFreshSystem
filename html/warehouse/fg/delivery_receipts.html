@@ -1,0 +1,3552 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Receipts - Warehouse FG | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Picking is a linear warehouse task, so keep the workbench wide and
+           present one step at a time instead of squeezing cards into columns. */
+        #pickingModal .pick-modal-box {
+            width: min(96vw, 72rem);
+            max-width: 72rem;
+            height: min(92vh, 56rem);
+            max-height: 92vh;
+            padding: 0;
+            overflow: hidden;
+        }
+        .pick-modal-scroll {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: oklch(var(--b2) / 0.55);
+            padding: 1.25rem;
+        }
+        .pick-modal-content {
+            width: 100%;
+            max-width: 68rem;
+            margin: 0 auto;
+            display: grid;
+            gap: 1rem;
+        }
+        .pick-work-card {
+            border: 1px solid oklch(var(--bc) / 0.12);
+            border-radius: 0.875rem;
+            background: oklch(var(--b1));
+            box-shadow: 0 0.2rem 0.75rem oklch(var(--bc) / 0.05);
+            padding: 1.1rem;
+        }
+        .pick-section-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.62);
+        }
+        .pick-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+        }
+        .pick-meta-item {
+            min-width: 0;
+            border-radius: 0.65rem;
+            background: oklch(var(--b2) / 0.65);
+            padding: 0.7rem 0.8rem;
+        }
+        .pick-meta-label {
+            display: block;
+            margin-bottom: 0.18rem;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.48);
+        }
+        .pick-meta-value {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .pick-required-list {
+            display: grid;
+            gap: 0.5rem;
+            margin-top: 0.9rem;
+        }
+        .pick-required-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 1rem;
+            min-width: 0;
+            border: 1px solid oklch(var(--bc) / 0.1);
+            border-radius: 0.65rem;
+            padding: 0.65rem 0.8rem;
+        }
+        .pick-required-name {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+        .pick-scan-controls {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 0.65rem;
+            align-items: stretch;
+        }
+        .pick-scanned-table-wrap {
+            max-height: 18rem;
+            overflow: auto;
+        }
+        .pick-modal-footer {
+            width: 100%;
+            max-width: 68rem;
+            margin: 0 auto;
+        }
+        @media (max-width: 639px) {
+            #pickingModal .pick-modal-box {
+                width: 100vw;
+                height: 96vh;
+                max-height: 96vh;
+                border-radius: 1rem 1rem 0 0;
+            }
+            .pick-modal-scroll {
+                padding: 0.75rem;
+            }
+            .pick-meta-grid {
+                grid-template-columns: 1fr;
+            }
+            .pick-scan-controls {
+                grid-template-columns: minmax(0, 1fr) auto;
+            }
+            .pick-scan-controls .pick-scan-submit {
+                grid-column: 1 / -1;
+                grid-row: 2;
+            }
+            .pick-scan-controls > button:last-child {
+                grid-column: 2;
+                grid-row: 1;
+            }
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ── DR Details modal ── */
+        #drDetailsModal .modal-box {
+            max-width: 48rem;
+            padding: 1.5rem 1.75rem 1.25rem;
+        }
+        .drd-header {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.625rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .drd-header__title {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .drd-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem 1.5rem;
+            margin-bottom: 1.25rem;
+        }
+        @media (min-width: 640px) {
+            .drd-meta {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+        .drd-meta__label {
+            display: block;
+            margin-bottom: 0.2rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            line-height: 1.2;
+        }
+        .drd-meta__value {
+            display: block;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: oklch(var(--bc));
+            line-height: 1.35;
+            word-break: break-word;
+        }
+        .drd-section-title {
+            margin: 0 0 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+        }
+        .drd-table-wrap {
+            overflow-x: auto;
+            margin-bottom: 1rem;
+            border: 1px solid oklch(var(--bc) / 0.08);
+            border-radius: 0.75rem;
+        }
+        .drd-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .drd-table thead {
+            background: oklch(var(--b2) / 0.7);
+        }
+        .drd-table th {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+            border-bottom: 1px solid oklch(var(--bc) / 0.08);
+            white-space: nowrap;
+            text-align: left;
+        }
+        .drd-table th.num,
+        .drd-table td.num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .drd-table td {
+            padding: 0.7rem 0.875rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.06);
+            vertical-align: middle;
+        }
+        .drd-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .drd-table tfoot td {
+            padding: 0.75rem 0.875rem;
+            font-weight: 700;
+            background: oklch(var(--b2) / 0.5);
+            border-top: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .drd-batch {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: oklch(var(--p));
+            background: oklch(var(--p) / 0.08);
+            padding: 0.15rem 0.45rem;
+            border-radius: 0.35rem;
+            white-space: nowrap;
+        }
+        .drd-batch--missing {
+            color: oklch(var(--er));
+            background: oklch(var(--er) / 0.08);
+            font-weight: 500;
+        }
+        .drd-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-top: 0.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .drd-footer__left,
+        .drd-footer__right {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .drd-footer__right {
+            margin-left: auto;
+        }
+
+        /* ── Verify Delivery modal ── */
+        #returnsModal .modal-box {
+            max-width: 48rem;
+            padding: 1.5rem 1.75rem 1.25rem;
+        }
+        .vd-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            padding-right: 2rem;
+        }
+        .vd-header h3 {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 700;
+            line-height: 1.3;
+        }
+        .vd-subheader {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            margin-bottom: 1.25rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+            line-height: 1.4;
+            color: oklch(var(--bc) / 0.7);
+            background: oklch(var(--b2) / 0.6);
+            border-left: 3px solid oklch(var(--in));
+            border-radius: 0 0.5rem 0.5rem 0;
+        }
+        .vd-subheader i {
+            margin-top: 0.15rem;
+            color: oklch(var(--in));
+            flex-shrink: 0;
+        }
+        .vd-item {
+            border: 1px solid oklch(var(--bc) / 0.08);
+            border-radius: 0.75rem;
+            padding: 1rem 1.125rem;
+            margin-bottom: 0.75rem;
+            background: oklch(var(--b1));
+        }
+        .vd-item__head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 0.5rem;
+            margin-bottom: 0.875rem;
+        }
+        .vd-item__name {
+            font-weight: 600;
+            font-size: 0.9375rem;
+        }
+        .vd-item__meta {
+            font-size: 0.75rem;
+            color: oklch(var(--bc) / 0.55);
+        }
+        .vd-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-top: 0.75rem;
+            padding-top: 1rem;
+            border-top: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .vd-footer__right {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Warehouse - Finished Goods</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i><span>Dashboard</span>
+                        </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inventory</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="inventory.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-boxes w-5 text-center text-base-content/60"></i><span>FG Inventory</span>
+                        </a></li>
+                    <li><a href="chillers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-temperature-low w-5 text-center text-base-content/60"></i><span>Chiller
+                                Storage</span>
+                        </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Operations
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="receiving.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck-loading w-5 text-center text-base-content/60"></i><span>Receive from
+                                Production</span>
+                        </a></li>
+                    <li><a href="delivery_receipts.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-file-invoice w-5 text-center"></i><span>Delivery Receipts</span>
+                        </a></li>
+                    <li><a href="dispatch.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck w-5 text-center text-base-content/60"></i><span>Dispatch</span>
+                        </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Customers</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="customers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users w-5 text-center text-base-content/60"></i><span>Customer List</span>
+                        </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="reports/inventory.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-chart-bar w-5 text-center text-base-content/60"></i><span>Inventory
+                                Report</span>
+                        </a></li>
+                    <li><a href="reports/dispatch.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-shipping-fast w-5 text-center text-base-content/60"></i><span>Dispatch
+                                Report</span>
+                        </a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">FG</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Warehouse Staff</p>
+                    <p class="text-xs text-base-content/60 truncate">Finished Goods</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square"><i
+                            class="fas fa-ellipsis-v"></i></label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i
+                        class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-file-invoice text-primary"></i>
+                    <span class="font-semibold">Delivery Receipts</span>
+                </div>
+            </div>
+            <div class="flex-none gap-2">
+                <button class="btn btn-primary btn-sm" onclick="openCreateDRModal()">
+                    <i class="fas fa-plus"></i> New DR
+                </button>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-base-content">Delivery Receipts Management</h1>
+                    <p class="text-base-content/60">Create and manage delivery receipts for dispatching goods</p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="form-control">
+                            <input type="text" id="searchDR" placeholder="Search DR, order, or customer..."
+                                class="input input-bordered input-sm" onkeyup="filterDRs()">
+                        </div>
+                        <div class="form-control">
+                            <select id="statusFilter" class="select select-bordered select-sm" onchange="filterDRs()">
+                                <option value="">All Status</option>
+                                <option value="draft">Draft</option>
+                                <option value="pending">Pending</option>
+                                <option value="preparing">Preparing</option>
+                                <option value="ready">Ready</option>
+                                <option value="dispatched">Dispatched</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="form-control">
+                            <input type="date" id="fromDate" class="input input-bordered input-sm"
+                                onchange="filterDRs()">
+                        </div>
+                        <div class="form-control">
+                            <input type="date" id="toDate" class="input input-bordered input-sm" onchange="filterDRs()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approved Sales Orders (Pending DR Creation) -->
+            <div class="card bg-base-100 shadow-sm mb-6 border-l-4 border-warning">
+                <div class="card-body p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-clipboard-list text-warning text-xl"></i>
+                            <h2 class="font-bold text-lg">Approved Sales Orders</h2>
+                            <span class="badge badge-warning" id="approvedOrdersCount">0</span>
+                        </div>
+                        <button class="btn btn-sm btn-ghost" onclick="loadApprovedOrders()">
+                            <i class="fas fa-refresh"></i>
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="bg-base-200/50">
+                                    <th>Order #</th>
+                                    <th>Customer</th>
+                                    <th>Delivery Date</th>
+                                    <th>Items</th>
+                                    <th>Stock</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approvedOrdersTable">
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-base-content/60">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DR Table -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>DR Number</th>
+                                    <th>Customer</th>
+                                    <th>Type</th>
+                                    <th>Items</th>
+                                    <th>Created</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="drTable">
+                                <tr>
+                                    <td colspan="7" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Create DR Modal -->
+    <dialog id="createDRModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg mb-4">Create New Delivery Receipt</h3>
+            <form id="createDRForm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Customer Type *</span></label>
+                        <select id="drCustomerType" class="select select-bordered" required
+                            onchange="loadCustomersByType()">
+                            <option value="">Select type...</option>
+                            <option value="supermarket">Supermarket</option>
+                            <option value="school">School/DepEd</option>
+                            <option value="distributor">Distributor</option>
+                            <option value="retail">Retail</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Customer *</span></label>
+                        <select id="drCustomer" class="select select-bordered" required>
+                            <option value="">Select customer...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text">Delivery Address</span></label>
+                    <input type="text" id="drAddress" class="input input-bordered" placeholder="Delivery address...">
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Contact Number</span></label>
+                        <input type="tel" id="drContact" class="input input-bordered" inputmode="numeric"
+                            maxlength="11" data-philippine-phone placeholder="09171234567">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Sub-location</span></label>
+                        <input type="text" id="drSubLocation" class="input input-bordered"
+                            placeholder="Branch/Location">
+                    </div>
+                </div>
+
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text">Notes</span></label>
+                    <textarea id="drNotes" class="textarea textarea-bordered"
+                        placeholder="Special instructions..."></textarea>
+                </div>
+
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="createDRModal.close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create DR</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- DR Details Modal -->
+    <dialog id="drDetailsModal" class="modal">
+        <div class="modal-box max-w-3xl">
+            <header class="drd-header">
+                <h3 class="drd-header__title">
+                    <i class="fas fa-file-invoice text-primary"></i>
+                    <span id="detailDRNumber">DR Details</span>
+                </h3>
+                <span id="detailDRStatus" class="badge badge-sm capitalize"></span>
+            </header>
+
+            <div class="drd-meta">
+                <div>
+                    <span class="drd-meta__label">Customer</span>
+                    <span class="drd-meta__value" id="detailCustomer">—</span>
+                </div>
+                <div>
+                    <span class="drd-meta__label">Type</span>
+                    <span class="drd-meta__value" id="detailType">—</span>
+                </div>
+                <div>
+                    <span class="drd-meta__label">Address</span>
+                    <span class="drd-meta__value" id="detailAddress">—</span>
+                </div>
+                <div>
+                    <span class="drd-meta__label">Created</span>
+                    <span class="drd-meta__value" id="detailCreated">—</span>
+                </div>
+            </div>
+
+            <h4 class="drd-section-title">Line Items</h4>
+            <div class="drd-table-wrap">
+                <table class="drd-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Batch ID</th>
+                            <th class="num">Qty</th>
+                            <th class="num">Unit Price</th>
+                            <th class="num">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="drItemsTable">
+                        <tr>
+                            <td colspan="5" class="text-center text-base-content/50 py-6">No items yet</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" class="num" style="text-align:right;">Grand Total</td>
+                            <td class="num" id="drGrandTotal">₱0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- Returns Section -->
+            <div id="returnsSection" style="display: none;">
+                <h4 class="drd-section-title text-warning"><i class="fas fa-exchange-alt mr-1"></i> Delivery Adjustments</h4>
+                <div class="drd-table-wrap mb-4">
+                    <table class="drd-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Batch ID</th>
+                                <th class="num">Qty Returned</th>
+                                <th>Reason</th>
+                                <th>Condition</th>
+                                <th>Disposition</th>
+                            </tr>
+                        </thead>
+                        <tbody id="drReturnsTable">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <footer class="drd-footer">
+                <div class="drd-footer__left">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('drDetailsModal').close()">
+                        Close
+                    </button>
+                </div>
+                <div class="drd-footer__right">
+                    <button type="button" class="btn btn-info btn-sm gap-2" id="btnPickItems" onclick="goToPickItemsFromModal()"
+                        style="display: none;">
+                        <i class="fas fa-barcode"></i> Pick Items
+                    </button>
+                    <!-- Print is primary at Ready (paper must leave with truck for signatures) -->
+                    <button type="button" class="btn btn-success btn-sm gap-2" id="btnPrintDR" onclick="printCurrentDR()"
+                        style="display: none;">
+                        <i class="fas fa-print"></i> Print DR
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm gap-2" id="btnDispatchDR" onclick="dispatchDR()"
+                        style="display: none;">
+                        <i class="fas fa-truck"></i> Dispatch Truck
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm gap-2" id="btnProcessReturns" onclick="openReturnsModal()"
+                        style="display: none;">
+                        <i class="fas fa-clipboard-check"></i> Driver Returned
+                    </button>
+                    <button type="button" class="btn btn-success btn-sm gap-2" id="btnMarkDelivered" onclick="markDelivered()"
+                        style="display: none;">
+                        <i class="fas fa-check-circle"></i> Mark Delivered
+                    </button>
+                </div>
+            </footer>
+            <p id="drPrintHint" class="text-xs text-base-content/55 mt-2 hidden">
+                <i class="fas fa-info-circle mr-1"></i>
+                Print the paper Delivery Receipt before dispatching. It includes <strong>Delivered By</strong> (driver)
+                and <strong>Received By</strong> (customer) signature lines and must leave with the truck.
+            </p>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Verify Delivery / Returns Processing Modal -->
+    <dialog id="returnsModal" class="modal">
+        <div class="modal-box max-w-3xl">
+            <form method="dialog">
+                <button type="submit" class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3" aria-label="Close">✕</button>
+            </form>
+            <header class="vd-header">
+                <h3>
+                    <i class="fas fa-clipboard-check text-primary mr-2"></i>Verify Delivery
+                </h3>
+            </header>
+            <div class="vd-subheader">
+                <i class="fas fa-info-circle"></i>
+                <span>Driver has returned. Confirm full delivery, or enter any returned quantities below.</span>
+            </div>
+
+            <div id="returnsContent">
+                <!-- Populated by JavaScript -->
+            </div>
+
+            <footer class="vd-footer">
+                <button type="button" class="btn btn-ghost btn-sm"
+                    onclick="document.getElementById('returnsModal').close()">Cancel</button>
+                <div class="vd-footer__right flex flex-col items-end gap-1">
+                    <p id="verifyDeliveryGlobalError" class="text-error text-xs font-semibold hidden m-0"></p>
+                    <!-- Single primary action morphs: All Good (green) ↔ Record Returns (warning) -->
+                    <button type="button" class="btn btn-success btn-sm gap-2" id="btnCompleteDelivery"
+                        onclick="handleVerifyDeliveryPrimary()">
+                        <i class="fas fa-check"></i> <span id="btnCompleteDeliveryLabel">Complete Delivery — All Good</span>
+                    </button>
+                    <!-- Kept for compatibility; always hidden — logic uses primary above -->
+                    <button type="button" class="btn btn-warning btn-sm gap-2" id="btnRecordReturns"
+                        onclick="submitReturns()" style="display: none;" aria-hidden="true" tabindex="-1">
+                        <i class="fas fa-undo"></i> Record Returns &amp; Complete
+                    </button>
+                </div>
+            </footer>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Confirm Returns Custom Modal -->
+    <dialog id="confirmReturnsModal" class="modal">
+        <div class="modal-box max-w-md p-0 overflow-hidden border border-base-200/60 shadow-2xl">
+            <!-- Header -->
+            <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 px-6 pt-6 pb-5 text-white">
+                <div class="flex items-center gap-3 mb-1">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                        <i class="fas fa-clipboard-check text-lg"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg leading-tight">Confirm Delivery Verification</h3>
+                        <p class="text-emerald-100 text-xs mt-0.5">Review the summary below before confirming</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="px-6 py-5 space-y-3">
+                <!-- Total returned badge -->
+                <div class="flex items-center justify-center mb-4">
+                    <div class="inline-flex items-center gap-2 bg-base-200/70 rounded-full px-4 py-1.5">
+                        <i class="fas fa-box-open text-base-content/50 text-xs"></i>
+                        <span class="text-sm font-semibold text-base-content" id="confirmTotalQty">0</span>
+                        <span class="text-xs text-base-content/60">total unit(s) returned</span>
+                    </div>
+                </div>
+
+                <!-- Restocking Card -->
+                <div id="confirmRestockCard" class="bg-emerald-50/50 border border-emerald-100 text-emerald-800 p-4 rounded-xl flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-rotate-left text-emerald-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-sm" id="confirmRestockLabel">0 line(s) returning to Restock</p>
+                        <p class="text-emerald-600/70 text-xs mt-0.5">Resellable items will be added to the Pending Restock queue</p>
+                    </div>
+                </div>
+
+                <!-- Disposal Card -->
+                <div id="confirmDisposalCard" class="bg-rose-50/50 border border-rose-100 text-rose-800 p-4 rounded-xl flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-trash-can text-rose-600"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-sm" id="confirmDisposalLabel">0 line(s) routed to Disposal</p>
+                        <p class="text-rose-600/70 text-xs mt-0.5">Damaged or expired items will not return to saleable stock</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-6 pb-5 flex items-center justify-end gap-2">
+                <button type="button" class="btn btn-ghost btn-sm"
+                    onclick="document.getElementById('confirmReturnsModal').close()">Cancel</button>
+                <button type="button"
+                    class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-2.5 px-5 rounded-lg transition-colors text-sm flex items-center gap-2 shadow-sm"
+                    onclick="confirmReturnsSubmit()">
+                    <i class="fas fa-check"></i> Record Returns
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- View Order Items Modal -->
+    <dialog id="viewOrderItemsModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                <i class="fas fa-clipboard-list text-primary"></i>
+                Order Items - <span id="viewOrderNumber" class="font-mono"></span>
+            </h3>
+            <div class="py-4">
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200/50">
+                                <th>Product</th>
+                                <th class="text-center">Qty</th>
+                                <th class="text-right">Price</th>
+                                <th class="text-right">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderItemsTable">
+                            <tr>
+                                <td colspan="4" class="text-center py-4">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mt-4">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Use this information to prepare items before clicking "Prepare for Dispatch"</span>
+                </div>
+            </div>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn">Close</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- ==================== PICKING MODAL (Tablet-Optimized) ==================== -->
+    <dialog id="pickingModal" class="modal modal-bottom sm:modal-middle">
+        <div class="modal-box pick-modal-box flex flex-col rounded-t-2xl sm:rounded-2xl">
+
+            <!-- ─── Header ─── -->
+            <header class="bg-gradient-to-r from-primary to-primary/80 text-primary-content px-6 py-4 shrink-0 rounded-t-2xl">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div>
+                            <h2 class="text-lg font-bold flex items-center gap-2">
+                                <i class="fas fa-clipboard-check"></i>
+                                <span id="pickModalDRNumber">Picking Ticket</span>
+                            </h2>
+                            <p class="text-sm text-primary-content/70" id="pickModalCustomer">Loading...</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="badge badge-lg bg-white/20 text-primary-content border-0 font-bold" id="pickModalStatus">PICKING</span>
+                        <button class="btn btn-ghost btn-sm btn-circle text-primary-content" onclick="closePickingModal()" title="Close picking" aria-label="Close picking">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Progress Bar -->
+                <div class="mt-3">
+                    <div class="flex justify-between text-xs text-primary-content/80 mb-1">
+                        <span>Picking Progress</span>
+                        <span id="pickProgressLabel">0 / 0 units picked</span>
+                    </div>
+                    <progress id="pickProgressBar" class="progress progress-accent w-full h-3" value="0" max="100"></progress>
+                </div>
+            </header>
+
+            <!-- ─── Body: Guided linear picking flow ─── -->
+            <div class="pick-modal-scroll">
+                <div class="pick-modal-content">
+                    <section class="pick-work-card" aria-labelledby="pickOrderHeading">
+                        <h3 id="pickOrderHeading" class="pick-section-heading">
+                            <span class="badge badge-primary badge-sm">1</span>
+                            Review what must be picked
+                        </h3>
+                        <div id="pickDRSummary">
+                            <div class="flex justify-center py-6">
+                                <span class="loading loading-spinner loading-md"></span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="pick-work-card" aria-labelledby="pickScanHeading">
+                        <h3 id="pickScanHeading" class="pick-section-heading">
+                            <span class="badge badge-primary badge-sm">2</span>
+                            Scan a finished-goods batch
+                        </h3>
+                        <p class="text-sm text-base-content/60 mb-3">Scan the batch barcode, then enter how many boxes or loose pieces you are picking.</p>
+                        <div class="pick-scan-controls">
+                            <input type="text" id="pickBarcodeInput"
+                                class="input input-bordered input-lg w-full text-lg font-mono tracking-wide bg-base-200 focus:bg-white"
+                                placeholder="Scan or enter a batch barcode"
+                                aria-label="Finished-goods batch barcode"
+                                onkeypress="if(event.key==='Enter') pickScanBarcode()"
+                                autocomplete="off">
+                            <button class="btn btn-primary btn-lg pick-scan-submit" onclick="pickScanBarcode()">
+                                <i class="fas fa-barcode"></i> Check batch
+                            </button>
+                            <button class="btn btn-outline btn-lg btn-square" onclick="pickOpenCamera()" title="Use phone camera" aria-label="Use phone camera">
+                                <i class="fas fa-camera"></i>
+                            </button>
+                        </div>
+                    </section>
+
+                    <div id="pickScanResult" class="hidden">
+                        <div id="pickScanResultContent" class="rounded-xl p-4 shadow-md border"></div>
+                    </div>
+
+                    <div id="pickFifoWarning" class="alert alert-warning shadow-md hidden">
+                        <i class="fas fa-exclamation-triangle text-xl"></i>
+                        <div>
+                            <h3 class="font-bold">FIFO Warning</h3>
+                            <div class="text-sm" id="pickFifoWarningText"></div>
+                        </div>
+                        <button class="btn btn-sm btn-warning" onclick="pickOverrideFIFO()">Override</button>
+                    </div>
+
+                    <section class="pick-work-card" aria-labelledby="pickItemsHeading">
+                        <div class="flex justify-between items-center gap-3 mb-3">
+                            <h3 id="pickItemsHeading" class="pick-section-heading mb-0">
+                                <span class="badge badge-primary badge-sm">3</span>
+                                Confirm picked items
+                            </h3>
+                            <div class="flex items-center gap-2">
+                                <span class="badge badge-primary badge-sm font-mono" id="pickScannedCount">0 items</span>
+                                <button class="btn btn-ghost btn-xs text-error" onclick="pickClearScanned()" title="Clear all picked items" aria-label="Clear all picked items">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="pick-scanned-table-wrap">
+                            <table class="table table-sm table-zebra w-full">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Batch</th>
+                                        <th>Expiry</th>
+                                        <th class="text-right">Quantity</th>
+                                        <th aria-label="Actions"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pickScannedItemsTable">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-8 text-base-content/40">
+                                            <i class="fas fa-barcode text-4xl mb-2 opacity-20"></i>
+                                            <p class="text-sm">No batches picked yet</p>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- ─── Footer: Generate DR Button ─── -->
+            <footer class="bg-base-100 border-t-2 border-base-300 px-6 py-4 shrink-0">
+                <div class="pick-modal-footer flex items-center justify-between gap-3">
+                    <button class="btn btn-ghost" onclick="closePickingModal()">
+                        <i class="fas fa-arrow-left mr-1"></i> Cancel
+                    </button>
+                    <button class="btn btn-success btn-lg flex-1 max-w-sm text-lg font-bold shadow-lg" id="pickBtnConfirm" onclick="pickConfirmRelease()" disabled>
+                        <i class="fas fa-check-circle mr-2"></i> Generate Delivery Receipt
+                    </button>
+                </div>
+            </footer>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Picking Quantity Sub-Modal -->
+    <dialog id="pickQuantityModal" class="modal" style="z-index: 1001;">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">Enter Release Quantity</h3>
+            <form id="pickQuantityForm">
+                <input type="hidden" id="pickQtyInventoryId">
+                <div class="bg-base-200 rounded-lg p-4 mb-4">
+                    <div class="text-sm space-y-1">
+                        <div><span class="text-base-content/60">Product:</span> <strong id="pickQtyProduct">-</strong></div>
+                        <div><span class="text-base-content/60">Batch:</span> <strong id="pickQtyBatch">-</strong></div>
+                        <div><span class="text-base-content/60">Available:</span> <strong id="pickQtyAvailable">-</strong></div>
+                        <div class="mt-2 p-2 bg-info/10 rounded text-info text-xs">
+                            <i class="fas fa-box"></i> <span id="pickQtyPackConfig">Pack config</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text">Release Quantity</span></label>
+                    <div class="flex gap-2 items-center">
+                        <div class="form-control flex-1">
+                            <label class="label py-0"><span class="label-text text-xs" id="pickQtyBoxesLabel">Packs</span></label>
+                            <input type="number" id="pickQtyBoxes" class="input input-bordered w-full" min="0" step="1"
+                                inputmode="numeric" value="0"
+                                onkeydown="if(['e','E','+','-','.'].includes(event.key)) event.preventDefault()"
+                                onchange="pickCalcTotal()" oninput="pickCalcTotal()">
+                        </div>
+                        <span class="self-end pb-3 text-lg font-bold">+</span>
+                        <div class="form-control flex-1">
+                            <label class="label py-0"><span class="label-text text-xs" id="pickQtyPiecesLabel">Loose</span></label>
+                            <input type="number" id="pickQtyPieces" class="input input-bordered w-full" min="0" step="1"
+                                inputmode="numeric" value="0"
+                                onkeydown="if(['e','E','+','-','.'].includes(event.key)) event.preventDefault()"
+                                onchange="pickPiecesAutoPack(e)" oninput="pickPiecesAutoPack(e)">
+                        </div>
+                    </div>
+                    <div class="mt-3 p-3 bg-primary/10 rounded-lg">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">Total base units:</span>
+                            <span class="text-xl font-bold text-primary" id="pickQtyTotalPieces">0</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-base-content/60 mt-2" id="pickQtyValidation"></p>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('pickQuantityModal').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add to Release</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Picking Camera Sub-Modal -->
+    <dialog id="pickCameraModal" class="modal" style="z-index: 1001;">
+        <div class="modal-box max-w-md">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fas fa-camera mr-2"></i> Scan Barcode
+            </h3>
+            <div id="pickCameraPreview" style="width: 100%; min-height: 250px;" class="rounded-lg overflow-hidden bg-base-200"></div>
+            <div id="pickScanFeedback" class="mt-3 p-2 text-center hidden">
+                <i class="fas fa-check-circle text-success text-2xl"></i>
+                <p class="font-medium" id="pickScannedCode"></p>
+            </div>
+            <div id="pickCameraStatus" class="alert alert-info mt-3 py-2 text-sm" role="status" aria-live="polite">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span id="pickCameraStatusText">Starting camera…</span>
+            </div>
+            <p class="text-sm text-base-content/60 mt-3 text-center">Fit the complete horizontal barcode inside the guide and hold the phone steady.</p>
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="pickCloseCamera()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/vendor/html5-qrcode.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/ui/dialogs.js"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_fg,general_manager"></script>
+    <script src="../../../js/utils/units.js?v=20260712"></script>
+    <script src="../../../js/utils/product-display.js?v=20260909-sizefix1"></script>
+    <script src="../../../js/utils/lookup-normalization.js?v=20260908-1"></script>
+    <script src="../../../js/warehouse/fg.service.js"></script>
+
+    <script>
+        let deliveryReceipts = [];
+        let customers = [];
+        let currentDR = null;
+
+        // ==================== PICKING MODAL STATE ====================
+        let pickModalDR = null;
+        let pickScannedItems = [];
+        let pickCurrentScan = null;
+        let pickHtml5QrCode = null;
+        let pickCameraHintTimer = null;
+        let pickEditIndex = -1; // -1 = new scan, >=0 = editing existing row
+
+        // ==================== PICKING MODAL FUNCTIONS ====================
+
+        async function openPickingModal(drId) {
+            pickScannedItems = [];
+            pickCurrentScan = null;
+            pickModalDR = null;
+            pickEditIndex = -1;
+
+            document.getElementById('pickingModal').showModal();
+            document.getElementById('pickModalDRNumber').textContent = 'Loading...';
+            document.getElementById('pickModalCustomer').textContent = '';
+            document.getElementById('pickProgressLabel').textContent = '0 / 0 items';
+            document.getElementById('pickProgressBar').value = 0;
+            document.getElementById('pickDRSummary').innerHTML = '<span class="loading loading-spinner loading-sm"></span> Loading...';
+            document.getElementById('pickBtnConfirm').disabled = true;
+            pickResetScannedTable();
+
+            await pickLoadDR(drId);
+            setTimeout(() => document.getElementById('pickBarcodeInput')?.focus(), 200);
+        }
+
+        async function closePickingModal() {
+            if (pickScannedItems.length > 0) {
+                const confirmed = await AppDialogs.confirm({
+                    title: 'Discard scanned items?',
+                    message: 'These scans have not been confirmed and will be removed from this picking session.',
+                    confirmText: 'Discard Scans',
+                    variant: 'danger',
+                    icon: 'fa-barcode'
+                });
+                if (!confirmed) return;
+            }
+            document.getElementById('pickingModal').close();
+            pickScannedItems = [];
+            pickCurrentScan = null;
+            pickModalDR = null;
+            if (pickHtml5QrCode) {
+                pickHtml5QrCode.stop().catch(() => {});
+                pickHtml5QrCode = null;
+            }
+        }
+
+        async function pickLoadDR(drId) {
+            try {
+                const response = await WarehouseFGService.getDeliveryReceipt(drId);
+                pickModalDR = response.data || response;
+
+                document.getElementById('pickModalDRNumber').textContent = pickModalDR.dr_number || 'PICK-' + drId;
+                document.getElementById('pickModalStatus').textContent = (pickModalDR.status || 'picking').toUpperCase();
+                document.getElementById('pickModalCustomer').textContent =
+                    `${pickModalDR.customer_name || 'Unknown'} — ${pickModalDR.delivery_address || ''}`;
+
+                let summaryHtml = `
+                    <div>
+                        <div class="pick-meta-grid">
+                            <div class="pick-meta-item">
+                                <span class="pick-meta-label">Customer</span>
+                                <span class="pick-meta-value"><i class="fas fa-user text-primary mr-2"></i>${escapeHtml(pickModalDR.customer_name || 'N/A')}</span>
+                            </div>
+                            <div class="pick-meta-item">
+                                <span class="pick-meta-label">Customer type</span>
+                                <span class="pick-meta-value"><i class="fas fa-tag text-primary mr-2"></i>${escapeHtml(pickModalDR.customer_type || 'N/A')}</span>
+                            </div>
+                            <div class="pick-meta-item">
+                                <span class="pick-meta-label">Delivery address</span>
+                                <span class="pick-meta-value"><i class="fas fa-map-marker-alt text-primary mr-2"></i>${escapeHtml(pickModalDR.delivery_address || 'N/A')}</span>
+                            </div>
+                        </div>
+                        <div class="alert alert-info text-sm py-2 mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Pick the full required quantity below. The Delivery Receipt can be generated only when every line is complete.</span>
+                        </div>
+                `;
+
+                if (pickModalDR.items && pickModalDR.items.length > 0) {
+                    summaryHtml += `
+                        <div id="pickRequiredItemsList" class="pick-required-list">
+                            <div class="font-semibold">Items to pick</div>
+                            ${pickModalDR.items.map(pickRenderRequiredRow).join('')}
+                        </div>
+                    `;
+                }
+                summaryHtml += '</div>';
+                document.getElementById('pickDRSummary').innerHTML = summaryHtml;
+
+                // Initialize progress bar
+                pickUpdateProgress();
+
+            } catch (error) {
+                console.error('Failed to load DR for picking:', error);
+                document.getElementById('pickModalDRNumber').textContent = 'Error';
+                document.getElementById('pickModalCustomer').textContent = '';
+                document.getElementById('pickModalStatus').textContent = 'ERROR';
+                document.getElementById('pickDRSummary').innerHTML =
+                    '<div class="text-error"><i class="fas fa-exclamation-circle"></i> Failed to load picking ticket.</div>';
+                document.getElementById('pickBtnConfirm').disabled = true;
+            }
+        }
+
+        async function pickScanBarcode() {
+            const input = document.getElementById('pickBarcodeInput');
+            const barcode = LookupNormalization.barcode(input.value);
+            if (!barcode) { showToast('Please enter a barcode', 'warning'); return; }
+
+            try {
+                const response = await WarehouseFGService.lookupBatchByBarcode(barcode);
+                pickCurrentScan = response.data;
+
+                const resultDiv = document.getElementById('pickScanResult');
+                const contentDiv = document.getElementById('pickScanResultContent');
+
+                if (pickCurrentScan?.type === 'inventory_choices') {
+                    const candidates = Array.isArray(pickCurrentScan.items) ? pickCurrentScan.items : [];
+                    const outstandingProductIds = new Set(
+                        (pickModalDR?.items || [])
+                            .filter(item => pickGetRemainingQty(item.product_id) > 0)
+                            .map(item => String(item.product_id))
+                    );
+                    const eligible = pickModalDR?.id
+                        ? candidates.filter(item => outstandingProductIds.has(String(item.product_id)))
+                        : [];
+                    const eligibleProductIds = new Set(eligible.map(item => String(item.product_id)));
+
+                    if (eligible.length > 0 && eligibleProductIds.size === 1) {
+                        // Several lots of the one remaining SKU are already FIFO-ordered by the API.
+                        pickCurrentScan = eligible[0];
+                        showToast(`Batch matched ${ProductDisplay.name(pickCurrentScan)}.`, 'info');
+                    } else {
+                        const choices = eligibleProductIds.size > 1 ? eligible : candidates;
+                        const noOutstandingMatch = Boolean(pickModalDR?.id) && eligible.length === 0;
+                        const title = noOutstandingMatch
+                            ? 'This batch is not needed on this ticket'
+                            : 'Choose the physical package size';
+                        const guidance = noOutstandingMatch
+                            ? 'Its matching order line is complete, or the product is not part of this customer order.'
+                            : 'This batch contains more than one packaged SKU. Select the item you are holding.';
+                        const buttons = noOutstandingMatch ? '' : choices.map(item => `
+                            <button type="button" class="btn btn-outline btn-sm justify-start h-auto py-2"
+                                onclick="pickScanInventoryChoice(${Number(item.id)})">
+                                <span class="text-left">
+                                    <span class="block font-semibold">${escapeHtml(ProductDisplay.name(item))}</span>
+                                    <span class="block text-xs opacity-70">SKU ${escapeHtml(item.product_sku || `PKG-${item.id}`)} · ${pickGetRemainingQty(item.product_id)} remaining</span>
+                                </span>
+                            </button>`).join('');
+
+                        contentDiv.className = `rounded-lg p-4 border-2 ${noOutstandingMatch ? 'border-warning bg-warning/10' : 'border-info bg-info/5'}`;
+                        contentDiv.innerHTML = `
+                            <div class="font-bold mb-1">${escapeHtml(title)}</div>
+                            <div class="text-sm text-base-content/70 mb-3">${escapeHtml(guidance)}</div>
+                            ${buttons ? `<div class="grid gap-2">${buttons}</div>` : ''}`;
+                        resultDiv.classList.remove('hidden');
+                        pickCurrentScan = null;
+                        input.value = '';
+                        showToast(title, noOutstandingMatch ? 'warning' : 'info');
+                        return;
+                    }
+                }
+
+                if (pickCurrentScan && pickCurrentScan.type === 'delivery_receipt') {
+                    contentDiv.className = 'rounded-lg p-4 bg-info/10 border-2 border-info';
+                    contentDiv.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-file-invoice text-info text-3xl mb-2"></i>
+                            <p class="font-semibold">DR barcode detected</p>
+                            <p class="text-sm text-base-content/60">This scanner expects <strong>product</strong> barcodes.</p>
+                        </div>
+                    `;
+                    resultDiv.classList.remove('hidden');
+                    document.getElementById('pickBarcodeInput').value = '';
+                    document.getElementById('pickBarcodeInput').focus();
+                    return;
+                }
+
+                if (pickCurrentScan && pickCurrentScan.type === 'inventory_item') {
+                    // Check FIFO
+                    const fifoCheck = await WarehouseFGService.checkFIFOCompliance(pickCurrentScan.id, pickCurrentScan.product_id);
+                    const isFIFOOk = fifoCheck.data?.is_compliant !== false;
+
+                    // Block expired batches
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const expDate = pickCurrentScan.expiry_date ? new Date(pickCurrentScan.expiry_date) : null;
+                    if (expDate && expDate < today) {
+                        contentDiv.className = 'rounded-lg p-4 border-2 border-error bg-error/5';
+                        contentDiv.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-ban text-error text-2xl"></i>
+                                <div>
+                                    <div class="font-bold">${escapeHtml(ProductDisplay.name(pickCurrentScan))}</div>
+                                    <div class="text-sm text-error">Expired on ${expDate.toLocaleDateString()} — cannot dispatch.</div>
+                                </div>
+                            </div>`;
+                        resultDiv.classList.remove('hidden');
+                        document.getElementById('pickBarcodeInput').value = '';
+                        document.getElementById('pickBarcodeInput').focus();
+                        return;
+                    }
+
+                    // Validate product is on the picking ticket
+                    if (pickModalDR && pickModalDR.items && pickModalDR.items.length > 0) {
+                        const matchingItem = pickModalDR.items.find(item => item.product_id == pickCurrentScan.product_id);
+                        if (!matchingItem) {
+                            const drProductNames = pickModalDR.items.map(i => ProductDisplay.name(i)).join(', ');
+                            pickBlockOverScan(`This product (${ProductDisplay.name(pickCurrentScan)}) is NOT on this picking ticket! Required: ${drProductNames}`);
+                            return;
+                        }
+                        const remaining = pickGetRemainingQty(pickCurrentScan.product_id);
+                        if (remaining <= 0) {
+                            pickBlockOverScan('Cannot exceed ordered quantity');
+                            document.getElementById('pickScanResult')?.classList.add('hidden');
+                            return;
+                        }
+                    }
+
+                    const labels = PackUnits.unitLabels(pickCurrentScan);
+                    contentDiv.className = 'rounded-lg p-3 border-2 border-info bg-info/5';
+                    contentDiv.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <i class="fas fa-barcode text-info text-xl"></i>
+                            <div class="flex-1 min-w-0">
+                                <div class="font-semibold truncate">${escapeHtml(ProductDisplay.name(pickCurrentScan))}</div>
+                                <div class="text-xs text-base-content/60">Batch ${escapeHtml(pickCurrentScan.batch_code)} identified. Enter the quantity to add.</div>
+                            </div>
+                            <span class="badge badge-info badge-sm">0 ${escapeHtml(labels.base)} added</span>
+                        </div>`;
+                    resultDiv.classList.remove('hidden');
+
+                    if (!isFIFOOk) {
+                        document.getElementById('pickFifoWarning').classList.remove('hidden');
+                        document.getElementById('pickFifoWarningText').textContent =
+                            `Batch ${fifoCheck.data?.oldest_batch || 'older'} should be released first (expires ${fifoCheck.data?.oldest_expiry || 'earlier'})`;
+                    } else {
+                        document.getElementById('pickFifoWarning').classList.add('hidden');
+                    }
+
+                    document.getElementById('pickBarcodeInput').value = '';
+                    pickEditIndex = -1;
+                    pickAddToRelease();
+                    return;
+                } else {
+                    contentDiv.className = 'rounded-lg p-4 bg-error/10 border-2 border-error';
+                    contentDiv.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-exclamation-circle text-error text-3xl mb-2"></i>
+                            <p class="font-semibold">Barcode not found</p>
+                            <p class="text-sm text-base-content/60">No inventory item matches this barcode</p>
+                        </div>
+                    `;
+                }
+
+                resultDiv.classList.remove('hidden');
+                document.getElementById('pickBarcodeInput').value = '';
+                document.getElementById('pickBarcodeInput').focus();
+
+            } catch (error) {
+                console.error('Scan error:', error);
+                const message = error?.response?.data?.message || error?.message ||
+                    'No inventory item matches that barcode.';
+                const resultDiv = document.getElementById('pickScanResult');
+                const contentDiv = document.getElementById('pickScanResultContent');
+                contentDiv.className = 'rounded-lg p-4 bg-error/10 border-2 border-error';
+                contentDiv.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-circle text-error text-3xl mb-2"></i>
+                        <p class="font-semibold">Barcode could not be resolved</p>
+                        <p class="text-sm text-base-content/60">${escapeHtml(message)}</p>
+                    </div>`;
+                resultDiv.classList.remove('hidden');
+                input.value = '';
+                input.focus();
+                showToast(message, 'error');
+            }
+        }
+
+        function pickScanInventoryChoice(inventoryId) {
+            const input = document.getElementById('pickBarcodeInput');
+            input.value = `PKG-${inventoryId}`;
+            pickScanBarcode();
+        }
+
+        function pickAddToRelease() {
+            if (!pickCurrentScan) return;
+
+            if (pickModalDR && pickModalDR.items && pickModalDR.items.length > 0) {
+                const scannedProductId = pickCurrentScan.product_id;
+                const matchingItem = pickModalDR.items.find(item => item.product_id == scannedProductId);
+
+                if (!matchingItem) {
+                    const drProductNames = pickModalDR.items.map(i => ProductDisplay.name(i)).join(', ');
+                    pickBlockOverScan(`This product (${ProductDisplay.name(pickCurrentScan)}) is NOT on this picking ticket! Required: ${drProductNames}`);
+                    return;
+                }
+
+                const remaining = pickGetRemainingQty(scannedProductId);
+                if (remaining <= 0) {
+                    pickBlockOverScan('Cannot exceed ordered quantity');
+                    document.getElementById('pickScanResult')?.classList.add('hidden');
+                    return;
+                }
+            }
+
+            const labels = PackUnits.unitLabels(pickCurrentScan);
+            const availableBoxes = PackUnits.readBoxes(pickCurrentScan);
+            const totalAvailable = PackUnits.totalBase(pickCurrentScan);
+            const availableDisplay = PackUnits.formatQuantity(pickCurrentScan, { preferSplit: true });
+            const packLine = PackUnits.formatPackLine(pickCurrentScan);
+            const orderRemaining = pickGetRemainingQty(pickCurrentScan.product_id);
+            const alreadySelectedFromBatch = pickScannedItems
+                .filter(item => Number(item.id) === Number(pickCurrentScan.id))
+                .reduce((sum, item) => sum + (Number(item.releaseTotal) || 0), 0);
+            const batchRemaining = Math.max(0, totalAvailable - alreadySelectedFromBatch);
+
+            if (batchRemaining <= 0) {
+                pickBlockOverScan('All available stock from this batch is already selected.');
+                return;
+            }
+
+            const maxAllowed = Number.isFinite(orderRemaining)
+                ? Math.min(batchRemaining, orderRemaining)
+                : batchRemaining;
+            const piecesPerBox = Math.max(1, Number(labels.piecesPerPack) || 1);
+
+            document.getElementById('pickQtyInventoryId').value = pickCurrentScan.id;
+            document.getElementById('pickQtyProduct').textContent = ProductDisplay.name(pickCurrentScan);
+            document.getElementById('pickQtyBatch').textContent = pickCurrentScan.batch_code;
+            document.getElementById('pickQtyAvailable').textContent = alreadySelectedFromBatch > 0
+                ? `${availableDisplay} (${alreadySelectedFromBatch.toLocaleString()} already selected)`
+                : availableDisplay;
+            document.getElementById('pickQtyPackConfig').textContent = packLine;
+            document.getElementById('pickQtyBoxesLabel').textContent = labels.pack;
+            document.getElementById('pickQtyPiecesLabel').textContent = labels.base;
+            document.getElementById('pickQtyBoxes').value = 0;
+            document.getElementById('pickQtyBoxes').max = Math.max(
+                0,
+                Math.min(availableBoxes, Math.floor(maxAllowed / piecesPerBox))
+            );
+            document.getElementById('pickQtyPieces').value = 0;
+            document.getElementById('pickQtyPieces').max = Math.max(0, maxAllowed);
+            document.getElementById('pickQtyTotalPieces').textContent = '0';
+            document.getElementById('pickQtyValidation').textContent = '';
+
+            pickCurrentScan._piecesPerBox = piecesPerBox;
+            pickCurrentScan._totalAvailable = batchRemaining;
+            pickCurrentScan._orderRemaining = orderRemaining;
+            pickCurrentScan._maxAllowed = maxAllowed;
+            pickCurrentScan._baseLabel = labels.base;
+
+            pickCalcTotal();
+            document.getElementById('pickQuantityModal').showModal();
+
+            const preferredInput = availableBoxes > 0
+                ? document.getElementById('pickQtyBoxes')
+                : document.getElementById('pickQtyPieces');
+            setTimeout(() => {
+                preferredInput?.focus();
+                preferredInput?.select();
+            }, 0);
+        }
+
+        function pickCalcTotal() {
+            if (!pickCurrentScan) return;
+            const piecesPerBox = pickCurrentScan._piecesPerBox || 1;
+            const boxes = parseInt(document.getElementById('pickQtyBoxes').value) || 0;
+            const pieces = parseInt(document.getElementById('pickQtyPieces').value) || 0;
+            const total = (boxes * piecesPerBox) + pieces;
+            const baseLabel = (pickCurrentScan._baseLabel || 'units').toLowerCase();
+
+            document.getElementById('pickQtyTotalPieces').textContent = `${total.toLocaleString()} ${baseLabel}`;
+
+            const maxAvailable = pickCurrentScan._totalAvailable || 0;
+            const orderRemaining = pickCurrentScan._orderRemaining;
+            const validationEl = document.getElementById('pickQtyValidation');
+
+            if (total > maxAvailable) {
+                validationEl.textContent = `Exceeds available stock (${maxAvailable.toLocaleString()} ${baseLabel} max)`;
+                validationEl.className = 'text-xs text-error mt-2';
+            } else if (Number.isFinite(orderRemaining) && total > orderRemaining) {
+                validationEl.textContent = `Cannot exceed ordered quantity (only ${orderRemaining.toLocaleString()} remaining on ticket)`;
+                validationEl.className = 'text-xs text-error mt-2 font-semibold';
+            } else if (total === 0) {
+                const remHint = Number.isFinite(orderRemaining) ? ` — ${orderRemaining.toLocaleString()} still needed on order` : '';
+                validationEl.textContent = `Enter quantity to release${remHint}`;
+                validationEl.className = 'text-xs text-base-content/60 mt-2';
+            } else {
+                const stockLeft = maxAvailable - total;
+                const orderLeft = Number.isFinite(orderRemaining) ? orderRemaining - total : null;
+                let msg = `${stockLeft.toLocaleString()} ${baseLabel} stock will remain`;
+                if (orderLeft !== null) msg += ` · ${orderLeft.toLocaleString()} still needed on order`;
+                validationEl.textContent = msg;
+                validationEl.className = 'text-xs text-success mt-2';
+            }
+        }
+
+        function pickPiecesAutoPack(e) {
+            if (!pickCurrentScan) return;
+            const ppb = Math.max(1, parseInt(pickCurrentScan._piecesPerBox) || 1);
+            const piecesInput = document.getElementById('pickQtyPieces');
+            const boxesInput = document.getElementById('pickQtyBoxes');
+            let rawPieces = e && e.target ? (parseInt(e.target.value) || 0) : (parseInt(piecesInput.value) || 0);
+
+            if (ppb <= 1 || rawPieces < ppb) {
+                pickCalcTotal();
+                return;
+            }
+
+            const existingBoxes = parseInt(boxesInput.value) || 0;
+            const extraBoxes = Math.floor(rawPieces / ppb);
+            const remainingPieces = rawPieces % ppb;
+
+            boxesInput.value = existingBoxes + extraBoxes;
+            piecesInput.value = remainingPieces;
+
+            pickCalcTotal();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('pickQuantityForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const piecesPerBox = pickCurrentScan._piecesPerBox || 1;
+                const releaseBoxes = parseInt(document.getElementById('pickQtyBoxes').value) || 0;
+                const releasePieces = parseInt(document.getElementById('pickQtyPieces').value) || 0;
+                const totalRelease = (releaseBoxes * piecesPerBox) + releasePieces;
+                const maxAvailable = pickCurrentScan._totalAvailable || 0;
+
+                if (totalRelease <= 0) { showToast('Please enter a quantity to release', 'warning'); return; }
+                if (totalRelease > maxAvailable) { showToast('Quantity exceeds available stock', 'warning'); return; }
+
+                const pickCheck = pickValidateAgainstOrder(pickCurrentScan.product_id, totalRelease);
+                if (!pickCheck.ok) { pickBlockOverScan(pickCheck.message); return; }
+
+                if (pickEditIndex >= 0 && pickEditIndex < pickScannedItems.length) {
+                    // Editing existing item
+                    pickScannedItems[pickEditIndex].releaseBoxes = releaseBoxes;
+                    pickScannedItems[pickEditIndex].releasePieces = releasePieces;
+                    pickScannedItems[pickEditIndex].releaseTotal = totalRelease;
+                } else {
+                    // New scan — add or merge
+                    const existingIndex = pickScannedItems.findIndex(
+                        item => Number(item.id) === Number(pickCurrentScan.id)
+                    );
+                    if (existingIndex >= 0) {
+                        pickScannedItems[existingIndex].releaseBoxes += releaseBoxes;
+                        pickScannedItems[existingIndex].releasePieces += releasePieces;
+                        pickScannedItems[existingIndex].releaseTotal += totalRelease;
+                    } else {
+                        pickScannedItems.push({
+                            ...pickCurrentScan,
+                            releaseBoxes,
+                            releasePieces,
+                            releaseTotal: totalRelease,
+                            piecesPerBox
+                        });
+                    }
+                }
+
+                pickEditIndex = -1;
+                pickRenderItems();
+                document.getElementById('pickQuantityModal').close();
+                document.getElementById('pickScanResult').classList.add('hidden');
+                showToast('Item updated', 'success');
+                document.getElementById('pickBarcodeInput')?.focus();
+            });
+        });
+
+        function pickRenderItems() {
+            const tbody = document.getElementById('pickScannedItemsTable');
+            if (pickScannedItems.length === 0) {
+                pickResetScannedTable();
+                document.getElementById('pickBtnConfirm').disabled = true;
+                pickUpdateProgress();
+                return;
+            }
+
+            let grandTotal = 0;
+            tbody.innerHTML = pickScannedItems.map((item, index) => {
+                grandTotal += item.releaseTotal;
+                return `
+                <tr>
+                    <td>
+                        <div class="font-medium">${escapeHtml(ProductDisplay.name(item))}</div>
+                        <div class="text-xs text-base-content/60">${escapeHtml(item.product_sku || item.product_code || '')}</div>
+                    </td>
+                    <td><code class="text-xs">${escapeHtml(item.batch_code)}</code></td>
+                    <td>${item.expiry_date ? new Date(item.expiry_date).toLocaleDateString() : 'N/A'}</td>
+                    <td class="text-right font-bold text-primary">${item.releaseTotal}</td>
+                    <td>
+                        <div class="flex items-center gap-1">
+                            <button class="btn btn-ghost btn-xs text-primary" onclick="pickEditItem(${index})" title="Edit quantity">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-xs text-error" onclick="pickRemoveItem(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            tbody.innerHTML += `
+                <tr class="bg-primary/10 font-bold">
+                    <td colspan="3" class="text-right">Grand Total:</td>
+                    <td class="text-right text-primary text-lg">${grandTotal.toLocaleString()} pcs</td>
+                    <td></td>
+                </tr>`;
+
+            document.getElementById('pickScannedCount').textContent = `${pickScannedItems.length} ${pickScannedItems.length === 1 ? 'batch' : 'batches'} · ${grandTotal} units`;
+            pickUpdateProgress();
+        }
+
+        function pickResetScannedTable() {
+            document.getElementById('pickScannedItemsTable').innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-6 text-base-content/60">
+                        <i class="fas fa-barcode text-3xl mb-2 opacity-30"></i>
+                        <p>Scan items to add to release list</p>
+                    </td>
+                </tr>`;
+            document.getElementById('pickScannedCount').textContent = '0 batches';
+        }
+
+        function pickRemoveItem(index) {
+            pickScannedItems.splice(index, 1);
+            pickRenderItems();
+        }
+
+        function pickEditItem(index) {
+            const item = pickScannedItems[index];
+            if (!item) return;
+            pickEditIndex = index;
+            pickCurrentScan = item;
+
+            const labels = PackUnits.unitLabels(item);
+            const availableBoxes = PackUnits.readBoxes(item);
+            const totalAvailable = PackUnits.totalBase(item);
+            const availableDisplay = PackUnits.formatQuantity(item, { preferSplit: true });
+            const packLine = PackUnits.formatPackLine(item);
+
+            document.getElementById('pickQtyInventoryId').value = item.id;
+            document.getElementById('pickQtyProduct').textContent = ProductDisplay.name(item);
+            document.getElementById('pickQtyBatch').textContent = item.batch_code;
+            document.getElementById('pickQtyAvailable').textContent = availableDisplay;
+            document.getElementById('pickQtyPackConfig').textContent = packLine;
+            document.getElementById('pickQtyBoxesLabel').textContent = labels.pack;
+            document.getElementById('pickQtyPiecesLabel').textContent = labels.base;
+            document.getElementById('pickQtyBoxes').value = item.releaseBoxes || 0;
+            document.getElementById('pickQtyBoxes').max = Math.max(0, availableBoxes);
+            document.getElementById('pickQtyPieces').value = item.releasePieces || 0;
+            document.getElementById('pickQtyTotalPieces').textContent = `${item.releaseTotal || 0} ${labels.base}`;
+            document.getElementById('pickQtyValidation').textContent = '';
+
+            item._piecesPerBox = labels.piecesPerPack;
+            item._totalAvailable = totalAvailable;
+            let scannedQty = pickGetScannedQty(item.product_id);
+            if (item.releaseTotal) scannedQty -= item.releaseTotal;
+            const line = (pickModalDR.items || []).find(i => i.product_id == item.product_id);
+            item._orderRemaining = line ? Math.max(0, pickGetRequiredQty(line) - scannedQty) : Infinity;
+            item._maxAllowed = Number.isFinite(item._orderRemaining) ? Math.min(totalAvailable, item._orderRemaining) : totalAvailable;
+            item._baseLabel = labels.base;
+
+            // Auto-pack saved pieces into boxes+pieces on modal open
+            pickPiecesAutoPack();
+            document.getElementById('pickQuantityModal').showModal();
+        }
+
+        async function pickClearScanned() {
+            if (pickScannedItems.length === 0) return;
+            const confirmed = await AppDialogs.confirm({
+                title: 'Clear all scanned items?',
+                message: 'All scans currently staged for this delivery receipt will be removed.',
+                confirmText: 'Clear Scans',
+                variant: 'danger',
+                icon: 'fa-trash-can'
+            });
+            if (!confirmed) return;
+            pickScannedItems = [];
+            pickRenderItems();
+        }
+
+        async function pickConfirmRelease() {
+            if (pickScannedItems.length === 0) { showToast('No items to release', 'warning'); return; }
+            if (!pickModalDR) { showToast('No picking ticket loaded', 'warning'); return; }
+
+            if (pickModalDR.items && pickModalDR.items.length > 0) {
+                for (const line of pickModalDR.items) {
+                    const required = pickGetRequiredQty(line);
+                    const scanned = pickGetScannedQty(line.product_id);
+                    if (scanned > required) {
+                        pickBlockOverScan(`Cannot exceed ordered quantity for ${ProductDisplay.name(line)} (${scanned}/${required}).`);
+                        return;
+                    }
+                }
+                for (const staged of pickScannedItems) {
+                    const onTicket = pickModalDR.items.some(i => i.product_id == staged.product_id);
+                    if (!onTicket) {
+                        pickBlockOverScan(`${ProductDisplay.name(staged)} is not on this picking ticket.`);
+                        return;
+                    }
+                }
+            }
+
+            const confirmed = await AuthService.confirmAction({
+                title: 'Generate Delivery Receipt',
+                message: `Generate DR for ${pickScannedItems.length} picked items?\n\nThis will assign an official DR number and deduct inventory.`,
+                confirmText: 'Generate DR',
+                tone: 'success',
+                icon: 'fa-truck'
+            });
+            if (!confirmed) return;
+
+            try {
+                const items = pickScannedItems.map(i => ({
+                    inventory_id: i.id,
+                    product_id: i.product_id,
+                    quantity_boxes: i.releaseBoxes,
+                    quantity_pieces: i.releasePieces,
+                    total_pieces: i.releaseTotal,
+                    barcode: i.batch_code
+                }));
+
+                const response = await WarehouseFGService.finalizePicking(pickModalDR.id, items);
+                const drNumber = response.data?.dr_number || 'DR generated';
+                const finalDrId = response.data?.id || pickModalDR.id;
+
+                pickScannedItems = [];
+                pickModalDR = null;
+                document.getElementById('pickingModal').close();
+
+                showToast(`${drNumber} generated successfully!`, 'success');
+
+                await loadDeliveryReceipts();
+                await loadApprovedOrders();
+
+                await AuthService.confirmAction({
+                    title: 'Print Delivery Receipt',
+                    message: 'Print the paper DR now for Driver and Customer signatures.',
+                    highlight: drNumber,
+                    highlightLabel: 'Delivery Receipt',
+                    callout: 'The truck cannot be dispatched until the DR is printed.',
+                    calloutTone: 'warning',
+                    confirmText: 'Continue to Print',
+                    confirmIcon: 'fa-print',
+                    tone: 'success',
+                    icon: 'fa-print'
+                });
+
+                if (typeof printDR === 'function') {
+                    printDR(finalDrId);
+                } else {
+                    window.open(`delivery_receipts.html?print=${finalDrId}`, '_blank');
+                }
+
+            } catch (error) {
+                console.error('Finalize error:', error);
+                const errMsg = error.response?.data?.message || error?.message || 'Failed to generate DR';
+                showToast(errMsg, 'error');
+            }
+        }
+
+        // ---- Picking Modal Helpers ----
+
+        function pickGetScannedQty(productId) {
+            return pickScannedItems
+                .filter(i => i.product_id == productId)
+                .reduce((sum, i) => sum + (i.releaseTotal || 0), 0);
+        }
+
+        function pickGetRequiredQty(item) {
+            return parseInt(item.quantity_ordered ?? item.quantity, 10) || 0;
+        }
+
+        function pickGetRemainingQty(productId) {
+            if (!pickModalDR || !pickModalDR.items) return Infinity;
+            const line = pickModalDR.items.find(i => i.product_id == productId);
+            if (!line) return 0;
+            return Math.max(0, pickGetRequiredQty(line) - pickGetScannedQty(productId));
+        }
+
+        function pickValidateAgainstOrder(productId, addQty) {
+            if (!pickModalDR || !pickModalDR.items || !pickModalDR.items.length) return { ok: true };
+            const line = pickModalDR.items.find(i => i.product_id == productId);
+            if (!line) return { ok: false, message: 'This product is NOT on this picking ticket.' };
+            const required = pickGetRequiredQty(line);
+            let already = pickGetScannedQty(productId);
+            if (pickEditIndex >= 0 && pickEditIndex < pickScannedItems.length) {
+                already -= (pickScannedItems[pickEditIndex].releaseTotal || 0);
+            }
+            const add = parseInt(addQty, 10) || 0;
+            if (add <= 0) return { ok: false, message: 'Quantity must be greater than zero.' };
+            if (already + add > required) return { ok: false, message: 'Cannot exceed ordered quantity' };
+            return { ok: true };
+        }
+
+        function pickPlayErrorSound() {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                const ctx = new Ctx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(180, ctx.currentTime);
+                osc.frequency.setValueAtTime(120, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.12, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+                setTimeout(() => ctx.close().catch(() => {}), 400);
+            } catch (_) {}
+        }
+
+        function pickBlockOverScan(message) {
+            pickPlayErrorSound();
+            showToast(message || 'Cannot exceed ordered quantity', 'error');
+            const input = document.getElementById('pickBarcodeInput');
+            if (input) { input.value = ''; input.focus(); }
+        }
+
+        function pickRenderRequiredRow(item) {
+            const scannedQty = pickGetScannedQty(item.product_id);
+            const requiredQty = pickGetRequiredQty(item);
+            let rowClass = 'text-base-content/80';
+            let icon = '';
+            let countClass = 'font-mono';
+
+            if (requiredQty > 0 && scannedQty === requiredQty) {
+                rowClass = 'text-success font-medium';
+                icon = '<i class="fas fa-check-circle mr-1"></i>';
+                countClass = 'font-mono font-semibold text-success';
+            } else if (scannedQty > requiredQty) {
+                rowClass = 'text-error font-semibold';
+                icon = '<i class="fas fa-times-circle mr-1"></i>';
+                countClass = 'font-mono font-bold text-error';
+            } else if (scannedQty > 0) {
+                rowClass = 'text-warning';
+                icon = '<i class="fas fa-hourglass-half mr-1 opacity-70"></i>';
+                countClass = 'font-mono text-warning';
+            }
+
+            return `<div class="pick-required-row ${rowClass}">
+                <span class="pick-required-name">${icon}${escapeHtml(ProductDisplay.name(item))}</span>
+                <span class="${countClass} shrink-0">${scannedQty} / ${requiredQty} picked</span>
+            </div>`;
+        }
+
+        function pickUpdateProgress() {
+            if (!pickModalDR || !pickModalDR.items) return;
+            const listEl = document.getElementById('pickRequiredItemsList');
+            if (!listEl) return;
+            listEl.innerHTML = `
+                <div class="font-semibold">Items to pick</div>
+                ${pickModalDR.items.map(pickRenderRequiredRow).join('')}
+            `;
+
+            // Update progress bar and label
+            const totalRequired = pickModalDR.items.reduce((sum, item) => sum + pickGetRequiredQty(item), 0);
+            const totalScanned = pickScannedItems.reduce((sum, item) => sum + (item.releaseTotal || 0), 0);
+            const labelEl = document.getElementById('pickProgressLabel');
+            const barEl = document.getElementById('pickProgressBar');
+            if (labelEl) {
+                labelEl.textContent = `${totalScanned} / ${totalRequired} units picked`;
+            }
+            if (barEl && totalRequired > 0) {
+                barEl.value = Math.min(100, Math.round((totalScanned / totalRequired) * 100));
+            }
+
+            // Enable/disable Generate DR button based on quantity completion
+            const btn = document.getElementById('pickBtnConfirm');
+            if (btn) {
+                const isComplete = totalRequired > 0 && totalScanned >= totalRequired;
+                btn.disabled = !isComplete;
+                if (isComplete) {
+                    btn.className = 'btn btn-lg flex-1 max-w-sm text-lg font-bold shadow-lg bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer';
+                } else {
+                    btn.className = 'btn btn-lg flex-1 max-w-sm text-lg font-bold shadow-lg bg-gray-200 text-gray-400 cursor-not-allowed';
+                }
+            }
+        }
+
+        async function pickOverrideFIFO() {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Override FIFO',
+                message: 'Override FIFO and continue with this batch? This will be logged.',
+                confirmText: 'Override FIFO',
+                tone: 'warning',
+                icon: 'fa-triangle-exclamation'
+            });
+            if (confirmed) {
+                document.getElementById('pickFifoWarning').classList.add('hidden');
+                showToast('FIFO overridden — item already added', 'info');
+            }
+        }
+
+        // ---- Camera Scanner ----
+
+        function setPickCameraStatus(message, tone = 'info', icon = 'fa-camera') {
+            const status = document.getElementById('pickCameraStatus');
+            const text = document.getElementById('pickCameraStatusText');
+            if (!status || !text) return;
+            status.className = `alert alert-${tone} mt-3 py-2 text-sm`;
+            status.querySelector('i').className = `fas ${icon}`;
+            text.textContent = message;
+        }
+
+        function pickCameraStartMessage(error) {
+            const name = String(error?.name || '');
+            const message = String(error?.message || error || '');
+            if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+                return 'Phone camera access requires HTTPS. Open the secure https:// site and try again.';
+            }
+            if (name === 'NotAllowedError' || /permission|denied/i.test(message)) {
+                return 'Camera permission was denied. Allow camera access in the browser site settings, then reopen the scanner.';
+            }
+            if (name === 'NotFoundError' || /not found|no camera/i.test(message)) {
+                return 'No usable camera was found on this device.';
+            }
+            if (name === 'NotReadableError' || /could not start|in use/i.test(message)) {
+                return 'The camera is busy in another app. Close that app, then reopen the scanner.';
+            }
+            return `Camera could not start: ${message || 'unknown camera error'}`;
+        }
+
+        async function pickOpenCamera() {
+            const modal = document.getElementById('pickCameraModal');
+            modal.showModal();
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            document.getElementById('pickScanFeedback').classList.add('hidden');
+            clearTimeout(pickCameraHintTimer);
+            setPickCameraStatus('Requesting camera access…', 'info', 'fa-spinner fa-spin');
+
+            try {
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    throw new Error('This browser does not provide camera access here. Use HTTPS and a current browser.');
+                }
+                pickHtml5QrCode = new Html5Qrcode("pickCameraPreview");
+                await pickHtml5QrCode.start(
+                    { facingMode: "environment" },
+                    {
+                        fps: 10,
+                        // Compact CODE128 labels fit this phone-friendly guide.
+                        qrbox: { width: 280, height: 140 },
+                        formatsToSupport: [
+                            Html5QrcodeSupportedFormats.CODE_128,
+                            Html5QrcodeSupportedFormats.EAN_13,
+                            Html5QrcodeSupportedFormats.CODE_39,
+                            Html5QrcodeSupportedFormats.QR_CODE
+                        ]
+                    },
+                    (decodedText) => {
+                        document.getElementById('pickScanFeedback').classList.remove('hidden');
+                        document.getElementById('pickScannedCode').textContent = decodedText;
+                        clearTimeout(pickCameraHintTimer);
+                        setPickCameraStatus('Barcode recognized. Checking inventory…', 'success', 'fa-circle-check');
+                        document.getElementById('pickBarcodeInput').value = decodedText;
+                        setTimeout(() => { pickCloseCamera(); pickScanBarcode(); }, 500);
+                    },
+                    () => {}
+                );
+                setPickCameraStatus('Camera ready. Aim at the complete horizontal barcode.', 'info', 'fa-camera');
+                pickCameraHintTimer = setTimeout(() => {
+                    setPickCameraStatus(
+                        'No code detected yet. Move closer, avoid glare, and keep both ends of the barcode inside the guide.',
+                        'warning',
+                        'fa-lightbulb'
+                    );
+                }, 8000);
+            } catch (err) {
+                console.error('Failed to start camera:', err);
+                const message = pickCameraStartMessage(err);
+                setPickCameraStatus(message, 'error', 'fa-triangle-exclamation');
+                showToast(message, 'error');
+                if (pickHtml5QrCode) {
+                    try { pickHtml5QrCode.clear(); } catch (_) {}
+                    pickHtml5QrCode = null;
+                }
+            }
+        }
+
+        async function pickCloseCamera() {
+            clearTimeout(pickCameraHintTimer);
+            if (pickHtml5QrCode) {
+                try { await pickHtml5QrCode.stop(); pickHtml5QrCode.clear(); } catch (_) {}
+                pickHtml5QrCode = null;
+            }
+            document.getElementById('pickCameraModal').close();
+        }
+
+        document.getElementById('pickCameraModal').addEventListener('close', () => {
+            clearTimeout(pickCameraHintTimer);
+            if (pickHtml5QrCode) {
+                pickHtml5QrCode.stop().catch(() => {});
+                pickHtml5QrCode = null;
+            }
+        });
+
+        // ==================== END PICKING MODAL ====================
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                    document.getElementById('userInitials').textContent = `${user.first_name[0]}${user.last_name[0]}`;
+                }
+                await loadDeliveryReceipts();
+                await loadCustomers();
+                await loadApprovedOrders();
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+
+        async function loadReturnsForDR(drId) {
+            try {
+                const response = await api.get('/warehouse/fg/returns.php', {
+                    params: { action: 'list', dr_id: drId }
+                });
+
+                const returns = response.data.data || [];
+
+                if (returns.length > 0) {
+                    const reasonLabels = {
+                        'damaged_in_transit': 'Damaged in Transit',
+                        'customer_rejection': 'Customer Rejection',
+                        'wrong_order': 'Wrong Order',
+                        'customer_not_available': 'Customer Not Available',
+                        'wrong_address': 'Wrong Address',
+                        'expired_near_expiry': 'Expired/Near Expiry',
+                        'quality_issue': 'Quality Issue',
+                        'other': 'Other'
+                    };
+
+                    const conditionLabels = {
+                        'resellable': 'Resellable',
+                        'damaged': 'Damaged',
+                        'expired': 'Expired',
+                        'qc_hold': 'QC Hold'
+                    };
+
+                    const dispositionLabels = {
+                        'return_to_inventory': 'Returned to Inventory',
+                        'dispose': 'Dispose',
+                        'qc_review': 'QC Review',
+                        'pending': 'Pending'
+                    };
+
+                    document.getElementById('drReturnsTable').innerHTML = returns.map(ret => `
+                        <tr>
+                            <td>${escapeHtml(ProductDisplay.name(ret))}</td>
+                            <td>${formatBatchBadge(ret.batch_code)}</td>
+                            <td class="text-right font-semibold text-warning">${ret.quantity_returned}</td>
+                            <td><span class="badge badge-sm badge-outline">${reasonLabels[ret.return_reason] || ret.return_reason}</span></td>
+                            <td><span class="badge badge-sm ${ret.condition === 'resellable' ? 'badge-success' : ret.condition === 'qc_hold' ? 'badge-warning' : 'badge-error'}">${escapeHtml(conditionLabels[ret.condition] || ret.condition)}</span></td>
+                            <td><span class="badge badge-sm badge-ghost">${dispositionLabels[ret.disposition] || ret.disposition}</span></td>
+                        </tr>
+                    `).join('');
+
+                    document.getElementById('returnsSection').style.display = 'block';
+                } else {
+                    document.getElementById('returnsSection').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Failed to load returns:', error);
+                document.getElementById('returnsSection').style.display = 'none';
+            }
+        }
+
+        async function loadApprovedOrders() {
+            try {
+                const response = await api.get('/sales/orders.php?action=list&status=approved');
+                const orders = response.data || [];
+                renderApprovedOrders(orders);
+            } catch (error) {
+                console.error('Failed to load approved orders:', error);
+                document.getElementById('approvedOrdersTable').innerHTML = `
+                    <tr><td colspan="7" class="text-center py-4 text-error">Failed to load orders</td></tr>`;
+            }
+        }
+
+        function renderApprovedOrders(orders) {
+            const tbody = document.getElementById('approvedOrdersTable');
+            document.getElementById('approvedOrdersCount').textContent = orders.length;
+
+            if (!orders || orders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-base-content/60">
+                    <i class="fas fa-check-circle text-success mr-2"></i>No pending orders - all caught up!</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = orders.map(o => {
+                const hasItems = (o.item_count || 0) > 0;
+                const stockReady = Number(o.stock_ready || 0) === 1;
+                const shortageNames = (o.stock_shortages || [])
+                    .map(item => `${ProductDisplay.name(item)}: ${item.remaining} more needed`)
+                    .join('; ');
+                return `
+                <tr class="hover ${(!hasItems || !stockReady) ? 'bg-warning/10' : ''}">
+                    <td class="font-mono font-medium text-sm">${o.order_number || 'ORD-' + o.id}</td>
+                    <td>
+                        <div class="font-medium">${escapeHtml(o.customer_name || 'Unknown')}</div>
+                        <div class="text-xs text-base-content/60">${escapeHtml(o.customer_type || '')}</div>
+                    </td>
+                    <td class="text-sm">${o.delivery_date ? new Date(o.delivery_date).toLocaleDateString() : '-'}</td>
+                    <td class="text-center">
+                        ${hasItems ? `
+                            <button class="btn btn-xs btn-ghost text-primary hover:underline" onclick="viewOrderItems(${o.id}, '${o.order_number || ''}')">
+                                ${o.item_count} items
+                            </button>
+                        ` : `
+                            <span class="badge badge-warning badge-sm" title="No items in order - contact Sales">
+                                <i class="fas fa-exclamation-triangle mr-1"></i> 0 items
+                            </span>
+                        `}
+                    </td>
+                    <td>
+                        ${stockReady
+                            ? '<span class="badge badge-success badge-sm"><i class="fas fa-check mr-1"></i>Ready to pick</span>'
+                            : `<span class="badge badge-warning badge-sm" title="${escapeHtml(shortageNames)}"><i class="fas fa-clock mr-1"></i>Waiting for stock</span>`}
+                    </td>
+                    <td class="text-right font-mono">₱${Number(o.total_amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="btn btn-xs btn-ghost" onclick="viewOrderItems(${o.id}, '${o.order_number || ''}')" title="View Items">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            ${hasItems && stockReady ? `
+                                <button class="btn btn-sm btn-primary" onclick="createDRFromOrder(${o.id}, '${o.order_number || ''}')">
+                                    <i class="fas fa-clipboard-check"></i> Start Picking
+                                </button>
+                            ` : `
+                                <button class="btn btn-sm btn-disabled" disabled title="${hasItems ? escapeHtml(shortageNames) : 'Order has no items'}">
+                                    <i class="fas ${hasItems ? 'fa-clock' : 'fa-ban'}"></i> ${hasItems ? 'Waiting' : 'No Items'}
+                                </button>
+                            `}
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        // View order items in modal
+        async function viewOrderItems(orderId, orderNumber) {
+            document.getElementById('viewOrderItemsModal').showModal();
+            document.getElementById('viewOrderNumber').textContent = orderNumber;
+            const tbody = document.getElementById('orderItemsTable');
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4"><span class="loading loading-spinner"></span> Loading...</td></tr>`;
+
+            try {
+                const response = await api.get('/sales/orders.php?action=detail&id=' + orderId);
+                const order = response.data;
+
+                if (!order.items || order.items.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8">
+                        <div class="flex flex-col items-center gap-2 text-warning">
+                            <i class="fas fa-exclamation-triangle text-3xl"></i>
+                            <p class="font-semibold">No Items in This Order</p>
+                            <p class="text-sm text-base-content/60">Please contact the Sales Custodian to add products to this order before it can be prepared for dispatch.</p>
+                        </div>
+                    </td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = order.items.map(item => `
+                    <tr>
+                        <td>
+                            <div class="font-medium">${escapeHtml(ProductDisplay.name(item))}</div>
+                            <div class="text-xs text-base-content/60">${escapeHtml(item.product_code || '')}</div>
+                        </td>
+                        <td class="text-center">${item.quantity || item.quantity_ordered || 0}</td>
+                        <td class="text-right">₱${Number(item.unit_price || 0).toFixed(2)}</td>
+                        <td class="text-right font-medium">₱${Number(item.line_total || item.subtotal || 0).toFixed(2)}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load order items:', error);
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-error">Failed to load items</td></tr>`;
+            }
+        }
+
+        async function createDRFromOrder(orderId, orderNumber) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Start Picking',
+                message: 'Start picking items for order ' + orderNumber + '?\n\nYou will scan/pick items, then generate the final DR.',
+                confirmText: 'Start Picking',
+                tone: 'primary',
+                icon: 'fa-clipboard-list'
+            });
+            if (!confirmed) return;
+            try {
+                const response = await api.post('/warehouse/fg/delivery_receipts.php?action=create_from_order', {
+                    order_id: orderId
+                });
+
+                if (typeof response !== 'object' || response === null) {
+                    throw new Error('Server returned an invalid response while creating the picking ticket.');
+                }
+                if (response.success === false) {
+                    throw new Error(response.message || 'Failed to create picking ticket');
+                }
+
+                const payload = (response.data && typeof response.data === 'object' && !Array.isArray(response.data))
+                    ? response.data
+                    : response;
+                const pickId = payload.id || payload.dr_id || null;
+
+                if (!pickId) {
+                    throw new Error(response.message || 'Picking ticket created but no ticket id was returned.');
+                }
+
+                showToast(response.message || 'Picking ticket created. Scan items now.', 'success');
+
+                await loadDeliveryReceipts();
+                await loadApprovedOrders();
+                goToPickItems(pickId);
+
+            } catch (error) {
+                console.error('Error creating picking ticket:', error);
+                const msg = error?.message
+                    || error?.response?.data?.message
+                    || (typeof error === 'string' ? error : null)
+                    || 'Failed to create picking ticket';
+                showToast(msg, 'error');
+            }
+        }
+
+        async function loadDeliveryReceipts() {
+            try {
+                const response = await WarehouseFGService.getDeliveryReceipts();
+                deliveryReceipts = response.data || [];
+                renderDRTable(deliveryReceipts);
+            } catch (error) {
+                console.error('Failed to load DRs:', error);
+                document.getElementById('drTable').innerHTML = `
+                    <tr><td colspan="7" class="text-center py-8 text-error">Failed to load delivery receipts</td></tr>`;
+            }
+        }
+
+        async function loadCustomers() {
+            try {
+                const response = await WarehouseFGService.getCustomers();
+                customers = response.data || [];
+            } catch (error) {
+                console.error('Failed to load customers:', error);
+            }
+        }
+
+        function loadCustomersByType() {
+            const type = document.getElementById('drCustomerType').value;
+            const select = document.getElementById('drCustomer');
+            select.innerHTML = '<option value="">Select customer...</option>';
+
+            const filtered = type ? customers.filter(c => c.customer_type === type) : customers;
+            filtered.forEach(c => {
+                select.innerHTML += `<option value="${c.id}" data-address="${c.address || ''}">${c.name}</option>`;
+            });
+        }
+
+        function renderDRTable(drs) {
+            const tbody = document.getElementById('drTable');
+
+            if (!drs || drs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-base-content/60">No delivery receipts found</td></tr>`;
+                return;
+            }
+
+            const statusColors = {
+                'draft': 'badge-ghost',
+                'pending': 'badge-warning',
+                'preparing': 'badge-info',
+                'ready': 'badge-accent',
+                'dispatched': 'badge-success badge-outline',
+                'delivered': 'badge-success',
+                'cancelled': 'badge-error'
+            };
+            const statusLabels = {
+                draft: 'Draft',
+                pending: 'Pending',
+                picking: 'Picking',
+                preparing: 'Preparing',
+                ready: 'Reserved',
+                dispatched: 'In Transit',
+                delivered: 'Delivered',
+                cancelled: 'Cancelled'
+            };
+
+            tbody.innerHTML = drs.map(dr => {
+                const isPrinted = !!dr.printed_at;
+                let actions = '';
+
+                if (dr.status === 'preparing' || dr.status === 'picking') {
+                    actions += `
+                        <button class="btn btn-xs btn-info" onclick="goToPickItems(${dr.id})" title="Open this ticket in the dedicated barcode scanner">
+                            <i class="fas fa-barcode"></i> Open Scanner
+                        </button>`;
+                }
+
+                if (dr.status === 'ready') {
+                    actions += `
+                        <button class="btn btn-xs ${isPrinted ? 'btn-outline' : 'btn-success'} gap-1" onclick="printDR(${dr.id})" title="Print paper DR for driver &amp; customer signatures">
+                            <i class="fas fa-print"></i> Print DR
+                        </button>`;
+                    actions += `
+                        <button class="btn btn-xs btn-primary gap-1" onclick="quickDispatch(${dr.id})" title="Dispatch truck (verify print + dispatch)">
+                            <i class="fas fa-truck"></i> Dispatch
+                        </button>`;
+                }
+
+                if (dr.status === 'dispatched') {
+                    actions += `
+                        <button class="btn btn-xs btn-warning gap-1" onclick="driverBack(${dr.id})" title="Driver Returned — Mark Delivered">
+                            <i class="fas fa-clipboard-check"></i> Driver Back
+                        </button>`;
+                }
+
+                if (dr.status === 'delivered') {
+                    actions += `
+                        <button class="btn btn-ghost btn-xs" onclick="viewDRDetails(${dr.id})" title="View details">
+                            <i class="fas fa-eye"></i>
+                        </button>`;
+                    actions += `
+                        <button class="btn btn-ghost btn-xs text-base-content/50" onclick="printDR(${dr.id})" title="Archive reprint (delivery already complete)">
+                            <i class="fas fa-print"></i>
+                        </button>`;
+                }
+
+                if (!actions) {
+                    actions = `
+                        <button class="btn btn-ghost btn-xs" onclick="viewDRDetails(${dr.id})" title="View details">
+                            <i class="fas fa-eye"></i>
+                        </button>`;
+                }
+
+                return `
+                <tr>
+                    <td><code class="font-mono font-semibold">${escapeHtml(dr.dr_number)}</code></td>
+                    <td>
+                        <div class="font-medium">${escapeHtml(dr.customer_name)}</div>
+                        <div class="text-xs text-base-content/60">${escapeHtml(dr.sub_location || '')}</div>
+                    </td>
+                    <td><span class="badge badge-outline badge-sm">${escapeHtml(dr.customer_type || 'N/A')}</span></td>
+                    <td>${dr.item_count || 0} items</td>
+                    <td>${new Date(dr.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <span class="badge ${statusColors[dr.status] || 'badge-ghost'} badge-sm">${escapeHtml(statusLabels[dr.status] || dr.status)}</span>
+                        ${dr.status === 'ready' && !isPrinted ? '<span class="badge badge-error badge-xs ml-1">Print needed</span>' : ''}
+                        ${dr.status === 'ready' && isPrinted ? '<span class="badge badge-success badge-xs ml-1">Printed</span>' : ''}
+                    </td>
+                    <td>
+                        <div class="flex flex-wrap gap-1">${actions}</div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function filterDRs() {
+            const search = document.getElementById('searchDR').value;
+            const status = document.getElementById('statusFilter').value;
+            const from = document.getElementById('fromDate').value;
+            const to = document.getElementById('toDate').value;
+
+            let filtered = deliveryReceipts.filter(dr => {
+                const matchSearch = LookupNormalization.matches([
+                    dr.dr_number,
+                    dr.order_number,
+                    dr.customer_name,
+                    dr.delivery_address,
+                    dr.sub_location
+                ], search);
+                const matchStatus = !status || dr.status === status;
+                const matchFrom = !from || new Date(dr.created_at) >= new Date(from);
+                const matchTo = !to || new Date(dr.created_at) <= new Date(to + 'T23:59:59');
+                return matchSearch && matchStatus && matchFrom && matchTo;
+            });
+
+            renderDRTable(filtered);
+        }
+
+        function openCreateDRModal() {
+            document.getElementById('createDRForm').reset();
+            document.getElementById('drCustomer').innerHTML = '<option value="">Select customer...</option>';
+            document.getElementById('createDRModal').showModal();
+        }
+
+        document.getElementById('createDRForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const customerSelect = document.getElementById('drCustomer');
+            const selectedOption = customerSelect.options[customerSelect.selectedIndex];
+
+            const data = {
+                customer_type: document.getElementById('drCustomerType').value,
+                customer_name: selectedOption.text,
+                customer_id: document.getElementById('drCustomer').value,
+                delivery_address: document.getElementById('drAddress').value,
+                contact_number: document.getElementById('drContact').value,
+                sub_location: document.getElementById('drSubLocation').value,
+                notes: document.getElementById('drNotes').value
+            };
+
+            try {
+                const response = await WarehouseFGService.createDeliveryReceipt(data);
+                showToast(`DR ${response.data.dr_number} created successfully!`, 'success');
+                document.getElementById('createDRModal').close();
+                await loadDeliveryReceipts();
+            } catch (error) {
+                console.error('Failed to create DR:', error);
+                showToast('Failed to create delivery receipt', 'error');
+            }
+        });
+
+        /** Format printed production batch code for DR tables. */
+        function formatBatchBadge(batchCode) {
+            const code = (batchCode || '').toString().trim();
+            if (!code || code === 'N/A' || code === 'null') {
+                return '<span class="drd-batch drd-batch--missing" title="Batch ID missing — re-pick or check inventory link">Missing</span>';
+            }
+            return `<span class="drd-batch" title="Production Batch ID">${escapeHtml(code)}</span>`;
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function statusBadgeClass(status) {
+            const map = {
+                delivered: 'badge-success',
+                dispatched: 'badge-primary',
+                ready: 'badge-info',
+                picking: 'badge-warning',
+                preparing: 'badge-warning',
+                pending: 'badge-ghost',
+                cancelled: 'badge-error'
+            };
+            return map[status] || 'badge-ghost';
+        }
+
+        async function viewDRDetails(id) {
+            try {
+                const response = await WarehouseFGService.getDeliveryReceipt(id);
+                currentDR = response.data || response;
+
+                document.getElementById('detailDRNumber').textContent = currentDR.dr_number;
+                const statusEl = document.getElementById('detailDRStatus');
+                statusEl.textContent = currentDR.status;
+                statusEl.className = `badge badge-sm capitalize ${statusBadgeClass(currentDR.status)}`;
+                document.getElementById('detailCustomer').textContent = currentDR.customer_name || '—';
+                document.getElementById('detailType').textContent = currentDR.customer_type || '—';
+                document.getElementById('detailAddress').textContent = currentDR.delivery_address || '—';
+                document.getElementById('detailCreated').textContent = currentDR.created_at
+                    ? new Date(currentDR.created_at).toLocaleString()
+                    : '—';
+
+                const items = currentDR.items || [];
+                if (items.length > 0) {
+                    let total = 0;
+                    document.getElementById('drItemsTable').innerHTML = items.map(item => {
+                        const qty = parseFloat(item.quantity_picked || item.quantity_packed || item.quantity || item.quantity_ordered) || 0;
+                        const price = parseFloat(item.unit_price) || 0;
+                        const lineTotal = parseFloat(item.total_price) || (qty * price);
+                        total += lineTotal;
+                        return `
+                            <tr>
+                                <td>
+                                    <div class="font-medium">${escapeHtml(ProductDisplay.name(item))}</div>
+                                    ${item.product_sku ? `<div class="text-xs text-base-content/45">${escapeHtml(item.product_sku)}</div>` : ''}
+                                </td>
+                                <td>${formatBatchBadge(item.batch_code)}</td>
+                                <td class="num">${qty}</td>
+                                <td class="num">₱${price.toFixed(2)}</td>
+                                <td class="num">₱${lineTotal.toFixed(2)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    document.getElementById('drGrandTotal').textContent = `₱${total.toFixed(2)}`;
+                } else {
+                    document.getElementById('drItemsTable').innerHTML =
+                        `<tr><td colspan="5" class="text-center text-base-content/50 py-6">No items yet</td></tr>`;
+                    document.getElementById('drGrandTotal').textContent = '₱0.00';
+                }
+
+                // Load returns if DR is dispatched or delivered
+                if (currentDR.status === 'dispatched' || currentDR.status === 'delivered') {
+                    await loadReturnsForDR(id);
+                } else {
+                    document.getElementById('returnsSection').style.display = 'none';
+                }
+
+                // Show/hide action buttons based on workflow state
+                // Print is operational at ready/dispatched; archive-only after delivered
+                const isPrinted = !!currentDR.printed_at;
+                const printBtn = document.getElementById('btnPrintDR');
+                const dispatchBtn = document.getElementById('btnDispatchDR');
+                const printHint = document.getElementById('drPrintHint');
+
+                document.getElementById('btnPickItems').style.display =
+                    (currentDR.status === 'preparing' || currentDR.status === 'picking') ? 'inline-flex' : 'none';
+
+                if (currentDR.status === 'ready') {
+                    printBtn.style.display = 'inline-flex';
+                    printBtn.className = !isPrinted
+                        ? 'btn btn-success btn-sm gap-2'
+                        : 'btn btn-outline btn-sm gap-2';
+                    printBtn.innerHTML = !isPrinted
+                        ? '<i class="fas fa-print"></i> Print DR (Required)'
+                        : '<i class="fas fa-print"></i> Print DR';
+                } else if (currentDR.status === 'dispatched') {
+                    printBtn.style.display = 'inline-flex';
+                    printBtn.className = 'btn btn-outline btn-sm gap-2';
+                    printBtn.innerHTML = '<i class="fas fa-print"></i> Print DR';
+                } else if (currentDR.status === 'delivered') {
+                    printBtn.style.display = 'inline-flex';
+                    printBtn.className = 'btn btn-ghost btn-sm gap-2';
+                    printBtn.innerHTML = '<i class="fas fa-print"></i> Reprint (archive)';
+                } else {
+                    printBtn.style.display = 'none';
+                }
+
+                if (currentDR.status === 'ready') {
+                    dispatchBtn.style.display = 'inline-flex';
+                    if (isPrinted) {
+                        dispatchBtn.disabled = false;
+                        dispatchBtn.classList.remove('btn-disabled', 'opacity-50');
+                        dispatchBtn.title = 'Dispatch truck with printed paper DR';
+                    } else {
+                        dispatchBtn.disabled = false; // still clickable → guides user to print
+                        dispatchBtn.classList.add('opacity-70');
+                        dispatchBtn.title = 'Print the paper DR first';
+                    }
+                    if (printHint) printHint.classList.toggle('hidden', isPrinted);
+                } else {
+                    dispatchBtn.style.display = 'none';
+                    if (printHint) printHint.classList.add('hidden');
+                }
+
+                document.getElementById('btnProcessReturns').style.display =
+                    (currentDR.status === 'dispatched' && !currentDR.returns_processed) ? 'inline-flex' : 'none';
+
+                document.getElementById('btnMarkDelivered').style.display =
+                    (currentDR.status === 'dispatched' && currentDR.returns_processed) ? 'inline-flex' : 'none';
+
+                document.getElementById('drDetailsModal').showModal();
+
+                // Auto-open print after Generate DR redirect (?print=id)
+                const autoPrint = new URLSearchParams(window.location.search).get('print');
+                if (autoPrint && String(autoPrint) === String(id) && currentDR.status === 'ready' && !isPrinted) {
+                    // Clear query so refresh doesn't loop
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('print');
+                    window.history.replaceState({}, '', url);
+                    setTimeout(() => printDR(id), 400);
+                }
+            } catch (error) {
+                console.error('Failed to load DR details:', error);
+                showToast('Failed to load DR details', 'error');
+            }
+        }
+
+        async function ensureDRPrinted(drId, dr = null) {
+            const raw = dr || (await WarehouseFGService.getDeliveryReceipt(drId));
+            const record = raw.data || raw;
+            if (record.printed_at) return true;
+
+            const goPrint = await AuthService.confirmAction({
+                title: 'Print Required Before Dispatch',
+                message:
+                    'The paper Delivery Receipt must be printed before the truck leaves.\n\n' +
+                    'It includes Driver (Delivered By) and Customer (Received By) signature lines.',
+                highlight: record.dr_number || '',
+                highlightLabel: 'Delivery Receipt',
+                callout: 'The truck cannot be dispatched until the DR is printed.',
+                calloutTone: 'warning',
+                confirmText: 'Print DR Now',
+                confirmIcon: 'fa-print',
+                tone: 'success',
+                icon: 'fa-print'
+            });
+            if (!goPrint) return false;
+
+            // printDR now records printed_at after operator confirmation
+            const printed = await printDR(drId);
+            if (printed) return true;
+
+            const refreshedResponse = await WarehouseFGService.getDeliveryReceipt(drId);
+            const refreshed = refreshedResponse.data || refreshedResponse;
+            return !!(refreshed?.printed_at);
+        }
+
+        async function promptPrintBeforeDispatch(id) {
+            showToast('Print the Delivery Receipt before dispatching the truck.', 'warning');
+            await ensureDRPrinted(id);
+            await loadDeliveryReceipts();
+        }
+
+        async function dispatchDR() {
+            if (!currentDR) return;
+
+            if (currentDR.status !== 'ready') {
+                showToast('Only Ready DRs can be dispatched', 'warning');
+                return;
+            }
+
+            const printed = await ensureDRPrinted(currentDR.id, currentDR);
+            if (!printed) {
+                showToast('Dispatch cancelled — print the paper DR first', 'warning');
+                return;
+            }
+
+            const confirmed = await AuthService.confirmAction({
+                title: 'Dispatch Truck',
+                message:
+                    'Confirm the printed DR is with the driver and dispatch this delivery?\n\n' +
+                    'Status will change to Dispatched (truck left the facility).',
+                confirmText: 'Dispatch Truck',
+                tone: 'success',
+                icon: 'fa-truck'
+            });
+            if (!confirmed) return;
+
+            try {
+                await WarehouseFGService.releaseDR(currentDR.id);
+                showToast('Truck dispatched. Driver should return the signed paper DR.', 'success');
+                document.getElementById('drDetailsModal').close();
+                await loadDeliveryReceipts();
+            } catch (error) {
+                console.error('Failed to dispatch DR:', error);
+                showToast(error.response?.data?.message || 'Failed to dispatch DR', 'error');
+            }
+        }
+
+        async function quickDispatch(id) {
+            try {
+                const response = await WarehouseFGService.getDeliveryReceipt(id);
+                const dr = response.data || response;
+                if (dr.status !== 'ready') {
+                    showToast('DR must be Ready to dispatch', 'warning');
+                    return;
+                }
+                const printed = await ensureDRPrinted(id, dr);
+                if (!printed) {
+                    showToast('Dispatch cancelled — print the paper DR first', 'warning');
+                    return;
+                }
+
+                const confirmed = await AuthService.confirmAction({
+                    title: 'Dispatch Truck',
+                    message: 'Paper DR is printed. Dispatch this delivery now?',
+                    confirmText: 'Dispatch Truck',
+                    tone: 'success',
+                    icon: 'fa-truck'
+                });
+                if (!confirmed) return;
+
+                await WarehouseFGService.releaseDR(id);
+                showToast('Truck dispatched successfully!', 'success');
+                await loadDeliveryReceipts();
+            } catch (error) {
+                showToast(error.response?.data?.message || 'Failed to dispatch', 'error');
+            }
+        }
+
+        async function quickMarkDelivered(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Complete Delivery',
+                message: 'Mark this delivery as completed?',
+                confirmText: 'Mark Completed',
+                tone: 'success',
+                icon: 'fa-check-circle'
+            });
+            if (!confirmed) return;
+
+            try {
+                await api.put('/warehouse/fg/delivery_receipts.php', {
+                    action: 'deliver',
+                    id: id
+                });
+                showToast('Delivery confirmed!', 'success');
+                await loadDeliveryReceipts();
+            } catch (error) {
+                console.error('Failed to mark delivered:', error);
+                showToast(error.response?.data?.message || 'Failed to confirm delivery', 'error');
+            }
+        }
+
+        async function driverBack(id) {
+            try {
+                const response = await WarehouseFGService.getDeliveryReceipt(id);
+                currentDR = response.data || response;
+                if (!currentDR || !currentDR.id) {
+                    showToast('Failed to load delivery receipt', 'error');
+                    return;
+                }
+                if (currentDR.status !== 'dispatched') {
+                    showToast('DR must be dispatched first', 'warning');
+                    return;
+                }
+                openReturnsModal();
+            } catch (error) {
+                console.error('Failed to load DR:', error);
+                showToast('Failed to load delivery receipt', 'error');
+            }
+        }
+
+        /**
+         * Business-rule map: return reason → default condition + stock destination.
+         * Backend re-validates the same mapping (never trust UI alone).
+         */
+        const RETURN_REASON_ROUTING = {
+            damaged_in_transit: {
+                condition: 'damaged',
+                disposition: 'dispose',
+                route: 'disposal',
+                label: '→ Disposal (damaged — not restocked)'
+            },
+            quality_issue: {
+                condition: 'damaged',
+                disposition: 'dispose',
+                route: 'disposal',
+                label: '→ Disposal (quality issue — not restocked)'
+            },
+            expired_near_expiry: {
+                condition: 'expired',
+                disposition: 'dispose',
+                route: 'disposal',
+                label: '→ Disposal (expired — not restocked)'
+            },
+            customer_rejection: {
+                condition: 'resellable',
+                disposition: 'return_to_inventory',
+                route: 'inventory',
+                label: '→ FG Inventory (resellable restock)'
+            },
+            wrong_order: {
+                condition: 'resellable',
+                disposition: 'return_to_inventory',
+                route: 'inventory',
+                label: '→ FG Inventory (resellable restock)'
+            },
+            customer_not_available: {
+                condition: 'resellable',
+                disposition: 'return_to_inventory',
+                route: 'inventory',
+                label: '→ FG Inventory (resellable restock)'
+            },
+            wrong_address: {
+                condition: 'resellable',
+                disposition: 'return_to_inventory',
+                route: 'inventory',
+                label: '→ FG Inventory (resellable restock)'
+            },
+            other: {
+                condition: 'qc_hold',
+                disposition: 'qc_review',
+                route: 'qc',
+                label: '→ QC Hold (review required — not restocked)'
+            }
+        };
+
+        function getDispatchedQtyForItem(item) {
+            return Math.max(
+                0,
+                parseInt(item.quantity_packed, 10) || 0,
+                parseInt(item.quantity_picked, 10) || 0,
+                parseInt(item.quantity_ordered, 10) || 0,
+                parseInt(item.quantity, 10) || 0
+            );
+        }
+
+        function applyReasonRouting(index) {
+            const reasonEl = document.getElementById(`return_reason_${index}`);
+            const condEl = document.getElementById(`return_condition_${index}`);
+            const routeEl = document.getElementById(`return_route_hint_${index}`);
+            if (!reasonEl || !condEl) return null;
+
+            const map = RETURN_REASON_ROUTING[reasonEl.value];
+            if (map) {
+                condEl.value = map.condition;
+                if (routeEl) {
+                    routeEl.className =
+                        'text-xs mt-1 font-medium ' +
+                        (map.route === 'inventory'
+                            ? 'text-success'
+                            : map.route === 'qc'
+                                ? 'text-warning'
+                                : 'text-error');
+                    routeEl.innerHTML = `<i class="fas ${map.route === 'inventory' ? 'fa-warehouse' : map.route === 'qc' ? 'fa-microscope' : 'fa-trash-alt'} mr-1"></i>${map.label}`;
+                    routeEl.classList.remove('hidden');
+                }
+                return map;
+            }
+            if (routeEl) {
+                routeEl.classList.add('hidden');
+                routeEl.textContent = '';
+            }
+            return null;
+        }
+
+        /**
+         * Context-aware Verify Delivery footer + hard qty validation.
+         * - Qty = 0 everywhere → green "Complete Delivery — All Good"
+         * - Any Qty > 0 → warning "Record Returns & Complete"
+         * - Qty > dispatched → red error, disable submit
+         */
+        function updateVerifyDeliveryActions() {
+            const items = currentDR?.items || [];
+            let anyReturns = false;
+            let hasOverQty = false;
+            let hasMissingReason = false;
+
+            items.forEach((item, index) => {
+                const qtyEl = document.getElementById(`return_qty_${index}`);
+                const reasonEl = document.getElementById(`return_reason_${index}`);
+                const reasonLabel = document.getElementById(`return_reason_label_${index}`);
+                const errEl = document.getElementById(`return_qty_error_${index}`);
+                if (!qtyEl || !reasonEl) return;
+
+                const maxQty = parseInt(qtyEl.getAttribute('max') || qtyEl.dataset.maxDispatched || '0', 10) || 0;
+                let qty = parseInt(qtyEl.value, 10);
+                if (Number.isNaN(qty) || qty < 0) qty = 0;
+
+                // Clamp display if user typed over max (still show error)
+                const over = qty > maxQty;
+                if (over) hasOverQty = true;
+
+                const hasReturn = qty > 0;
+                if (hasReturn) anyReturns = true;
+                if (hasReturn && !reasonEl.value) hasMissingReason = true;
+
+                qtyEl.classList.toggle('input-error', over);
+                if (errEl) {
+                    if (over) {
+                        errEl.textContent = `Cannot return more than dispatched (${maxQty}).`;
+                        errEl.classList.remove('hidden');
+                    } else {
+                        errEl.textContent = '';
+                        errEl.classList.add('hidden');
+                    }
+                }
+
+                const cond = document.getElementById(`condition_${index}_container`);
+                const notes = document.getElementById(`notes_${index}_container`);
+                const routeWrap = document.getElementById(`return_route_${index}`);
+                if (cond) cond.style.display = hasReturn ? 'block' : 'none';
+                if (notes) notes.style.display = hasReturn ? 'block' : 'none';
+                if (routeWrap) routeWrap.style.display = hasReturn ? 'block' : 'none';
+
+                reasonEl.required = hasReturn;
+                if (reasonLabel) {
+                    reasonLabel.innerHTML = hasReturn
+                        ? 'Reason <span class="text-error">*</span>'
+                        : 'Reason';
+                }
+                if (!hasReturn) {
+                    reasonEl.classList.remove('select-error');
+                } else if (!reasonEl.value) {
+                    reasonEl.classList.add('select-error');
+                } else {
+                    reasonEl.classList.remove('select-error');
+                    applyReasonRouting(index);
+                }
+            });
+
+            const btn = document.getElementById('btnCompleteDelivery');
+            const label = document.getElementById('btnCompleteDeliveryLabel');
+            const globalErr = document.getElementById('verifyDeliveryGlobalError');
+            const btnRecord = document.getElementById('btnRecordReturns');
+            if (btnRecord) btnRecord.style.display = 'none';
+
+            if (btn) {
+                const invalid = hasOverQty || (anyReturns && hasMissingReason);
+                btn.disabled = invalid;
+                btn.classList.toggle('btn-disabled', invalid);
+
+                if (anyReturns) {
+                    btn.className = `btn btn-warning btn-sm gap-2${invalid ? ' btn-disabled' : ''}`;
+                    if (label) label.textContent = 'Record Returns & Complete';
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-undo';
+                    btn.dataset.mode = 'returns';
+                } else {
+                    btn.className = 'btn btn-success btn-sm gap-2';
+                    if (label) label.textContent = 'Complete Delivery — All Good';
+                    const icon = btn.querySelector('i');
+                    if (icon) icon.className = 'fas fa-check';
+                    btn.dataset.mode = 'all_good';
+                    btn.disabled = false;
+                }
+            }
+
+            if (globalErr) {
+                if (hasOverQty) {
+                    globalErr.textContent = 'Fix over-return quantities before completing.';
+                    globalErr.classList.remove('hidden');
+                } else if (anyReturns && hasMissingReason) {
+                    globalErr.textContent = 'Select a return reason for every line with Qty Returned > 0.';
+                    globalErr.classList.remove('hidden');
+                } else {
+                    globalErr.textContent = '';
+                    globalErr.classList.add('hidden');
+                }
+            }
+        }
+
+        function handleVerifyDeliveryPrimary() {
+            const btn = document.getElementById('btnCompleteDelivery');
+            if (btn?.disabled) {
+                showToast(document.getElementById('verifyDeliveryGlobalError')?.textContent || 'Fix validation errors first', 'error');
+                return;
+            }
+            if (btn?.dataset.mode === 'returns') {
+                submitReturns();
+            } else {
+                submitNoReturns();
+            }
+        }
+
+        async function openReturnsModal() {
+            if (!currentDR) return;
+
+            const items = currentDR.items || [];
+
+            if (items.length === 0) {
+                showToast('No items found in this DR', 'error');
+                return;
+            }
+
+            // Build returns form (enterprise cards, no heavy gray blocks)
+            const returnsHTML = items.map((item, index) => {
+                const dispatchedQty = getDispatchedQtyForItem(item);
+                return `
+                <div class="vd-item" data-return-index="${index}" data-dispatched="${dispatchedQty}">
+                    <div class="vd-item__head">
+                        <div>
+                            <div class="vd-item__name">${escapeHtml(ProductDisplay.name(item))}</div>
+                            <div class="vd-item__meta">
+                                Batch ID: ${formatBatchBadge(item.batch_code)}
+                                <span class="mx-1">·</span>
+                                Dispatched: <strong id="return_dispatched_label_${index}">${dispatchedQty}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="form-control">
+                            <label class="label py-1">
+                                <span class="label-text text-xs font-semibold uppercase tracking-wide text-base-content/50">Qty Returned</span>
+                                <span class="label-text-alt text-xs text-base-content/40">Max ${dispatchedQty}</span>
+                            </label>
+                            <input type="number" id="return_qty_${index}"
+                                class="input input-bordered input-sm return-qty-input"
+                                min="0" max="${dispatchedQty}" value="0" step="1"
+                                data-index="${index}"
+                                data-max-dispatched="${dispatchedQty}"
+                                inputmode="numeric">
+                            <p id="return_qty_error_${index}" class="text-error text-xs font-semibold mt-1 hidden" role="alert"></p>
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-1">
+                                <span class="label-text text-xs font-semibold uppercase tracking-wide text-base-content/50" id="return_reason_label_${index}">Reason</span>
+                            </label>
+                            <select id="return_reason_${index}" class="select select-bordered select-sm return-reason-select" data-index="${index}">
+                                <option value="">— Select reason —</option>
+                                <option value="damaged_in_transit">Damaged in Transit</option>
+                                <option value="customer_rejection">Customer Rejection / Over-ordered</option>
+                                <option value="wrong_order">Wrong Order</option>
+                                <option value="customer_not_available">Customer Not Available</option>
+                                <option value="wrong_address">Wrong Address</option>
+                                <option value="expired_near_expiry">Expired/Near Expiry</option>
+                                <option value="quality_issue">Quality Issue / Leaking</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <p id="return_route_hint_${index}" class="text-xs mt-1 font-medium hidden"></p>
+                        </div>
+                        <div class="form-control sm:col-span-2" id="condition_${index}_container" style="display: none;">
+                            <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wide text-base-content/50">Condition / Destination</span></label>
+                            <select id="return_condition_${index}" class="select select-bordered select-sm">
+                                <option value="resellable">Resellable → Return to FG Inventory</option>
+                                <option value="damaged">Damaged → Disposal</option>
+                                <option value="expired">Expired → Disposal</option>
+                                <option value="qc_hold">QC Hold → Review (not restocked)</option>
+                            </select>
+                            <div id="return_route_${index}" class="mt-1" style="display:none;"></div>
+                        </div>
+                        <div class="form-control sm:col-span-2" id="notes_${index}_container" style="display: none;">
+                            <label class="label py-1"><span class="label-text text-xs font-semibold uppercase tracking-wide text-base-content/50">Notes</span></label>
+                            <textarea id="return_notes_${index}" class="textarea textarea-bordered textarea-sm" rows="2" placeholder="Optional details…"></textarea>
+                        </div>
+                    </div>
+
+                    <input type="hidden" id="return_dr_item_id_${index}" value="${item.id}">
+                    <input type="hidden" id="return_product_id_${index}" value="${Number(item.product_id) || 0}">
+                    <input type="hidden" id="return_batch_id_${index}" value="${Number(item.batch_id) || ''}">
+                </div>
+            `;
+            }).join('');
+
+            document.getElementById('returnsContent').innerHTML = returnsHTML;
+
+            items.forEach((item, index) => {
+                const qtyInput = document.getElementById(`return_qty_${index}`);
+                const reasonSelect = document.getElementById(`return_reason_${index}`);
+                const condSelect = document.getElementById(`return_condition_${index}`);
+                const maxQty = getDispatchedQtyForItem(item);
+
+                qtyInput.addEventListener('input', () => {
+                    // Soft-clamp: if > max, leave value so error shows (do not silently strip)
+                    updateVerifyDeliveryActions();
+                });
+                qtyInput.addEventListener('change', () => {
+                    let v = parseInt(qtyInput.value, 10);
+                    if (Number.isNaN(v) || v < 0) v = 0;
+                    if (v > maxQty) {
+                        // Keep over value briefly then force max after warning
+                        qtyInput.value = maxQty;
+                    }
+                    updateVerifyDeliveryActions();
+                });
+                qtyInput.addEventListener('blur', () => {
+                    let v = parseInt(qtyInput.value, 10);
+                    if (Number.isNaN(v) || v < 0) qtyInput.value = 0;
+                    else if (v > maxQty) qtyInput.value = maxQty;
+                    updateVerifyDeliveryActions();
+                });
+
+                reasonSelect.addEventListener('change', function () {
+                    if (this.value !== '') {
+                        const qty = parseInt(qtyInput.value, 10) || 0;
+                        if (qty === 0) qtyInput.value = 1;
+                    }
+                    applyReasonRouting(index);
+                    updateVerifyDeliveryActions();
+                });
+
+                if (condSelect) {
+                    condSelect.addEventListener('change', () => {
+                        const routeEl = document.getElementById(`return_route_hint_${index}`);
+                        const c = condSelect.value;
+                        if (!routeEl) return;
+                        if (c === 'resellable') {
+                            routeEl.className = 'text-xs mt-1 font-medium text-success';
+                            routeEl.innerHTML = '<i class="fas fa-warehouse mr-1"></i>→ FG Inventory (resellable restock)';
+                        } else if (c === 'qc_hold') {
+                            routeEl.className = 'text-xs mt-1 font-medium text-warning';
+                            routeEl.innerHTML = '<i class="fas fa-microscope mr-1"></i>→ QC Hold (not restocked)';
+                        } else {
+                            routeEl.className = 'text-xs mt-1 font-medium text-error';
+                            routeEl.innerHTML = '<i class="fas fa-trash-alt mr-1"></i>→ Disposal (not restocked)';
+                        }
+                        routeEl.classList.remove('hidden');
+                    });
+                }
+            });
+
+            updateVerifyDeliveryActions();
+            document.getElementById('returnsModal').showModal();
+        }
+
+        async function submitReturns() {
+            if (!currentDR) return;
+
+            const items = currentDR.items || [];
+            const returns = [];
+
+            // Hard client validation before API
+            for (let i = 0; i < items.length; i++) {
+                const qtyEl = document.getElementById(`return_qty_${i}`);
+                const qty = parseInt(qtyEl?.value || 0, 10) || 0;
+                const maxQty = parseInt(qtyEl?.getAttribute('max') || '0', 10) || getDispatchedQtyForItem(items[i]);
+                const reasonEl = document.getElementById(`return_reason_${i}`);
+                const reason = reasonEl?.value || '';
+
+                if (qty > maxQty) {
+                    showToast(`Cannot return ${qty}: only ${maxQty} dispatched for ${ProductDisplay.name(items[i])}`, 'error');
+                    qtyEl?.focus();
+                    updateVerifyDeliveryActions();
+                    return;
+                }
+
+                if (qty > 0) {
+                    if (!reason) {
+                        reasonEl?.classList.add('select-error');
+                        reasonEl?.focus();
+                        showToast('Reason is required when Qty Returned is greater than 0', 'error');
+                        return;
+                    }
+                    reasonEl.classList.remove('select-error');
+
+                    // Prefer reason map, then condition dropdown
+                    const mapped = RETURN_REASON_ROUTING[reason];
+                    let condition = document.getElementById(`return_condition_${i}`)?.value || mapped?.condition || 'resellable';
+                    let disposition = mapped?.disposition || (
+                        condition === 'resellable' ? 'return_to_inventory' :
+                        condition === 'qc_hold' ? 'qc_review' : 'dispose'
+                    );
+                    // Hard override: condition still wins if user overrode destination
+                    if (condition === 'resellable') disposition = 'return_to_inventory';
+                    else if (condition === 'qc_hold') disposition = 'qc_review';
+                    else if (condition === 'damaged' || condition === 'expired') disposition = 'dispose';
+
+                    returns.push({
+                        dr_item_id: document.getElementById(`return_dr_item_id_${i}`).value,
+                        product_id: document.getElementById(`return_product_id_${i}`).value,
+                        batch_id: document.getElementById(`return_batch_id_${i}`).value || null,
+                        quantity_returned: qty,
+                        return_reason: reason,
+                        condition: condition,
+                        disposition: disposition,
+                        notes: document.getElementById(`return_notes_${i}`)?.value || null
+                    });
+                }
+            }
+
+            if (returns.length === 0) {
+                showToast('Enter a return quantity greater than 0, or use Complete Delivery', 'warning');
+                return;
+            }
+
+            const totalQtyReturned = returns.reduce((sum, r) => sum + r.quantity_returned, 0);
+            const restockN = returns.filter(r => r.disposition === 'return_to_inventory').length;
+            const disposeN = returns.filter(r => r.disposition === 'dispose').length;
+
+            // Populate custom confirmation modal
+            document.getElementById('confirmTotalQty').textContent = totalQtyReturned;
+            document.getElementById('confirmRestockLabel').textContent = `${restockN} line(s) returning to Restock`;
+            document.getElementById('confirmDisposalLabel').textContent = `${disposeN} line(s) routed to Disposal`;
+
+            // Hide cards with zero counts
+            document.getElementById('confirmRestockCard').style.display = restockN > 0 ? '' : 'none';
+            document.getElementById('confirmDisposalCard').style.display = disposeN > 0 ? '' : 'none';
+
+            // Store returns data for the confirm handler
+            window._pendingReturns = { drId: currentDR.id, returns };
+            document.getElementById('confirmReturnsModal').showModal();
+        }
+
+        async function confirmReturnsSubmit() {
+            const pending = window._pendingReturns;
+            if (!pending) return;
+
+            document.getElementById('confirmReturnsModal').close();
+
+            try {
+                await api.post('/warehouse/fg/returns.php', {
+                    action: 'record_returns',
+                    dr_id: pending.drId,
+                    returns: pending.returns
+                });
+
+                // Now mark as delivered
+                await api.put('/warehouse/fg/delivery_receipts.php', {
+                    action: 'deliver',
+                    id: pending.drId
+                });
+
+                showToast('Returns recorded and delivery confirmed!', 'success');
+                document.getElementById('returnsModal').close();
+                document.getElementById('drDetailsModal').close();
+                await loadDeliveryReceipts();
+            } catch (error) {
+                console.error('Failed to record returns:', error);
+                showToast(error.response?.data?.message || 'Failed to record returns', 'error');
+            } finally {
+                window._pendingReturns = null;
+            }
+        }
+
+        async function submitNoReturns() {
+            if (!currentDR) return;
+
+            const confirmed = await AuthService.confirmAction({
+                title: 'Confirm No Returns',
+                message: 'Confirm all items were delivered successfully (no returns)?',
+                confirmText: 'Confirm',
+                tone: 'success',
+                icon: 'fa-check-circle'
+            });
+            if (!confirmed) return;
+
+            try {
+                await api.post('/warehouse/fg/returns.php', {
+                    action: 'no_returns',
+                    dr_id: currentDR.id
+                });
+
+                // Now mark as delivered
+                await api.put('/warehouse/fg/delivery_receipts.php', {
+                    action: 'deliver',
+                    id: currentDR.id
+                });
+
+                showToast('No returns — delivery confirmed!', 'success');
+                document.getElementById('returnsModal').close();
+                document.getElementById('drDetailsModal').close();
+                await loadDeliveryReceipts();
+            } catch (error) {
+                console.error('Failed to mark no returns:', error);
+                showToast(error.response?.data?.message || 'Failed to process', 'error');
+            }
+        }
+
+        async function markDelivered() {
+            if (!currentDR) return;
+
+            const confirmed = await AuthService.confirmAction({
+                title: 'Complete Delivery',
+                message: 'Confirm this delivery has been completed?\n\nThis will mark the order as delivered and make it available for collection.',
+                confirmText: 'Complete Delivery',
+                tone: 'success',
+                icon: 'fa-check-circle'
+            });
+            if (!confirmed) return;
+
+            try {
+                await api.put('/warehouse/fg/delivery_receipts.php', {
+                    action: 'deliver',
+                    id: currentDR.id
+                });
+                showToast('Delivery confirmed successfully!', 'success');
+                document.getElementById('drDetailsModal').close();
+                await loadDeliveryReceipts();
+            } catch (error) {
+                console.error('Failed to mark delivered:', error);
+                showToast(error.response?.data?.message || 'Failed to confirm delivery', 'error');
+            }
+        }
+
+        function editDR(id) {
+            showToast('Edit feature coming soon', 'info');
+        }
+
+        function goToPickItems(drId) {
+            const pickingTicketId = Number(drId);
+            if (!Number.isInteger(pickingTicketId) || pickingTicketId <= 0) {
+                showToast('Unable to open the scanner because the picking ticket is invalid.', 'error');
+                return;
+            }
+            window.location.href = `dispatch.html?pick=${encodeURIComponent(pickingTicketId)}`;
+        }
+
+        function goToDispatch(drNumber) {
+            window.location.href = `dispatch.html?ticket=${encodeURIComponent(drNumber)}`;
+        }
+
+        function goToPickItemsFromModal() {
+            if (!currentDR) return;
+            document.getElementById('drDetailsModal').close();
+            goToPickItems(currentDR.id);
+        }
+
+        function printCurrentDR() {
+            if (!currentDR) return;
+            printDR(currentDR.id);
+        }
+
+        /**
+         * Apply printed state to in-memory list + open modal (no full page reload).
+         */
+        function applyPrintedState(drId, printedAt) {
+            const stamp = printedAt || new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+            const idx = (deliveryReceipts || []).findIndex(d => String(d.id) === String(drId));
+            if (idx >= 0) {
+                deliveryReceipts[idx].printed_at = stamp;
+                deliveryReceipts[idx].is_printed = true;
+                renderDRTable(deliveryReceipts);
+            }
+
+            if (currentDR && String(currentDR.id) === String(drId)) {
+                currentDR.printed_at = stamp;
+                currentDR.is_printed = true;
+
+                const printBtn = document.getElementById('btnPrintDR');
+                const printHint = document.getElementById('drPrintHint');
+                const dispatchBtn = document.getElementById('btnDispatchDR');
+
+                if (printBtn && currentDR.status === 'ready') {
+                    printBtn.className = 'btn btn-outline btn-sm gap-2';
+                    printBtn.innerHTML = '<i class="fas fa-print"></i> Print DR';
+                    printBtn.style.display = 'inline-flex';
+                }
+                if (printHint) printHint.classList.add('hidden');
+                if (dispatchBtn && currentDR.status === 'ready') {
+                    dispatchBtn.style.display = 'inline-flex';
+                    dispatchBtn.disabled = false;
+                    dispatchBtn.classList.remove('opacity-70', 'btn-disabled');
+                    dispatchBtn.title = 'Dispatch truck with printed paper DR';
+                }
+            }
+        }
+
+        /**
+         * Persist print flag on server, then unlock Dispatch in the UI.
+         * @returns {Promise<boolean>}
+         */
+        async function recordDRPrinted(drId, drNumber) {
+            try {
+                const res = await WarehouseFGService.markDRPrinted(drId, drNumber);
+                // api interceptor unwraps to { success, message, data }
+                const payload = res?.data || res || {};
+                if (res && res.success === false) {
+                    throw new Error(res.message || 'Failed to mark DR as printed');
+                }
+                const printedAt = payload.printed_at || new Date().toISOString().slice(0, 19).replace('T', ' ');
+                applyPrintedState(drId, printedAt);
+                return true;
+            } catch (err) {
+                console.error('mark_printed failed:', err);
+                const msg = err?.message || err?.response?.data?.message || 'Could not record print status on server';
+                showToast(msg, 'error');
+                return false;
+            }
+        }
+
+        /**
+         * Print Delivery Receipt paper form.
+         * window.print() has no reliable success callback — we open the preview,
+         * then ask the operator to confirm print success before unlocking Dispatch.
+         */
+        function waitForDRPrintDialog(printWindow, drId) {
+            return new Promise((resolve) => {
+                let settled = false;
+                const finish = () => {
+                    if (settled) return;
+                    settled = true;
+                    window.removeEventListener('message', onMessage);
+                    window.clearInterval(closePoll);
+                    window.clearTimeout(timeout);
+                    resolve();
+                };
+                const onMessage = (event) => {
+                    if (event.origin !== window.location.origin) return;
+                    if (event.source !== printWindow) return;
+                    if (event.data?.type !== 'highland-dr-print-dialog-closed') return;
+                    if (Number(event.data?.drId) !== Number(drId)) return;
+                    finish();
+                };
+                const closePoll = window.setInterval(() => {
+                    if (printWindow.closed) finish();
+                }, 500);
+                const timeout = window.setTimeout(finish, 300000);
+                window.addEventListener('message', onMessage);
+            });
+        }
+
+        async function printDR(drId) {
+            try {
+                // Fetch DR details for printing
+                const response = await WarehouseFGService.getDeliveryReceipt(drId);
+                const dr = response.data || response;
+
+                if (!dr) {
+                    showToast('DR not found', 'error');
+                    return false;
+                }
+
+                // Print unlocked at Ready (after Generate DR) — not gated on Delivered
+                const printable = ['ready', 'dispatched', 'delivered'];
+                if (!printable.includes(dr.status)) {
+                    showToast(
+                        'Print is available after Generate DR (status Ready). Current status: ' + dr.status,
+                        'warning'
+                    );
+                    return false;
+                }
+
+                const printUrl = `print_delivery_receipt.html?dr_id=${encodeURIComponent(drId)}&auto_print=1`;
+                const printWindow = window.open(printUrl, '_blank', 'width=1000,height=760');
+                if (!printWindow) {
+                    showToast('Pop-up blocked. Allow pop-ups to print the Delivery Receipt.', 'error');
+                    return false;
+                }
+
+                await waitForDRPrintDialog(printWindow, drId);
+
+                // window.print() has no reliable success callback — confirm with operator
+                const confirmedPrint = await AuthService.confirmAction({
+                    title: 'Confirm Print Completed',
+                    message:
+                        'The print dialog has opened for this Delivery Receipt.\n\n' +
+                        'Click “Yes, printed” only if the paper copy printed or was saved as PDF successfully.',
+                    highlight: dr.dr_number,
+                    highlightLabel: 'Delivery Receipt',
+                    callout: 'Dispatch stays locked until you confirm a successful print.',
+                    calloutTone: 'warning',
+                    confirmText: 'Yes, printed',
+                    confirmIcon: 'fa-check',
+                    cancelText: 'Not yet / Cancel',
+                    tone: 'success',
+                    icon: 'fa-print'
+                });
+
+                if (!confirmedPrint) {
+                    showToast('Print not confirmed — Dispatch remains locked until the DR is printed.', 'warning');
+                    return false;
+                }
+
+                const ok = await recordDRPrinted(drId, dr.dr_number);
+                if (ok) {
+                    showToast(
+                        `${dr.dr_number} marked as printed. Dispatch is unlocked — bring the signed paper with the driver.`,
+                        'success'
+                    );
+                    // Re-sync list from server so badge state is authoritative
+                    await loadDeliveryReceipts();
+                    return true;
+                }
+
+                showToast('Print view opened but server did not record print status. Try Print DR again.', 'error');
+                return false;
+
+            } catch (error) {
+                console.error('Failed to print DR:', error);
+                showToast(error?.message || error?.response?.data?.message || 'Failed to load DR for printing', 'error');
+                return false;
+            }
+        }
+
+        // After Generate DR on dispatch page → ?print=<id> opens details + print
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const printId = params.get('print');
+            if (printId) {
+                // Wait for initial load, then open details (auto-print handled in viewDRDetails)
+                setTimeout(() => viewDRDetails(parseInt(printId, 10)), 600);
+            }
+        });
+    </script>
+</body>
+
+</html>

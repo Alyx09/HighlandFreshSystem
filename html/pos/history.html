@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction History - Cashier POS | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stat-value { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Cashier / POS</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Sales</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="sale.html?mode=retail" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-bolt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Retail Sale</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="sale.html?mode=wholesale" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-boxes-stacked w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Wholesale Sale</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="history.html?type=sales" id="navSalesHistory"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-receipt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Transaction History</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Collections</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="collect.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-hand-holding-dollar w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Collect Payment</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="history.html?type=collections" id="navCollectionHistory"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clock-rotate-left w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Collection History</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="reports/daily_summary.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-chart-pie w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Daily Summary</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="reports/cash_position.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-wallet w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Cash Position</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">CA</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Cashier</p>
+                    <p class="text-xs text-base-content/60 truncate">Point of Sale</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-history text-primary"></i>
+                    <span class="font-semibold" id="pageTitle">Transaction History</span>
+                </div>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-base-200 rounded-lg">
+                    <i class="fas fa-clock text-base-content/60"></i>
+                    <span id="currentTime" class="font-mono text-sm">--:--:--</span>
+                </div>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Tab Selection -->
+            <div class="tabs tabs-boxed bg-base-100 p-1 mb-6 w-fit">
+                <a class="tab tab-lg" id="tabSales" onclick="switchTab('sales')">
+                    <i class="fas fa-receipt mr-2"></i> Sales Transactions
+                </a>
+                <a class="tab tab-lg" id="tabCollections" onclick="switchTab('collections')">
+                    <i class="fas fa-hand-holding-dollar mr-2"></i> Collections
+                </a>
+            </div>
+
+            <!-- Filters -->
+            <div class="card bg-base-100 border border-base-300 mb-6">
+                <div class="card-body p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <div class="form-control">
+                            <label class="label py-0"><span class="label-text text-xs">Search</span></label>
+                            <input type="text" id="searchQuery" class="input input-bordered input-sm"
+                                placeholder="Transaction # / Customer" onkeyup="handleSearch(event)">
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-0"><span class="label-text text-xs">From Date</span></label>
+                            <input type="date" id="dateFrom" class="input input-bordered input-sm" onchange="loadHistory()">
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-0"><span class="label-text text-xs">To Date</span></label>
+                            <input type="date" id="dateTo" class="input input-bordered input-sm" onchange="loadHistory()">
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-0"><span class="label-text text-xs">Payment Method</span></label>
+                            <select id="filterPayment" class="select select-bordered select-sm" onchange="loadHistory()">
+                                <option value="">All Methods</option>
+                                <option value="cash">Cash</option>
+                                <option value="gcash">GCash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="check">Check</option>
+                            </select>
+                        </div>
+                        <div class="form-control">
+                            <label class="label py-0"><span class="label-text text-xs">&nbsp;</span></label>
+                            <div class="flex gap-2">
+                                <button class="btn btn-primary btn-sm flex-1" onclick="loadHistory()">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                                <button class="btn btn-ghost btn-sm" onclick="clearFilters()">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase" id="statCountLabel">Total Transactions</p>
+                        <p class="text-2xl font-bold stat-value" id="statCount">0</p>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase" id="statTotalLabel">Total Amount</p>
+                        <p class="text-2xl font-bold text-primary stat-value" id="statTotal">₱0.00</p>
+                        <p class="text-xs text-base-content/50 hidden" id="statTotalHint">Confirmed or bank-cleared payments only</p>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300" id="statCashCard">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase" id="statCashLabel">Cash</p>
+                        <p class="text-2xl font-bold text-success stat-value" id="statCash">₱0.00</p>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300" id="statOtherCard">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase" id="statOtherLabel">Other Payments</p>
+                        <p class="text-2xl font-bold text-info stat-value" id="statOther">₱0.00</p>
+                        <p class="text-xs text-base-content/50 hidden" id="statOtherHint">Not counted until the bank clears them</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transactions Table -->
+            <div class="card bg-base-100 border border-base-300">
+                <div class="card-body">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="card-title text-lg" id="tableTitle">
+                            <i class="fas fa-receipt text-primary mr-2"></i>
+                            Sales Transactions
+                        </h3>
+                        <button class="btn btn-outline btn-sm" onclick="exportData()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Transaction #</th>
+                                    <th>Date/Time</th>
+                                    <th>Customer</th>
+                                    <th id="thItems">Items</th>
+                                    <th>Amount</th>
+                                    <th>Payment</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTable">
+                                <tr>
+                                    <td colspan="8" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="flex items-center justify-between mt-4">
+                        <p class="text-sm text-base-content/60">
+                            Showing <span id="showingFrom">0</span> to <span id="showingTo">0</span> of <span id="showingTotal">0</span> entries
+                        </p>
+                        <div class="join">
+                            <button class="join-item btn btn-sm" id="btnPrev" onclick="prevPage()" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="join-item btn btn-sm" id="pageInfo">Page 1</button>
+                            <button class="join-item btn btn-sm" id="btnNext" onclick="nextPage()" disabled>
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <div>
+                <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Transaction Detail Modal -->
+    <dialog id="detailModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fas fa-receipt text-primary mr-2"></i>
+                Transaction Details
+            </h3>
+
+            <div class="space-y-4" id="detailContent">
+                <!-- Header Info -->
+                <div class="bg-base-200 rounded-lg p-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-base-content/60">Transaction Number</p>
+                            <p class="font-mono font-bold text-lg" id="detailNumber">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Date & Time</p>
+                            <p class="font-semibold" id="detailDateTime">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Customer</p>
+                            <p class="font-semibold" id="detailCustomer">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Cashier</p>
+                            <p class="font-semibold" id="detailCashier">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Items Table -->
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200">
+                                <th>Product</th>
+                                <th class="text-right">Qty</th>
+                                <th class="text-right">Price</th>
+                                <th class="text-right">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailItems">
+                            <!-- Items will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Payment Summary -->
+                <div class="bg-base-200 rounded-lg p-4">
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Subtotal</span>
+                            <span id="detailSubtotal">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between" id="detailDiscountRow">
+                            <span class="text-base-content/60">Discount</span>
+                            <span class="text-error" id="detailDiscount">-₱0.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">VATable Sales</span>
+                            <span id="detailVatableSales">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">VAT (12%, included)</span>
+                            <span id="detailVatAmount">₱0.00</span>
+                        </div>
+                        <div class="divider my-1"></div>
+                        <div class="flex justify-between text-lg font-bold">
+                            <span>Total</span>
+                            <span class="text-primary" id="detailTotal">₱0.00</span>
+                        </div>
+                        <div class="divider my-1"></div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Payment Method</span>
+                            <span id="detailPaymentMethod">--</span>
+                        </div>
+                        <div class="flex justify-between" id="detailAmountPaidRow">
+                            <span class="text-base-content/60">Amount Paid</span>
+                            <span id="detailAmountPaid">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between" id="detailChangeRow">
+                            <span class="text-base-content/60">Change</span>
+                            <span class="text-success" id="detailChange">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-action">
+                <button class="btn btn-outline" onclick="printTransaction()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <button class="btn btn-error btn-outline" onclick="voidTransaction()" id="btnVoid">
+                    <i class="fas fa-ban"></i> Void
+                </button>
+                <form method="dialog">
+                    <button class="btn">Close</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Collection Detail Modal -->
+    <dialog id="collectionDetailModal" class="modal">
+        <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg mb-4" id="collectionDetailTitle">
+                <i class="fas fa-hand-holding-dollar text-info mr-2"></i>
+                Official Receipt Details
+            </h3>
+
+            <div class="space-y-4" id="collectionDetailContent">
+                <!-- OR Header -->
+                <div class="bg-base-200 rounded-lg p-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-base-content/60">OR Number</p>
+                            <p class="font-mono font-bold text-lg" id="colDetailOR">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Date & Time</p>
+                            <p class="font-semibold" id="colDetailDate">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Customer</p>
+                            <p class="font-semibold" id="colDetailCustomer">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Cashier</p>
+                            <p class="font-semibold" id="colDetailCashier">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-base-content/60">Status</p>
+                            <p class="font-semibold" id="colDetailStatus">--</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Breakdown -->
+                <div class="bg-base-200 rounded-lg p-4">
+                    <h4 class="font-semibold text-sm mb-3">Payment Breakdown</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">DR Number</span>
+                            <span class="font-mono font-semibold" id="colDetailDR">--</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Balance Before</span>
+                            <span id="colDetailBalanceBefore">₱0.00</span>
+                        </div>
+                        <div class="divider my-1"></div>
+                        <div class="flex justify-between text-lg font-bold">
+                            <span>Amount Collected</span>
+                            <span class="text-success" id="colDetailAmount">₱0.00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Payment Method</span>
+                            <span id="colDetailPaymentMethod">--</span>
+                        </div>
+                        <div class="flex justify-between" id="colDetailMetaRow">
+                            <span class="text-base-content/60" id="colDetailMetaLabel">--</span>
+                            <span class="font-mono text-sm" id="colDetailMetaValue">--</span>
+                        </div>
+                        <div class="divider my-1"></div>
+                        <div class="flex justify-between">
+                            <span class="text-base-content/60">Balance After</span>
+                            <span class="font-semibold text-warning" id="colDetailBalanceAfter">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div id="colDetailNotesSection" class="hidden bg-base-200 rounded-lg p-4">
+                    <p class="text-xs text-base-content/60 mb-1">Notes</p>
+                    <p class="text-sm" id="colDetailNotes">--</p>
+                </div>
+                <div id="colDetailClearingSection" class="hidden bg-success/10 border border-success/25 rounded-lg p-4">
+                    <p class="font-semibold text-success">Bank Cleared</p>
+                    <p class="text-sm mt-1" id="colDetailClearingInfo">--</p>
+                </div>
+            </div>
+
+            <div class="modal-action">
+                <button class="btn btn-success hidden" id="btnClearCheck" onclick="openClearCheckModal()">
+                    <i class="fas fa-building-circle-check"></i> Mark Cleared
+                </button>
+                <button class="btn btn-error btn-outline hidden" id="btnBounceCheck" onclick="markSelectedCheckBounced()">
+                    <i class="fas fa-ban"></i> Mark Bounced
+                </button>
+                <button class="btn btn-outline" id="btnPrintCollection" onclick="printCollection()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <form method="dialog">
+                    <button class="btn">Close</button>
+                </form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <dialog id="clearCheckModal" class="modal">
+        <div class="modal-box max-w-md">
+            <div class="flex items-start gap-3 mb-5">
+                <div class="w-10 h-10 rounded-lg bg-success/15 text-success flex items-center justify-center"><i class="fas fa-building-circle-check"></i></div>
+                <div><h3 class="font-bold text-lg">Confirm Bank Clearing</h3><p class="text-sm text-base-content/60">Apply this check only after bank confirmation.</p></div>
+            </div>
+            <form id="clearCheckForm" class="space-y-4" onsubmit="submitCheckClearing(event)">
+                <label class="form-control"><span class="label-text font-medium">Cleared date and time</span><input id="clearedAt" class="input input-bordered" type="datetime-local" required><span id="clearCheckDateHint" class="label-text-alt text-warning mt-1"></span></label>
+                <label class="form-control"><span class="label-text font-medium">Bank confirmation/reference</span><input id="clearingReference" class="input input-bordered" maxlength="120" placeholder="Bank reference or confirmation number" required></label>
+                <div class="alert alert-info py-3 text-sm"><i class="fas fa-circle-info"></i><span>This will reduce the DR balance and include the payment in reports.</span></div>
+                <div class="flex justify-end gap-2"><button type="button" class="btn btn-ghost" onclick="clearCheckModal.close()">Cancel</button><button id="confirmClearCheck" type="submit" class="btn btn-success"><i class="fas fa-check"></i>Confirm Cleared</button></div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="cashier,general_manager"></script>
+    <script src="../../js/pos/pos.service.js"></script>
+    <script src="../../js/pos/receipt-printer.js?v=20260909-vat1"></script>
+
+    <script>
+        // State
+        let currentTab = 'sales';
+        let historyData = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let itemsPerPage = 20;
+        let selectedTransaction = null;
+        let selectedCollection = null;
+        let linkedCollectionOpened = false;
+
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        // Update time
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Format currency
+        function formatCurrency(amount) {
+            return '₱' + parseFloat(amount || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function getInitials(firstName, lastName) {
+            const f = firstName ? firstName.charAt(0).toUpperCase() : '';
+            const l = lastName ? lastName.charAt(0).toUpperCase() : '';
+            return f + l || 'CA';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (typeof AuthService !== 'undefined') {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Cashier';
+                    document.getElementById('userInitials').textContent = getInitials(user.first_name, user.last_name);
+                }
+            }
+
+            // Check URL params for tab
+            const urlParams = new URLSearchParams(window.location.search);
+            const type = urlParams.get('type') || 'sales';
+            setDefaultDateRange(type);
+            switchTab(type);
+        });
+
+        function localDateValue(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function setDefaultDateRange(tab) {
+            const today = new Date();
+            const from = tab === 'collections'
+                ? new Date(today.getFullYear(), today.getMonth(), 1)
+                : today;
+            document.getElementById('dateFrom').value = localDateValue(from);
+            document.getElementById('dateTo').value = localDateValue(today);
+        }
+
+        function switchTab(tab) {
+            const previousTab = currentTab;
+            currentTab = tab;
+            currentPage = 1;
+            if (previousTab !== tab) setDefaultDateRange(tab);
+
+            // Update tabs
+            document.getElementById('tabSales').classList.toggle('tab-active', tab === 'sales');
+            document.getElementById('tabCollections').classList.toggle('tab-active', tab === 'collections');
+
+            // Update nav highlights
+            const navSales = document.getElementById('navSalesHistory');
+            const navCollections = document.getElementById('navCollectionHistory');
+            navSales.classList.toggle('bg-primary', tab === 'sales');
+            navSales.classList.toggle('text-primary-content', tab === 'sales');
+            navCollections.classList.toggle('bg-primary', tab === 'collections');
+            navCollections.classList.toggle('text-primary-content', tab === 'collections');
+
+            // Update page title + hide Items column for collections
+            const thItems = document.getElementById('thItems');
+            if (tab === 'sales') {
+                document.getElementById('pageTitle').textContent = 'Sales Transaction History';
+                document.getElementById('tableTitle').innerHTML = '<i class="fas fa-receipt text-primary mr-2"></i> Sales Transactions';
+                if (thItems) thItems.classList.remove('hidden');
+            } else {
+                document.getElementById('pageTitle').textContent = 'Collection History';
+                document.getElementById('tableTitle').innerHTML = '<i class="fas fa-hand-holding-dollar text-info mr-2"></i> Collections';
+                if (thItems) thItems.classList.add('hidden');
+            }
+
+            // Update URL without reload
+            const url = new URL(window.location);
+            url.searchParams.set('type', tab);
+            window.history.replaceState({}, '', url);
+
+            loadHistory();
+        }
+
+        function handleSearch(event) {
+            if (event.key === 'Enter') {
+                loadHistory();
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('searchQuery').value = '';
+            setDefaultDateRange(currentTab);
+            document.getElementById('filterPayment').value = '';
+            loadHistory();
+        }
+
+        let loadHistorySeq = 0;
+        async function loadHistory() {
+            const seq = ++loadHistorySeq;
+            const params = {
+                from_date: document.getElementById('dateFrom').value,
+                to_date: document.getElementById('dateTo').value,
+                payment_method: document.getElementById('filterPayment').value,
+                search: document.getElementById('searchQuery').value,
+                page: currentPage,
+                limit: itemsPerPage
+            };
+
+            try {
+                let response;
+                if (currentTab === 'sales') {
+                    // For sales, don't send type parameter (it filters by transaction_type like cash/credit)
+                    response = await POSService.getTransactions(params);
+                } else {
+                    response = await POSService.getCollectionHistory(params);
+                }
+
+                if (seq !== loadHistorySeq) return;
+
+                if (response && response.data) {
+                    // Handle different response formats:
+                    // - sales: data is array directly or data.transactions
+                    // - collections: data.collections
+                    if (currentTab === 'sales') {
+                        historyData = Array.isArray(response.data) ? response.data : (response.data.transactions || response.data.items || []);
+                        // Map payment_status to status for consistency
+                        historyData = historyData.map(tx => ({
+                            ...tx,
+                            status: tx.status || (tx.payment_status === 'voided' ? 'voided' : 'completed'),
+                            items_count: tx.items_count || '-',
+                            cashier_name: tx.cashier_name || `${tx.cashier_first_name || ''} ${tx.cashier_last_name || ''}`.trim()
+                        }));
+                    } else {
+                        historyData = response.data.collections || response.data.items || [];
+                        // Map collection fields to expected format
+                        historyData = historyData.map(col => ({
+                            ...col,
+                            amount: col.amount_collected || col.amount || 0,
+                            raw_status: col.status,
+                            status: ['confirmed', 'cleared'].includes(col.status) ? 'completed'
+                                  : col.status === 'bounced' ? 'voided'
+                                  : col.status === 'cancelled' ? 'voided'
+                                  : 'pending',
+                            cashier_name: `${col.collected_by_first_name || ''} ${col.collected_by_last_name || ''}`.trim()
+                        }));
+                        // Deduplicate by id in case of race-condition re-fetch
+                        const seen = new Set();
+                        historyData = historyData.filter(col => {
+                            if (seen.has(col.id)) return false;
+                            seen.add(col.id);
+                            return true;
+                        });
+                    }
+                    totalPages = response.pagination?.total_pages || response.data?.total_pages || 1;
+
+                    updateStats(response.data.summary || { total_count: response.data.count, total_amount: response.data.total_collected });
+                    renderTable();
+                    updatePagination(response.pagination?.total || response.data?.count || historyData.length);
+                    openLinkedCollection();
+                } else {
+                    // No data returned
+                    historyData = [];
+                    updateStats({ total_count: 0, total_amount: 0, cash_amount: 0, other_amount: 0 });
+                    renderTable();
+                    updatePagination(0);
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                showToast('Failed to load history: ' + (error.response?.data?.message || error.message), 'error');
+                historyData = [];
+                updateStats({ total_count: 0, total_amount: 0, cash_amount: 0, other_amount: 0 });
+                renderTable();
+                updatePagination(0);
+            }
+        }
+
+        function openLinkedCollection() {
+            if (linkedCollectionOpened || currentTab !== 'collections') return;
+            const id = Number(new URLSearchParams(window.location.search).get('collection_id') || 0);
+            if (id <= 0) return;
+            linkedCollectionOpened = true;
+            openPendingCheck(id);
+        }
+
+        function updateStats(summary) {
+            const isCollections = currentTab === 'collections';
+            document.getElementById('statCountLabel').textContent = isCollections ? 'Collection Records' : 'Total Transactions';
+            document.getElementById('statTotalLabel').textContent = isCollections ? 'Cleared Collections' : 'Total Amount';
+            document.getElementById('statCashLabel').textContent = isCollections ? 'Cleared Cash' : 'Cash';
+            document.getElementById('statOtherLabel').textContent = isCollections ? 'Pending Checks' : 'Other Payments';
+            document.getElementById('statTotalHint').classList.toggle('hidden', !isCollections);
+            document.getElementById('statOtherHint').classList.toggle('hidden', !isCollections);
+            document.getElementById('statCount').textContent = summary.total_count || historyData.length;
+            document.getElementById('statTotal').textContent = formatCurrency(summary.total_amount || 0);
+            document.getElementById('statCash').textContent = formatCurrency(summary.cash_amount || 0);
+            document.getElementById('statOther').textContent = formatCurrency(isCollections ? summary.pending_check_amount || 0 : summary.other_amount || 0);
+            document.getElementById('statOther').className = `text-2xl font-bold stat-value ${isCollections ? 'text-warning' : 'text-info'}`;
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('historyTable');
+
+            if (historyData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-base-content/60">
+                            <i class="fas fa-inbox text-4xl mb-2 opacity-30"></i>
+                            <p>${currentTab === 'collections' ? 'No collection records found for these dates' : 'No sales transactions found for these dates'}</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            if (currentTab === 'sales') {
+                tbody.innerHTML = historyData.map(tx => {
+                    const statusBadge = tx.status === 'completed'
+                        ? '<span class="badge badge-success badge-sm">Completed</span>'
+                        : tx.status === 'voided'
+                            ? '<span class="badge badge-error badge-sm">Voided</span>'
+                            : '<span class="badge badge-warning badge-sm">Pending</span>';
+
+                    return `
+                        <tr class="hover cursor-pointer" onclick="viewTransaction(${tx.id}, 'sale')">
+                            <td class="font-mono text-sm">${escapeHtml(tx.transaction_code)}</td>
+                            <td>${formatDateTime(tx.created_at)}</td>
+                            <td>${escapeHtml(tx.customer_name)}</td>
+                            <td class="colItems text-center">${tx.items_count}</td>
+                            <td class="font-semibold">${formatCurrency(tx.total_amount)}</td>
+                            <td>
+                                <span class="badge badge-ghost badge-sm">
+                                    <i class="fas ${getPaymentIcon(tx.payment_method)} mr-1"></i>
+                                    ${formatPaymentMethod(tx.payment_method)}
+                                </span>
+                            </td>
+                            <td>${statusBadge}</td>
+                            <td>
+                                <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); viewTransaction(${tx.id}, 'sale')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } else {
+                tbody.innerHTML = historyData.map(col => {
+                    const statusBadge = col.raw_status === 'cleared'
+                        ? '<span class="badge badge-success badge-sm">Cleared</span>'
+                        : col.status === 'completed'
+                        ? '<span class="badge badge-success badge-sm">Confirmed</span>'
+                        : col.status === 'voided'
+                            ? `<span class="badge badge-error badge-sm">${col.raw_status === 'bounced' ? 'Bounced' : 'Cancelled'}</span>`
+                            : '<span class="badge badge-warning badge-sm">Pending for Clearing</span>';
+
+                    return `
+                        <tr class="hover cursor-pointer" onclick="viewTransaction(${col.id}, 'collection')">
+                            <td class="font-mono text-sm">${escapeHtml(col.or_number)}</td>
+                            <td>${formatDateTime(col.collected_at || col.created_at)}</td>
+                            <td>
+                                <div>
+                                    <p>${escapeHtml(col.customer_name)}</p>
+                                    <p class="text-xs text-base-content/60">${escapeHtml(col.dr_number)}</p>
+                                </div>
+                            </td>
+                            <td class="colItems hidden"></td>
+                            <td class="font-semibold ${col.raw_status === 'pending_clearing' ? 'text-warning' : 'text-success'}">${formatCurrency(col.amount)}</td>
+                            <td>
+                                <span class="badge badge-ghost badge-sm">
+                                    <i class="fas ${getPaymentIcon(col.payment_method)} mr-1"></i>
+                                    ${formatPaymentMethod(col.payment_method)}
+                                </span>
+                            </td>
+                            <td>${statusBadge}</td>
+                            <td>
+                                ${col.raw_status === 'pending_clearing' ? `<button class="btn btn-success btn-xs" title="Mark check cleared" onclick="event.stopPropagation(); openPendingCheck(${col.id})"><i class="fas fa-building-circle-check"></i></button>` : ''}
+                                <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); viewTransaction(${col.id}, 'collection')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '--';
+            const date = new Date(dateStr);
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function formatPaymentMethod(method) {
+            const methods = {
+                'cash': 'Cash',
+                'gcash': 'GCash',
+                'bank_transfer': 'Bank',
+                'check': 'Check'
+            };
+            return methods[method] || method;
+        }
+
+        function getPaymentIcon(method) {
+            const icons = {
+                'cash': 'fa-money-bill-wave',
+                'gcash': 'fa-mobile-screen',
+                'bank_transfer': 'fa-building-columns',
+                'check': 'fa-money-check'
+            };
+            return icons[method] || 'fa-credit-card';
+        }
+
+        function updatePagination(total) {
+            const from = total === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1;
+            const to = Math.min(currentPage * itemsPerPage, total);
+
+            document.getElementById('showingFrom').textContent = from;
+            document.getElementById('showingTo').textContent = to;
+            document.getElementById('showingTotal').textContent = total;
+            document.getElementById('pageInfo').textContent = `Page ${currentPage}`;
+
+            document.getElementById('btnPrev').disabled = currentPage <= 1;
+            document.getElementById('btnNext').disabled = currentPage >= totalPages;
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadHistory();
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadHistory();
+            }
+        }
+
+        async function viewTransaction(id, type) {
+            selectedTransaction = { id, type };
+
+            try {
+                let response;
+                if (type === 'sale') {
+                    response = await POSService.getTransaction(id);
+                    if (response && response.data) {
+                        showTransactionDetail(response.data);
+                        return;
+                    }
+                } else {
+                    response = await POSService.getCollectionReceipt(id);
+                    if (response && response.data) {
+                        showCollectionDetail(response.data);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching details:', error);
+            }
+
+            // Show error if transaction details not found
+            showToast('Failed to load transaction details', 'error');
+        }
+
+        function showTransactionDetail(data) {
+            document.getElementById('detailNumber').textContent = data.transaction_code || data.or_number || '--';
+            document.getElementById('detailDateTime').textContent = formatDateTime(data.created_at);
+            document.getElementById('detailCustomer').textContent = data.customer_name || 'Walk-in Customer';
+            document.getElementById('detailCashier').textContent = data.cashier_name || '--';
+
+            // Sale detail (collections now handled by showCollectionDetail)
+            const items = data.items || [];
+            document.getElementById('detailItems').innerHTML = items.map(item => {
+                const savedSaleQuantity = Number(item.sale_quantity);
+                const displayQuantity = Number.isFinite(savedSaleQuantity) && savedSaleQuantity > 0
+                    ? savedSaleQuantity
+                    : Number(item.quantity || 0);
+                const isBox = String(item.sale_unit || '').toLowerCase() === 'box';
+                const quantityLabel = isBox
+                    ? `${displayQuantity} ${displayQuantity === 1 ? 'box' : 'boxes'} (${Number(item.pieces_per_box_snapshot || 1)} units/box)`
+                    : `${displayQuantity} ${displayQuantity === 1 ? 'piece' : 'pieces'}`;
+                return `
+                <tr>
+                    <td>${escapeHtml(item.product_name)}</td>
+                    <td class="text-right">${escapeHtml(quantityLabel)}</td>
+                    <td class="text-right">${formatCurrency(item.unit_price)}</td>
+                    <td class="text-right font-semibold">${formatCurrency(item.line_total ?? item.total_price)}</td>
+                </tr>
+            `}).join('');
+
+            document.getElementById('detailSubtotal').textContent = formatCurrency(data.subtotal_amount ?? data.subtotal ?? data.total_amount);
+            const taxAmount = Math.max(0, Number(data.tax_amount || 0));
+            document.getElementById('detailVatableSales').textContent = formatCurrency(data.vatable_sales ?? (Number(data.total_amount || 0) - taxAmount));
+            document.getElementById('detailVatAmount').textContent = formatCurrency(taxAmount);
+
+            if (data.discount_amount > 0) {
+                document.getElementById('detailDiscountRow').classList.remove('hidden');
+                document.getElementById('detailDiscount').textContent = '-' + formatCurrency(data.discount_amount);
+            } else {
+                document.getElementById('detailDiscountRow').classList.add('hidden');
+            }
+
+            document.getElementById('detailTotal').textContent = formatCurrency(data.total_amount);
+            document.getElementById('detailPaymentMethod').textContent = formatPaymentMethod(data.payment_method);
+
+            if (data.payment_method === 'cash' && data.amount_paid) {
+                document.getElementById('detailAmountPaidRow').classList.remove('hidden');
+                document.getElementById('detailAmountPaid').textContent = formatCurrency(data.amount_paid);
+                document.getElementById('detailChangeRow').classList.remove('hidden');
+                document.getElementById('detailChange').textContent = formatCurrency(data.change || 0);
+            } else {
+                document.getElementById('detailAmountPaidRow').classList.add('hidden');
+                document.getElementById('detailChangeRow').classList.add('hidden');
+            }
+
+            document.getElementById('btnVoid').classList.toggle('hidden', data.status === 'voided');
+            document.getElementById('detailModal').showModal();
+        }
+
+        function showCollectionDetail(data) {
+            selectedCollection = data;
+            document.getElementById('collectionDetailTitle').innerHTML = data.status === 'pending_clearing'
+                ? '<i class="fas fa-clock text-warning mr-2"></i>Pending Check Details'
+                : '<i class="fas fa-hand-holding-dollar text-info mr-2"></i>Official Receipt Details';
+            document.getElementById('colDetailOR').textContent = data.or_number || '--';
+            document.getElementById('colDetailDate').textContent = formatDateTime(data.collected_at || data.created_at);
+            document.getElementById('colDetailCustomer').textContent = data.customer_name || '--';
+            document.getElementById('colDetailCashier').textContent = data.cashier_name || '--';
+            document.getElementById('colDetailStatus').textContent = formatCollectionStatus(data.status);
+
+            document.getElementById('colDetailDR').textContent = data.dr_number || '--';
+            document.getElementById('colDetailBalanceBefore').textContent = formatCurrency(data.balance_before);
+            document.getElementById('colDetailAmount').textContent = formatCurrency(data.amount_collected);
+            document.getElementById('colDetailPaymentMethod').innerHTML =
+                `<span class="badge badge-ghost badge-sm"><i class="fas ${getPaymentIcon(data.payment_method)} mr-1"></i> ${formatPaymentMethod(data.payment_method)}</span>`;
+            document.getElementById('colDetailBalanceAfter').textContent = formatCurrency(data.balance_after);
+
+            // Show payment metadata (check number, GCash ref, etc.)
+            const metaRow = document.getElementById('colDetailMetaRow');
+            const metaLabel = document.getElementById('colDetailMetaLabel');
+            const metaValue = document.getElementById('colDetailMetaValue');
+            const meta = data.payment_metadata;
+            if (meta) {
+                if (data.payment_method === 'check' && meta.check_number) {
+                    metaLabel.textContent = 'Check #';
+                    metaValue.textContent = meta.check_number + (meta.check_bank ? ` (${meta.check_bank})` : '');
+                    metaRow.classList.remove('hidden');
+                } else if (data.payment_method === 'gcash' && meta.gcash_ref) {
+                    metaLabel.textContent = 'GCash Ref';
+                    metaValue.textContent = meta.gcash_ref;
+                    metaRow.classList.remove('hidden');
+                } else if (data.payment_method === 'bank_transfer' && meta.bank_ref) {
+                    metaLabel.textContent = 'Bank Ref';
+                    metaValue.textContent = meta.bank_ref;
+                    metaRow.classList.remove('hidden');
+                } else {
+                    metaRow.classList.add('hidden');
+                }
+            } else {
+                metaRow.classList.add('hidden');
+            }
+
+            // Notes
+            const notesSection = document.getElementById('colDetailNotesSection');
+            if (data.notes) {
+                document.getElementById('colDetailNotes').textContent = data.notes;
+                notesSection.classList.remove('hidden');
+            } else {
+                notesSection.classList.add('hidden');
+            }
+
+            const clearingSection = document.getElementById('colDetailClearingSection');
+            if (data.status === 'cleared') {
+                document.getElementById('colDetailClearingInfo').textContent = `${formatDateTime(data.cleared_at)} | ${data.clearing_reference || 'No reference'}`;
+                clearingSection.classList.remove('hidden');
+            } else {
+                clearingSection.classList.add('hidden');
+            }
+            const pendingCheck = data.payment_method === 'check' && data.status === 'pending_clearing';
+            document.getElementById('btnClearCheck').classList.toggle('hidden', !pendingCheck);
+            document.getElementById('btnBounceCheck').classList.toggle('hidden', !pendingCheck);
+            document.getElementById('btnPrintCollection').classList.toggle('hidden', pendingCheck);
+
+            document.getElementById('collectionDetailModal').showModal();
+        }
+
+        function formatCollectionStatus(status) {
+            return ({ pending_clearing: 'Pending for Clearing', confirmed: 'Confirmed', cleared: 'Cleared', bounced: 'Bounced', cancelled: 'Cancelled' })[status] || status || '--';
+        }
+
+        async function openPendingCheck(id) {
+            selectedCollection = null;
+            await viewTransaction(id, 'collection');
+            if (!selectedCollection || Number(selectedCollection.id) !== Number(id)) return;
+            openClearCheckModal();
+        }
+
+        function localDateTimeValue() {
+            const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000);
+            return now.toISOString().slice(0, 16);
+        }
+
+        function openClearCheckModal() {
+            if (!selectedCollection || selectedCollection.status !== 'pending_clearing') return;
+            const clearedAt = document.getElementById('clearedAt');
+            const checkDate = selectedCollection.payment_metadata?.check_date || '';
+            const minimumDateTime = checkDate ? `${checkDate}T00:00` : '';
+            const currentDateTime = localDateTimeValue();
+            const checkDateIsFuture = minimumDateTime && minimumDateTime > currentDateTime;
+            clearedAt.min = minimumDateTime;
+            clearedAt.value = minimumDateTime && currentDateTime < minimumDateTime ? minimumDateTime : currentDateTime;
+            clearedAt.disabled = Boolean(checkDateIsFuture);
+            document.getElementById('confirmClearCheck').disabled = Boolean(checkDateIsFuture);
+            document.getElementById('clearCheckDateHint').textContent = checkDateIsFuture
+                ? `This check is dated ${new Date(`${checkDate}T00:00:00`).toLocaleDateString()}. It cannot be cleared until that date or later.`
+                : checkDate
+                    ? `This check is dated ${new Date(`${checkDate}T00:00:00`).toLocaleDateString()}. Choose this date or later.`
+                    : '';
+            document.getElementById('clearingReference').value = '';
+            document.getElementById('clearCheckModal').showModal();
+        }
+
+        async function submitCheckClearing(event) {
+            event.preventDefault();
+            if (!selectedCollection) return;
+            const clearedAt = document.getElementById('clearedAt').value;
+            const checkDate = selectedCollection.payment_metadata?.check_date || '';
+            if (checkDate && `${checkDate}T00:00` > localDateTimeValue()) {
+                showToast('This post-dated check cannot be cleared until its printed date.', 'warning');
+                return;
+            }
+            if (checkDate && clearedAt < `${checkDate}T00:00`) {
+                showToast('The clearing date must be on or after the date printed on the check.', 'warning');
+                return;
+            }
+            const button = document.getElementById('confirmClearCheck');
+            button.disabled = true;
+            button.classList.add('loading');
+            try {
+                await POSService.clearCheck(selectedCollection.id, {
+                    cleared_at: clearedAt,
+                    clearing_reference: document.getElementById('clearingReference').value.trim()
+                });
+                document.getElementById('clearCheckModal').close();
+                document.getElementById('collectionDetailModal').close();
+                showToast('Check cleared and applied to Accounts Receivable.', 'success');
+                await loadHistory();
+            } catch (error) {
+                showToast(error.message || 'Could not clear the check.', 'error');
+            } finally {
+                button.disabled = false;
+                button.classList.remove('loading');
+            }
+        }
+
+        async function markSelectedCheckBounced() {
+            if (!selectedCollection || selectedCollection.status !== 'pending_clearing') return;
+            const reason = await AuthService.promptText({ title: 'Mark Check Bounced', message: 'Enter the bank rejection reason.', label: 'Reason', confirmText: 'Mark Bounced', tone: 'error', icon: 'fa-ban', required: true });
+            if (reason === null || !reason.trim()) return;
+            try {
+                await POSService.markCheckBounced(selectedCollection.id, reason.trim());
+                document.getElementById('collectionDetailModal').close();
+                showToast('Check marked as bounced. AR was not reduced.', 'warning');
+                await loadHistory();
+            } catch (error) {
+                showToast(error.message || 'Could not update the check.', 'error');
+            }
+        }
+
+        function printCollection() {
+            showToast('Printing...', 'info');
+            window.print();
+        }
+
+        async function printTransaction() {
+            if (!selectedTransaction?.id) return;
+            showToast('Preparing thermal receipt...', 'info');
+            try {
+                const response = await POSService.printReceipt(selectedTransaction.id);
+                if (!response?.data) throw new Error('Receipt data was not returned');
+                POSReceiptPrinter.printSalesReceipt(response.data);
+            } catch (error) {
+                console.error('Receipt print error:', error);
+                showToast(error?.response?.data?.message || error.message || 'Could not prepare receipt', 'error');
+            }
+        }
+
+        async function voidTransaction() {
+            if (!selectedTransaction) return;
+
+            const reason = await AuthService.promptText({
+                title: 'Void Transaction',
+                message: 'Enter the reason for voiding this transaction.',
+                label: 'Void reason',
+                placeholder: 'Required reason',
+                confirmText: 'Void Transaction',
+                tone: 'error',
+                icon: 'fa-ban',
+                required: true
+            });
+            if (reason === null) return;
+            if (!reason || !reason.trim()) {
+                showToast('Void reason is required', 'warning');
+                return;
+            }
+
+            try {
+                await POSService.voidTransaction(selectedTransaction.id, reason);
+                showToast('Transaction voided successfully', 'success');
+                document.getElementById('detailModal').close();
+                loadHistory();
+            } catch (error) {
+                console.error('Void error:', error);
+                showToast('Failed to void transaction', 'error');
+            }
+        }
+
+        function exportData() {
+            if (historyData.length === 0) {
+                showToast('No records to export', 'warning');
+                return;
+            }
+
+            const isSales = currentTab === 'sales';
+            const headers = isSales
+                ? ['Transaction No.', 'Date', 'Customer', 'Items', 'Amount', 'Payment', 'Status']
+                : ['OR No.', 'Date', 'Customer', 'DR No.', 'Amount', 'Payment', 'Status'];
+            const rows = historyData.map(row => isSales
+                ? [
+                    row.transaction_code,
+                    formatDateTime(row.created_at),
+                    row.customer_name,
+                    row.items_count,
+                    parseFloat(row.total_amount || 0).toFixed(2),
+                    formatPaymentMethod(row.payment_method),
+                    row.status
+                ]
+                : [
+                    row.or_number,
+                    formatDateTime(row.collected_at || row.created_at),
+                    row.customer_name,
+                    row.dr_number,
+                    parseFloat(row.amount || 0).toFixed(2),
+                    formatPaymentMethod(row.payment_method),
+                    row.status
+                ]);
+
+            downloadCsv(`pos-${currentTab}-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+            showToast('CSV downloaded', 'success');
+        }
+
+        function downloadCsv(filename, headers, rows) {
+            const csv = [headers, ...rows]
+                .map(row => row.map(csvCell).join(','))
+                .join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        function csvCell(value) {
+            const text = value == null ? '' : String(value);
+            return `"${text.replace(/"/g, '""')}"`;
+        }
+    </script>
+</body>
+
+</html>

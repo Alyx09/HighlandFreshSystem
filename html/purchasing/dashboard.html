@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Purchasing | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* ── Bento card lift effect ── */
+        .bento-card {
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .bento-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.12), 0 4px 10px -4px rgba(0, 0, 0, 0.06);
+        }
+
+        /* ── Scrollbar ── */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        /* ── Sidebar slide ── */
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ── Tabular numbers ── */
+        .stat-value {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Stock bar ── */
+        .stock-bar {
+            position: relative;
+            height: 0.5rem;
+            background: oklch(var(--b2));
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .stock-bar-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            border-radius: 9999px;
+            transition: all 0.5s ease;
+        }
+
+        /* ── Gentle pulse ── */
+        @keyframes pulse-soft {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .pulse-soft {
+            animation: pulse-soft 2s ease-in-out infinite;
+        }
+
+        /* ── Stat card gradient icons ── */
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .stat-icon.emerald  { background: linear-gradient(135deg, #10b981, #059669); }
+        .stat-icon.blue     { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .stat-icon.amber    { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .stat-icon.violet   { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+        .stat-icon.rose     { background: linear-gradient(135deg, #f43f5e, #e11d48); }
+        .stat-icon.cyan     { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+        .stat-icon.orange   { background: linear-gradient(135deg, #f97316, #ea580c); }
+
+        /* ── Welcome banner ── */
+        .welcome-banner {
+            background: linear-gradient(135deg, #059669 0%, #10b981 40%, #34d399 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .welcome-banner::before {
+            content: '';
+            position: absolute;
+            top: -40%;
+            right: -10%;
+            width: 340px;
+            height: 340px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.07);
+            pointer-events: none;
+        }
+        .welcome-banner::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            right: 15%;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            pointer-events: none;
+        }
+
+        /* ── Number count-up fade ── */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0);   }
+        }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.5s ease forwards;
+        }
+
+        /* ── Sparkline canvas ── */
+        .sparkline-wrap {
+            position: relative;
+            height: 48px;
+            width: 100%;
+        }
+        .sparkline-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* ── Table row subtle gradient on hover ── */
+        .po-table tbody tr {
+            transition: background 0.2s ease;
+        }
+        .po-table tbody tr:hover {
+            background: oklch(var(--b2) / 0.6);
+        }
+
+        /* ── Requisition item card ── */
+        .req-card {
+            border-left: 3px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .req-card:hover {
+            border-left-color: oklch(var(--p));
+            background: oklch(var(--b2) / 0.7);
+        }
+        .req-card.priority-urgent { border-left-color: oklch(var(--er)); }
+        .req-card.priority-high   { border-left-color: oklch(var(--wa)); }
+
+        /* ── Quick action buttons ── */
+        .quick-action {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+        .quick-action:hover {
+            background: oklch(var(--b2));
+            transform: translateX(4px);
+        }
+        .quick-action .qa-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Canonical Purchasing navigation is mounted by js/purchasing/sidebar.js. -->
+
+    <!-- ═══════════════════════════════════════════
+         MAIN CONTENT
+    ═══════════════════════════════════════════ -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content">Purchasing Dashboard</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <!-- Search -->
+                <div class="hidden md:block">
+                    <label class="input input-bordered input-sm flex items-center gap-2 w-64">
+                        <i class="fas fa-search text-base-content/40"></i>
+                        <input type="text" placeholder="Search..." class="grow" />
+                        <kbd class="kbd kbd-sm">Ctrl+K</kbd>
+                    </label>
+                </div>
+
+                <!-- Notifications -->
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-circle">
+                        <div class="indicator">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="indicator-item badge badge-primary badge-xs" id="notifCount">0</span>
+                        </div>
+                    </label>
+                    <div tabindex="0"
+                        class="dropdown-content bg-base-100 rounded-box shadow-lg border border-base-300 w-80 mt-3">
+                        <div class="p-4 border-b border-base-300">
+                            <h3 class="font-semibold">Notifications</h3>
+                        </div>
+                        <ul class="menu menu-sm p-2 max-h-64 overflow-y-auto" id="notificationList">
+                            <li class="text-center py-4 text-base-content/60">No new notifications</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Theme toggle -->
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- ═══════════════════════════════════════
+             PAGE CONTENT
+        ═══════════════════════════════════════ -->
+        <main class="flex-1 p-4 lg:p-6 space-y-6">
+
+            <!-- ── Welcome Banner ── -->
+            <div class="welcome-banner rounded-2xl p-6 lg:p-8 text-white relative z-10">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <p class="text-white/70 text-sm font-medium mb-1" id="greetingTime">Good evening</p>
+                        <h2 class="text-2xl lg:text-3xl font-extrabold mb-1">
+                            <span id="welcomeName">Purchaser</span> 👋
+                        </h2>
+                        <p class="text-white/80 text-sm lg:text-base">Here's your procurement overview for today.</p>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <a href="suppliers.html"
+                            class="btn btn-sm bg-white/20 border-white/30 text-white hover:bg-white/30 backdrop-blur-sm">
+                            <i class="fas fa-truck-field"></i> Suppliers
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PRS Inbox Alert -->
+            <div id="approvedPrAlert" class="hidden alert bg-warning/10 border border-warning/30 items-start">
+                <i class="fas fa-bell text-warning mt-1"></i>
+                <div class="flex-1">
+                    <h3 class="font-bold text-base-content" id="approvedPrAlertTitle">Confirmed Low Stock</h3>
+                    <p class="text-sm text-base-content/70" id="approvedPrAlertText"></p>
+                    <div id="approvedPrAlertItems" class="flex flex-wrap gap-2 mt-3"></div>
+                </div>
+                <a href="purchase_orders.html?action=new" class="btn btn-warning btn-sm">
+                    <i class="fas fa-file-circle-plus"></i>
+                    Prepare PO
+                </a>
+            </div>
+
+            <!-- ═══════════════════════════════════
+                 PRIMARY STAT CARDS
+            ═══════════════════════════════════ -->
+            <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+
+                <!-- Active Suppliers -->
+                <a href="suppliers.html" class="bento-card card bg-base-100 border border-base-300 cursor-pointer" id="cardSuppliers">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="stat-icon emerald">
+                                <i class="fas fa-truck-field"></i>
+                            </div>
+                            <span class="badge badge-ghost badge-sm">Active</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-extrabold stat-value text-base-content" id="statSuppliers">
+                            <span class="loading loading-dots loading-sm"></span>
+                        </p>
+                        <p class="text-sm text-base-content/60 font-medium">Active Suppliers</p>
+                    </div>
+                </a>
+
+                <!-- POs This Month -->
+                <a href="purchase_orders.html"
+                    class="bento-card card bg-base-100 border border-base-300 cursor-pointer" id="cardPOsMonth">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="stat-icon blue">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </div>
+                            <span class="badge badge-info badge-sm">This Month</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-extrabold stat-value text-base-content" id="statPOsMonth">
+                            <span class="loading loading-dots loading-sm"></span>
+                        </p>
+                        <p class="text-sm text-base-content/60 font-medium">POs This Month</p>
+                    </div>
+                </a>
+
+                <!-- Pending POs -->
+                <a href="purchase_orders.html?status=pending"
+                    class="bento-card card bg-base-100 border border-base-300 cursor-pointer" id="cardPending">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="stat-icon amber">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <span class="badge badge-sm border-warning bg-warning/10 text-base-content">Pending</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-extrabold stat-value text-base-content" id="statPendingPOs">
+                            <span class="loading loading-dots loading-sm"></span>
+                        </p>
+                        <p class="text-sm text-base-content/60 font-medium">Pending / In-transit</p>
+                    </div>
+                </a>
+
+                <!-- PRS Inbox -->
+                <a href="#requisitionsSection" class="bento-card card bg-base-100 border border-base-300 cursor-pointer" id="cardRequisitions">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="stat-icon cyan">
+                                <i class="fas fa-file-signature"></i>
+                            </div>
+                            <span class="badge badge-info badge-sm" id="requisitionsCountBadgeTop">0</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-extrabold stat-value text-base-content" id="statRequisitions">
+                            <span class="loading loading-dots loading-sm"></span>
+                        </p>
+                        <p class="text-sm text-base-content/60 font-medium">Confirmed Stock</p>
+                    </div>
+                </a>
+
+                <!-- Critical Stock -->
+                <a href="#criticalStocks" class="bento-card card bg-base-100 border border-error/30 cursor-pointer" id="cardCriticalStock">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="stat-icon orange">
+                                <i class="fas fa-triangle-exclamation"></i>
+                            </div>
+                            <span class="badge badge-sm border-error bg-error/10 text-base-content">Check now</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-extrabold stat-value text-base-content" id="statCriticalItems">
+                            <span class="loading loading-dots loading-sm"></span>
+                        </p>
+                        <p class="text-sm text-base-content/60 font-medium">Critical Items</p>
+                    </div>
+                </a>
+            </div>
+
+            <section id="foundStockPriceSection" class="hidden card bg-base-100 border border-info/40">
+                <div class="card-body p-4 lg:p-5">
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                            <h3 class="card-title text-base lg:text-lg font-bold">
+                                <i class="fas fa-file-invoice-dollar text-info mr-2"></i>
+                                Verify Found-Stock Cost
+                            </h3>
+                            <p class="text-sm text-base-content/60 mt-1">Warehouse confirmed the physical facts. Check the PO, invoice, or approved opening valuation—do not guess.</p>
+                        </div>
+                        <span class="badge badge-info" id="foundStockPriceCount">0</span>
+                    </div>
+                    <div id="foundStockPriceChecks" class="space-y-2"></div>
+                </div>
+            </section>
+
+            <!-- Critical stock requiring a warehouse PRS -->
+            <section class="card bg-base-100 border border-base-300" id="criticalStocks">
+                <div class="card-body p-4 lg:p-5">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <div>
+                            <h3 class="card-title text-base lg:text-lg font-bold">
+                                <i class="fas fa-triangle-exclamation text-error mr-2"></i>
+                                Critical Stocks
+                            </h3>
+                            <p class="text-xs text-base-content/60 mt-1">Usable stock at or below the minimum safety level.</p>
+                        </div>
+                        <a href="#requisitionsSection" class="btn btn-outline btn-sm">
+                            <i class="fas fa-clipboard-list"></i> View Requisitions
+                        </a>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Type</th>
+                                    <th class="text-right">Usable</th>
+                                    <th class="text-right">Minimum</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="criticalStockTable">
+                                <tr><td colspan="5" class="text-center py-6"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════
+                 FINANCIAL OVERVIEW ROW
+            ═══════════════════════════════════ -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                <!-- Monthly Spending with sparkline -->
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-start gap-3">
+                            <div class="stat-icon emerald">
+                                <i class="fas fa-peso-sign"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-base-content/60 font-medium">Monthly Spending</p>
+                                <p class="text-xl lg:text-2xl font-extrabold stat-value text-base-content" id="statMonthlySpend">
+                                    <span class="loading loading-dots loading-sm"></span>
+                                </p>
+                            </div>
+                        </div>
+                        <!-- Sparkline area -->
+                        <div class="sparkline-wrap mt-3" id="spendingSparkline">
+                            <canvas id="spendingCanvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unpaid Amount -->
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4 lg:p-5">
+                        <div class="flex items-start gap-3">
+                            <div class="stat-icon orange">
+                                <i class="fas fa-receipt"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-base-content/60 font-medium">Unpaid POs</p>
+                                <p class="text-xl lg:text-2xl font-extrabold stat-value text-base-content" id="statUnpaid">
+                                    <span class="loading loading-dots loading-sm"></span>
+                                </p>
+                            </div>
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-base-300/50">
+                            <a href="purchase_orders.html?payment=unpaid" class="text-xs text-primary font-semibold hover:underline flex items-center gap-1">
+                                <i class="fas fa-arrow-right"></i> View unpaid orders
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4 lg:p-5">
+                        <h3 class="font-bold text-sm text-base-content/70 uppercase tracking-wide mb-2">Quick Actions</h3>
+                        <div class="space-y-1">
+                            <a href="suppliers.html" class="quick-action">
+                                <div class="qa-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                    <i class="fas fa-address-book"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-semibold">Manage Suppliers</p>
+                                    <p class="text-xs text-base-content/50">View supplier directory</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════════════════════════════
+                 MAIN CONTENT GRID (PO table + Requisitions)
+            ═══════════════════════════════════ -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Ongoing Purchase Orders (Span 2) -->
+                <div class="lg:col-span-2">
+                    <div class="card bg-base-100 border border-base-300">
+                        <div class="card-body p-4 lg:p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="card-title text-base lg:text-lg font-bold">
+                                    <i class="fas fa-file-invoice-dollar text-primary mr-2"></i>
+                                    Ongoing Purchase Orders
+                                </h3>
+                                <div class="flex gap-2">
+                                    <a href="purchase_orders.html" class="btn btn-ghost btn-sm text-primary" aria-label="View all purchase orders">
+                                        <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto -mx-4 lg:-mx-5">
+                                <table class="table table-sm po-table">
+                                    <thead>
+                                        <tr class="border-b border-base-300">
+                                            <th class="font-semibold text-base-content/70 pl-4 lg:pl-5">PO #</th>
+                                            <th class="font-semibold text-base-content/70">Supplier</th>
+                                            <th class="font-semibold text-base-content/70">Date</th>
+                                            <th class="font-semibold text-base-content/70 text-center">Items</th>
+                                            <th class="font-semibold text-base-content/70">Total Price</th>
+                                            <th class="font-semibold text-base-content/70">Status</th>
+                                            <th class="font-semibold text-base-content/70">Payment</th>
+                                            <th class="font-semibold text-base-content/70 pr-4 lg:pr-5">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentPOTable">
+                                        <tr>
+                                            <td colspan="8" class="text-center py-8 text-base-content/60">
+                                                <span class="loading loading-spinner loading-md"></span>
+                                                <p class="mt-2">Loading purchase orders...</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Requisitions -->
+                <div class="lg:col-span-1" id="requisitionsSection">
+                    <div class="card bg-base-100 border border-base-300 h-full">
+                        <div class="card-body p-4 lg:p-5">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="card-title text-base lg:text-lg font-bold">
+                                    <i class="fas fa-clipboard-list text-info mr-2"></i>
+                                    Requisitions
+                                </h3>
+                                <span class="badge badge-info font-bold" id="requisitionsCountBadge">0</span>
+                            </div>
+
+                            <div class="space-y-2 max-h-96 overflow-y-auto scrollbar-thin pr-1" id="requisitionsList">
+                                <div class="text-center py-8 text-base-content/60">
+                                    <span class="loading loading-spinner loading-md"></span>
+                                    <p class="mt-2">Loading...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <div>
+                <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <dialog id="foundStockPriceModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">✕</button></form>
+            <h3 class="font-bold text-lg"><i class="fas fa-file-invoice-dollar text-info mr-2"></i>Verify inventory cost</h3>
+            <p class="text-sm text-base-content/60 mt-1" id="foundStockPriceSummary"></p>
+            <input type="hidden" id="foundStockPriceRequestId">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
+                <label class="form-control">
+                    <span class="label-text font-semibold mb-1">Verified cost per warehouse unit (₱)</span>
+                    <input type="number" id="foundStockVerifiedCost" class="input input-bordered" min="0.01" step="0.01" placeholder="From PO or invoice">
+                </label>
+                <label class="form-control">
+                    <span class="label-text font-semibold mb-1">PO / invoice / valuation reference</span>
+                    <input id="foundStockPriceReference" class="input input-bordered" maxlength="100" placeholder="e.g. PO-20260825-001">
+                </label>
+            </div>
+            <label class="form-control mt-3">
+                <span class="label-text font-semibold mb-1">Notes</span>
+                <textarea id="foundStockPriceNotes" class="textarea textarea-bordered" maxlength="500" placeholder="How the cost was verified, or why the request must be rejected"></textarea>
+            </label>
+            <div class="alert alert-info py-2 mt-4 text-sm"><i class="fas fa-circle-info"></i><span>This verifies the money only. GM still gives final approval, and perishable stock also requires QC.</span></div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-outline btn-error" onclick="rejectFoundStockPrice()"><i class="fas fa-times"></i> Reject source</button>
+                <button type="button" class="btn btn-success" onclick="verifyFoundStockPrice()"><i class="fas fa-check"></i> Verify price</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/ui/live-refresh.js?v=20260820-1"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="purchaser,general_manager"></script>
+    <script src="../../js/purchasing/purchasing.service.js?v=found-stock-1"></script>
+    <script src="../../js/purchasing/sidebar.js?v=20260903-purchasing-nav-2"></script>
+
+    <script>
+        // ========================================
+        // SIDEBAR & THEME
+        // ========================================
+
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        // Scroll helpers
+        function scrollToLowStock() {
+            document.getElementById('lowStockSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToRequisitions() {
+            document.getElementById('requisitionsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ========================================
+        // TIME-BASED GREETING
+        // ========================================
+        function setGreeting() {
+            const hour = new Date().getHours();
+            let greeting = 'Good evening';
+            if (hour >= 5 && hour < 12) greeting = 'Good morning';
+            else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+            document.getElementById('greetingTime').textContent = greeting;
+        }
+        setGreeting();
+
+        // ========================================
+        // DATA STATE
+        // ========================================
+
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                document.getElementById('welcomeName').textContent = user.first_name || user.name || 'Purchaser';
+                document.getElementById('sidebarUserName').textContent =
+                    `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || 'Purchaser';
+                document.getElementById('userInitials').textContent = getInitials(user.first_name || user.name, user.last_name);
+            }
+
+            await loadDashboardData();
+            HighlandLiveRefresh.start(loadDashboardData);
+        });
+
+        function getInitials(firstName, lastName) {
+            const f = firstName ? firstName.charAt(0).toUpperCase() : '';
+            const l = lastName ? lastName.charAt(0).toUpperCase() : '';
+            return f + l || 'PU';
+        }
+
+        async function loadDashboardData() {
+            const loaders = [
+                loadStats().catch(e => console.error('Stats error:', e)),
+                loadCriticalStocks().catch(e => console.error('Critical stock error:', e)),
+                loadRecentPOs().catch(e => console.error('Recent POs error:', e)),
+                loadPendingRequisitions().catch(e => console.error('Requisitions error:', e)),
+                loadApprovedPurchaseRequestNotifications().catch(e => console.error('PRS inbox notification error:', e)),
+                loadSpendingSparkline().catch(e => console.error('Sparkline error:', e)),
+                loadFoundStockPriceChecks().catch(e => console.error('Found-stock price checks error:', e)),
+            ];
+            await Promise.all(loaders);
+        }
+
+        async function loadApprovedPurchaseRequestNotifications() {
+            const [prResponse, notifResponse] = await Promise.all([
+                PurchasingService.getConfirmedLowStock(),
+                PurchasingService.getNotifications().catch(() => ({ data: [] }))
+            ]);
+            const prsInbox = prResponse?.data || [];
+            const confirmedItems = prsInbox.flatMap(check => (check.items || []).map(item => ({
+                ...item,
+                item_name: item.ingredient_name || item.mro_item_name || item.item_description || 'Confirmed item'
+            })));
+            const procNotifs = notifResponse?.data || [];
+            const count = confirmedItems.length;
+            const totalNotifs = count + procNotifs.length;
+            const notifCount = document.getElementById('notifCount');
+            const notificationList = document.getElementById('notificationList');
+            const alert = document.getElementById('approvedPrAlert');
+            const title = document.getElementById('approvedPrAlertTitle');
+            const text = document.getElementById('approvedPrAlertText');
+            const items = document.getElementById('approvedPrAlertItems');
+
+            notifCount.textContent = totalNotifs;
+            notifCount.className = `indicator-item badge badge-xs ${totalNotifs ? 'border-warning bg-warning/10 text-base-content' : 'badge-primary'}`;
+
+            // Build the list from products, not old PRS/validation document codes.
+            let listHtml = '';
+
+            if (procNotifs.length) {
+                listHtml += procNotifs.map(n => `
+                    <li>
+                            <a href="${n.notification_type === 'found_stock_price_check' ? '#foundStockPriceSection' : '#requisitionsSection'}" class="items-start">
+                            <i class="fas fa-file-signature text-warning mt-1"></i>
+                            <div>
+                                <p class="font-medium">${escapeHtml(n.title)}</p>
+                                <p class="text-xs text-base-content/60">${escapeHtml(n.message)}</p>
+                            </div>
+                        </a>
+                    </li>
+                `).join('');
+            }
+
+            if (!count && !procNotifs.length) {
+                alert.classList.add('hidden');
+                notificationList.innerHTML = '<li class="text-center py-4 text-base-content/60">No new notifications</li>';
+                items.innerHTML = '';
+                return;
+            }
+
+            if (count) {
+                const noun = count === 1 ? 'confirmed item needs' : 'confirmed items need';
+                title.textContent = `${count} ${noun} a Purchasing decision`;
+                text.textContent = 'Prepare the PO now. If one approved supplier covers the demand, the system selects it and loads the required quantity automatically.';
+                items.innerHTML = confirmedItems.slice(0, 4).map(item => `
+                        <span class="badge border-warning bg-warning/10 text-base-content gap-1 h-auto py-2">
+                            <i class="fas fa-box"></i>
+                            ${escapeHtml(item.item_name)} — ${formatQuantity(item.remaining_quantity ?? item.quantity)} ${escapeHtml(item.unit || 'units')}
+                        </span>
+                    `).join('');
+                alert.classList.remove('hidden');
+
+                listHtml += confirmedItems.map(item => `
+                        <li>
+                            <a href="purchase_orders.html?action=new" class="items-start">
+                                <i class="fas fa-box text-warning mt-1"></i>
+                                <div>
+                                    <p class="font-medium">${escapeHtml(item.item_name)} needs a decision</p>
+                                    <p class="text-xs text-base-content/60">Confirmed shortage: ${formatQuantity(item.remaining_quantity ?? item.quantity)} ${escapeHtml(item.unit || 'units')}</p>
+                                    <p class="text-xs text-base-content/50">Prepare its supplier Purchase Order</p>
+                                </div>
+                            </a>
+                        </li>
+                    `).join('');
+            } else {
+                alert.classList.add('hidden');
+                items.innerHTML = '';
+            }
+
+            notificationList.innerHTML = listHtml;
+        }
+
+        // ========================================
+        // STATS
+        // ========================================
+
+        async function loadStats() {
+            try {
+                const response = await PurchasingService.getDashboardStats();
+                const stats = response?.data;
+
+                if (!stats) return;
+
+                animateValue('statSuppliers', stats.total_suppliers);
+                animateValue('statPOsMonth', stats.pos_this_month);
+                animateValue('statPendingPOs', stats.pending_pos);
+                animateValue('statRequisitions', stats.prs_inbox);
+                animateValue('statCriticalItems', stats.critical_stock_items);
+
+                document.getElementById('statMonthlySpend').textContent =
+                    formatCurrency(stats.monthly_spending);
+                document.getElementById('statMonthlySpend').classList.add('animate-fade-in-up');
+
+                document.getElementById('statUnpaid').textContent =
+                    formatCurrency(stats.unpaid_amount);
+                document.getElementById('statUnpaid').classList.add('animate-fade-in-up');
+
+                // Update sidebar badges
+                document.getElementById('pendingPOBadge').textContent = stats.pending_pos;
+                document.getElementById('requisitionBadge').textContent = stats.pending_requisitions;
+                document.getElementById('requisitionsCountBadgeTop').textContent = stats.prs_inbox;
+
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        let foundStockPriceChecks = [];
+
+        async function loadFoundStockPriceChecks() {
+            const response = await PurchasingService.getFoundStockPriceChecks();
+            foundStockPriceChecks = response?.data || [];
+            const section = document.getElementById('foundStockPriceSection');
+            const list = document.getElementById('foundStockPriceChecks');
+            document.getElementById('foundStockPriceCount').textContent = foundStockPriceChecks.length;
+            section.classList.toggle('hidden', foundStockPriceChecks.length === 0);
+            if (!foundStockPriceChecks.length) {
+                list.innerHTML = '';
+                return;
+            }
+            list.innerHTML = foundStockPriceChecks.map(item => `
+                <button type="button" class="w-full text-left border border-base-300 rounded-xl p-3 hover:bg-base-200 transition"
+                    onclick="openFoundStockPrice(${Number(item.id)})">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div>
+                            <p class="font-semibold">${escapeHtml(item.ingredient_name)} <span class="badge badge-ghost badge-sm">${escapeHtml(item.request_code)}</span></p>
+                            <p class="text-xs text-base-content/60">${escapeHtml(item.supplier_name || 'Opening inventory')} · ${escapeHtml(item.source_reference)} · ${formatQuantity(item.quantity_to_add)} ${escapeHtml(item.unit)}</p>
+                        </div>
+                        <span class="btn btn-info btn-sm"><i class="fas fa-magnifying-glass-dollar"></i> Check price</span>
+                    </div>
+                </button>`).join('');
+        }
+
+        function openFoundStockPrice(id) {
+            const item = foundStockPriceChecks.find(row => Number(row.id) === Number(id));
+            if (!item) return;
+            document.getElementById('foundStockPriceRequestId').value = item.id;
+            document.getElementById('foundStockPriceSummary').textContent =
+                `${item.ingredient_name}: ${formatQuantity(item.quantity_to_add)} ${item.unit} found by Warehouse. Source: ${item.source_reference}.`;
+            const suggested = Number(item.supplier_reference_price || item.last_inventory_cost || 0);
+            document.getElementById('foundStockVerifiedCost').value = suggested > 0 ? suggested.toFixed(2) : '';
+            document.getElementById('foundStockPriceReference').value = '';
+            document.getElementById('foundStockPriceNotes').value = '';
+            document.getElementById('foundStockPriceModal').showModal();
+        }
+
+        async function verifyFoundStockPrice() {
+            const requestId = Number(document.getElementById('foundStockPriceRequestId').value);
+            const unitCost = document.getElementById('foundStockVerifiedCost').value;
+            const priceReference = document.getElementById('foundStockPriceReference').value.trim();
+            const notes = document.getElementById('foundStockPriceNotes').value.trim();
+            if (!unitCost || Number(unitCost) <= 0 || priceReference.length < 3) {
+                showToast('Enter the verified unit cost and its PO, invoice, or valuation reference.', 'error');
+                return;
+            }
+            try {
+                const response = await PurchasingService.verifyFoundStockPrice({
+                    request_id: requestId,
+                    unit_cost: unitCost,
+                    price_reference: priceReference,
+                    notes,
+                });
+                document.getElementById('foundStockPriceModal').close();
+                showToast(response.message || 'Price verified', 'success');
+                await loadFoundStockPriceChecks();
+            } catch (error) {
+                showToast(error?.message || 'Could not verify the price', 'error');
+            }
+        }
+
+        async function rejectFoundStockPrice() {
+            const requestId = Number(document.getElementById('foundStockPriceRequestId').value);
+            const notes = document.getElementById('foundStockPriceNotes').value.trim();
+            if (notes.length < 5) {
+                showToast('Explain why the source or price cannot be verified.', 'error');
+                return;
+            }
+            try {
+                const response = await PurchasingService.rejectFoundStockPrice({ request_id: requestId, notes });
+                document.getElementById('foundStockPriceModal').close();
+                showToast(response.message || 'Request rejected', 'success');
+                await loadFoundStockPriceChecks();
+            } catch (error) {
+                showToast(error?.message || 'Could not reject the request', 'error');
+            }
+        }
+
+        async function loadCriticalStocks() {
+            const tbody = document.getElementById('criticalStockTable');
+            const response = await PurchasingService.getLowStockAlerts();
+            const items = (response?.data || []).filter(item =>
+                Number(item.current_stock || 0) <= Number(item.minimum_stock || 0)
+            );
+
+            if (!items.length) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-6 text-success">
+                            <i class="fas fa-circle-check mr-2"></i>No items are below minimum stock.
+                        </td>
+                    </tr>`;
+                return;
+            }
+
+            tbody.innerHTML = items.map(item => {
+                const name = item.ingredient_name || item.item_name || 'Item';
+                const code = item.ingredient_code || item.item_code || '';
+                const unit = item.unit_of_measure || '';
+                const out = Number(item.current_stock || 0) <= 0;
+                return `
+                    <tr class="border-b border-base-200/60">
+                        <td>
+                            <div class="font-semibold">${escapeHtml(name)}</div>
+                            <div class="font-mono text-xs text-base-content/50">${escapeHtml(code)}</div>
+                        </td>
+                        <td><span class="badge badge-ghost badge-sm">${item.item_type === 'mro' ? 'MRO' : 'Ingredient'}</span></td>
+                        <td class="text-right font-bold">${formatNumber(item.current_stock)} ${escapeHtml(unit)}</td>
+                        <td class="text-right">${formatNumber(item.minimum_stock)} ${escapeHtml(unit)}</td>
+                        <td><span class="badge badge-sm ${out ? 'badge-error' : 'border-warning bg-warning/10 text-base-content'}">${out ? 'Out' : 'Critical'}</span></td>
+                    </tr>`;
+            }).join('');
+        }
+
+        /** Smoothly counts from 0 to `end` over ~600ms */
+        function animateValue(elementId, end) {
+            const el = document.getElementById(elementId);
+            const endVal = parseInt(end) || 0;
+            if (endVal === 0) { el.textContent = '0'; return; }
+            const duration = 600;
+            const start = performance.now();
+            function tick(now) {
+                const elapsed = now - start;
+                const progress = Math.min(elapsed / duration, 1);
+                // ease-out cubic
+                const eased = 1 - Math.pow(1 - progress, 3);
+                el.textContent = Math.round(eased * endVal);
+                if (progress < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // ========================================
+        // SPENDING SPARKLINE
+        // ========================================
+
+        async function loadSpendingSparkline() {
+            try {
+                const response = await PurchasingService.getMonthlySpending(6);
+                const data = response?.data || [];
+                if (!data.length) {
+                    document.getElementById('spendingSparkline').innerHTML =
+                        '<p class="text-xs text-base-content/40 text-center py-2">No spending data</p>';
+                    return;
+                }
+                drawSparkline(data);
+            } catch (e) {
+                document.getElementById('spendingSparkline').innerHTML =
+                    '<p class="text-xs text-base-content/40 text-center py-2">Unable to load trend</p>';
+            }
+        }
+
+        function drawSparkline(data) {
+            const canvas = document.getElementById('spendingCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const wrap = canvas.parentElement;
+            const dpr = window.devicePixelRatio || 1;
+            const w = wrap.clientWidth;
+            const h = wrap.clientHeight;
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            ctx.scale(dpr, dpr);
+
+            const values = data.map(d => parseFloat(d.total || d.amount || 0));
+            const maxVal = Math.max(...values, 1);
+            const minVal = Math.min(...values, 0);
+            const range = maxVal - minVal || 1;
+            const padding = 4;
+            const stepX = (w - padding * 2) / (values.length - 1 || 1);
+
+            // Build points
+            const points = values.map((v, i) => ({
+                x: padding + i * stepX,
+                y: padding + (1 - (v - minVal) / range) * (h - padding * 2)
+            }));
+
+            // Fill gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, h);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, h);
+            points.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.lineTo(points[points.length - 1].x, h);
+            ctx.closePath();
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Line
+            ctx.beginPath();
+            points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // End dot
+            const last = points[points.length - 1];
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#10b981';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // ========================================
+        // RECENT POs
+        // ========================================
+
+        async function loadRecentPOs() {
+            try {
+                const response = await PurchasingService.getRecentPOs(8);
+                const orders = response?.data || [];
+                const tbody = document.getElementById('recentPOTable');
+
+                if (orders.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-8 text-base-content/60">
+                                <i class="fas fa-inbox text-4xl mb-2"></i>
+                                <p>No purchase orders found</p>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                tbody.innerHTML = orders.map(po => {
+                    const statusBadge = PurchasingService.getStatusBadgeClass(po.status);
+                    const paymentBadge = PurchasingService.getPaymentBadgeClass(po.payment_status);
+
+                    return `
+                        <tr class="hover border-b border-base-200/50">
+                            <td class="pl-4 lg:pl-5">
+                                <span class="font-mono font-bold text-primary text-sm">${escapeHtml(po.po_number)}</span>
+                            </td>
+                            <td>
+                                <div class="font-semibold text-sm">${escapeHtml(po.supplier_name)}</div>
+                                <div class="font-mono text-xs text-base-content/50">${escapeHtml(po.supplier_code || '')}</div>
+                            </td>
+                            <td class="text-sm text-base-content/70">${formatDate(po.order_date)}</td>
+                            <td class="text-center"><span class="badge badge-ghost badge-sm">${Number(po.item_count || 0)}</span></td>
+                            <td class="font-bold text-sm">${formatCurrency(po.total_amount)}</td>
+                            <td>
+                                <span class="badge badge-sm ${statusBadge}">${PurchasingService.formatStatus(po.status)}</span>
+                            </td>
+                            <td>
+                                <span class="badge badge-sm ${paymentBadge} badge-outline">${PurchasingService.formatStatus(po.payment_status)}</span>
+                            </td>
+                            <td class="pr-4 lg:pr-5">
+                                <a href="purchase_orders.html?po_id=${encodeURIComponent(po.id)}" class="btn btn-ghost btn-xs" title="Open purchase order" aria-label="Open purchase order ${escapeHtml(po.po_number)}">
+                                    <i class="fas fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading recent POs:', error);
+                document.getElementById('recentPOTable').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-4 text-error">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            Failed to load purchase orders
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        // ========================================
+        // PENDING REQUISITIONS
+        // ========================================
+
+        async function loadPendingRequisitions() {
+            try {
+                const response = await PurchasingService.getPendingRequisitions();
+                const requisitions = response?.data || [];
+                const container = document.getElementById('requisitionsList');
+
+                document.getElementById('requisitionsCountBadge').textContent = requisitions.length;
+
+                if (requisitions.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-base-content/60">
+                            <div class="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-3">
+                                <i class="fas fa-check-circle text-2xl text-success"></i>
+                            </div>
+                            <p class="font-medium">All caught up!</p>
+                            <p class="text-xs text-base-content/40 mt-1">No pending requisitions</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = requisitions.map(req => {
+                    const priorityBadge = PurchasingService.getPriorityBadgeClass(req.priority);
+                    const statusBadge = PurchasingService.getStatusBadgeClass(req.status);
+                    const timeAgo = getTimeAgo(req.created_at);
+                    const priorityClass = req.priority === 'urgent' ? 'priority-urgent'
+                        : req.priority === 'high' ? 'priority-high' : '';
+
+                    return `
+                        <div class="req-card bg-base-200/50 rounded-xl p-3 ${priorityClass}">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="font-mono text-sm font-bold text-primary">${escapeHtml(req.requisition_code)}</span>
+                                        <span class="badge badge-xs ${priorityBadge}">${escapeHtml(req.priority)}</span>
+                                    </div>
+                                    <p class="text-sm text-base-content/70 truncate">${escapeHtml(req.purpose || 'No description')}</p>
+                                    <div class="flex items-center gap-2 mt-1.5">
+                                        <span class="text-xs text-base-content/50">
+                                            <i class="fas fa-user mr-1"></i>${escapeHtml(req.requested_by_name || 'Unknown')}
+                                        </span>
+                                        <span class="text-xs text-base-content/30">•</span>
+                                        <span class="text-xs text-base-content/50">${timeAgo}</span>
+                                    </div>
+                                </div>
+                                <span class="badge badge-sm ${statusBadge}">${PurchasingService.formatStatus(req.status)}</span>
+                            </div>
+                            ${req.item_names ? `
+                                <div class="mt-2 text-xs text-base-content/50 flex items-start gap-1">
+                                    <i class="fas fa-box mt-0.5"></i>
+                                    <span class="truncate">${escapeHtml(req.item_names)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading requisitions:', error);
+                document.getElementById('requisitionsList').innerHTML = `
+                    <div class="text-center py-4 text-error">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        Failed to load requisitions
+                    </div>
+                `;
+            }
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        function formatCurrency(amount) {
+            return '₱' + parseFloat(amount || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function formatQuantity(value) {
+            const number = Number(value || 0);
+            return number.toLocaleString('en-PH', { maximumFractionDigits: 3 });
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString('en-PH', {
+                maximumFractionDigits: 3
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getPurchaseRequestItemPreview(pr) {
+            const items = pr.items || [];
+            if (!items.length) return `${pr.item_count || 0} item(s)`;
+
+            const names = items.slice(0, 2).map(item =>
+                item.ingredient_name || item.mro_item_name || item.item_description || 'Requested item'
+            );
+            const more = items.length > 2 ? ` +${items.length - 2} more` : '';
+            return names.join(', ') + more;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-PH', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+        function getTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const now = new Date();
+            const date = new Date(dateStr);
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return formatDate(dateStr);
+        }
+    </script>
+
+</body>
+
+</html>

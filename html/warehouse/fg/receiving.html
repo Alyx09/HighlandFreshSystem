@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receive from Production - Warehouse FG | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .bento-card {
+            @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-value {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .pending-row {
+            @apply border-l-4 border-warning bg-warning/5;
+        }
+
+        .table-hover tbody tr:hover {
+            @apply bg-base-200/50;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Warehouse - Finished Goods</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <!-- Main Menu -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Inventory -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inventory</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="inventory.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-boxes w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">FG Inventory</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="chillers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-temperature-low w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Chiller Storage</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Operations -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Operations
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="receiving.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-dolly w-5 text-center"></i>
+                            <span class="flex-1">Receive from Production</span>
+                            <span class="badge badge-sm bg-white/20 text-white border-0"
+                                id="pendingReceivingBadge">0</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="delivery_receipts.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-file-invoice w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Delivery Receipts</span>
+                            <span class="badge badge-sm badge-info" id="pendingDRBadge">0</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dispatch.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dispatch</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Customers -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Customers</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="customers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Customer List</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Reports -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="reports/inventory.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-chart-bar w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Inventory Report</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="reports/dispatch.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-shipping-fast w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dispatch History</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">FG</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Warehouse Staff</p>
+                    <p class="text-xs text-base-content/60 truncate">Finished Goods</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a><i class="fas fa-user-cog w-4"></i> Profile</a></li>
+                        <li><a><i class="fas fa-cog w-4"></i> Settings</a></li>
+                        <li class="border-t border-base-300 mt-1 pt-1">
+                            <a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content">Receive from Production</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <!-- Refresh Button -->
+                <button class="btn btn-ghost btn-circle" onclick="loadPendingBatches()" title="Refresh">
+                    <i class="fas fa-sync-alt text-lg"></i>
+                </button>
+
+                <!-- Notifications -->
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-circle">
+                        <div class="indicator">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="indicator-item badge badge-primary badge-xs" id="notifCount">0</span>
+                        </div>
+                    </label>
+                    <div tabindex="0"
+                        class="dropdown-content bg-base-100 rounded-box shadow-lg border border-base-300 w-80 mt-3">
+                        <div class="p-4 border-b border-base-300">
+                            <h3 class="font-semibold">Notifications</h3>
+                        </div>
+                        <ul class="menu menu-sm p-2 max-h-64 overflow-y-auto" id="notificationList">
+                            <li class="text-center py-4 text-base-content/60">No new notifications</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Theme toggle -->
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Page Header Banner -->
+            <div class="bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-6 mb-6 text-primary-content">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-1">
+                            <i class="fas fa-dolly mr-2"></i>
+                            Receive from Production
+                        </h2>
+                        <p class="text-primary-content/80">Receive QC-released batches into chiller storage.
+                            Inventory is created here per product line when you receive.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="inventory.html"
+                            class="btn btn-sm bg-white/20 border-white/30 text-white hover:bg-white/30">
+                            <i class="fas fa-boxes"></i> View Inventory
+                        </a>
+                        <a href="chillers.html"
+                            class="btn btn-sm bg-white/20 border-white/30 text-white hover:bg-white/30">
+                            <i class="fas fa-temperature-low"></i> Chillers
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bento Grid Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <!-- Pending Receipt -->
+                <div class="bento-card card bg-base-100 border border-base-300 cursor-pointer"
+                    onclick="scrollToTable('pending')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                                <i class="fas fa-clock text-amber-500"></i>
+                            </div>
+                            <span class="badge badge-warning badge-sm">Pending</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="pendingCount">0</p>
+                        <p class="text-sm text-base-content/60">Awaiting Chiller Assignment</p>
+                    </div>
+                </div>
+
+                <!-- Put away today -->
+                <div class="bento-card card bg-base-100 border border-base-300 cursor-pointer"
+                    onclick="scrollToTable('recent')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-emerald-500"></i>
+                            </div>
+                            <span class="badge badge-success badge-sm">Today</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="receivedToday">0</p>
+                        <p class="text-sm text-base-content/60">Put Away Today</p>
+                    </div>
+                </div>
+
+                <!-- Units Today -->
+                <div class="bento-card card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                <i class="fas fa-boxes text-blue-500"></i>
+                            </div>
+                            <span class="badge badge-info badge-sm">Units</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="unitsToday">0</p>
+                        <p class="text-sm text-base-content/60">Base Units Put Away</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Batches Card -->
+            <div id="pendingSection" class="card bg-base-100 border border-base-300 mb-6">
+                <div class="card-body">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="card-title text-lg">
+                            <i class="fas fa-clipboard-list text-warning mr-2"></i>
+                            Awaiting Chiller Assignment
+                        </h3>
+                        <span class="badge badge-warning" id="pendingBadge">0</span>
+                    </div>
+                    <p class="text-sm text-base-content/60 mb-4">
+                        QC-released batches from Production waiting to be received into a chiller.
+                    </p>
+
+                    <div class="overflow-x-auto">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Batch Code</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Quantity</th>
+                                    <th>Packaged</th>
+                                    <th>Expiry Date</th>
+                                    <th>QC Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingBatchesTable">
+                                <tr>
+                                    <td colspan="7" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                        <p class="text-base-content/60 mt-2">Loading pending batches...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Receipts Card -->
+            <div id="recentSection" class="card bg-base-100 border border-base-300">
+                <div class="card-body">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="card-title text-lg">
+                            <i class="fas fa-history text-success mr-2"></i>
+                            Recent Put-Aways
+                        </h3>
+                        <a href="inventory.html" class="btn btn-ghost btn-sm">View All</a>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="table table-zebra table-hover">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Put Away At</th>
+                                    <th>Batch Code</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Packs</th>
+                                    <th class="text-right">Loose</th>
+                                    <th class="text-right">Base Total</th>
+                                    <th>Chiller</th>
+                                    <th>By</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentReceiptsTable">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-base-content/60">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <div>
+                <p class="text-sm text-base-content/60">? 2026 Highland Fresh Dairy. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Put-Away Modal -->
+    <dialog id="receiveModal" class="modal">
+        <div class="modal-box max-w-md">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                    <i class="fas fa-temperature-low text-success"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg">Put Away - Assign to Chiller</h3>
+                    <p class="text-xs text-base-content/60">Internal transfer - stock already in FG books</p>
+                </div>
+            </div>
+
+            <form id="receiveForm">
+                <input type="hidden" id="receiveBatchId">
+
+                <!-- Batch Info Card -->
+                <div class="bg-base-200 rounded-xl p-4 mb-4">
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                            <span class="text-base-content/60">Batch Code</span>
+                            <p class="font-semibold font-mono" id="receiveBatchCode">-</p>
+                        </div>
+                        <div>
+                            <span class="text-base-content/60">Product</span>
+                            <p class="font-semibold" id="receiveProduct">-</p>
+                        </div>
+                        <div class="col-span-2">
+                            <span class="text-base-content/60">Quantity to put away</span>
+                            <p class="font-semibold text-primary" id="receiveQuantity">-</p>
+                        </div>
+                        <div>
+                            <span class="text-base-content/60">Expiry Date</span>
+                            <p class="font-semibold" id="receiveExpiry">-</p>
+                        </div>
+                        <div>
+                            <span class="text-base-content/60">Source</span>
+                            <p class="font-semibold text-xs" id="receiveSource">Packaging</p>
+                        </div>
+                    </div>
+                    <div class="mt-3 p-2 bg-info/10 rounded-lg text-info text-xs flex items-start gap-2">
+                        <i class="fas fa-box mt-0.5"></i>
+                        <span id="receiveConversionRate">Pack configuration</span>
+                    </div>
+                    <div id="receiveIntegrityWarn" class="mt-2 p-2 bg-error/10 rounded-lg text-error text-xs hidden">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>
+                        <span id="receiveIntegrityText"></span>
+                    </div>
+                </div>
+
+                <!-- Chiller Selection -->
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text font-medium">Destination chiller <span class="text-error">*</span></span>
+                    </label>
+                    <select id="receiveChiller" class="select select-bordered w-full" required>
+                        <option value="">Select chiller...</option>
+                    </select>
+                    <div id="receiveCapacityHelp" class="text-xs text-base-content/60 mt-2"></div>
+                </div>
+
+                <!-- Notes -->
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text font-medium">Notes (optional)</span>
+                    </label>
+                    <textarea id="receiveNotes" class="textarea textarea-bordered" rows="2"
+                        placeholder="Location notes, variance observations..."></textarea>
+                </div>
+
+                <!-- Actions -->
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost" onclick="receiveModal.close()">Cancel</button>
+                    <button type="submit" id="receiveSubmitButton" class="btn btn-success" disabled>
+                        <i class="fas fa-check"></i> Confirm Put-Away
+                    </button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../../js/vendor/axios.min.js?v=20260221"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/ui/live-refresh.js?v=20260820-1"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_fg,general_manager"></script>
+    <script src="../../../js/utils/units.js?v=20260712"></script>
+    <script src="../../../js/utils/product-display.js?v=20260909-sizefix1"></script>
+    <script src="../../../js/warehouse/fg.service.js?v=20260718"></script>
+
+    <script>
+        let pendingBatches = [];
+        let chillers = [];
+
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Scroll to section
+        function scrollToTable(section) {
+            const el = document.getElementById(section === 'pending' ? 'pendingSection' : 'recentSection');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check authentication
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../../login.html';
+                return;
+            }
+
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Warehouse Staff';
+                    document.getElementById('userInitials').textContent = getInitials(user.first_name, user.last_name);
+                }
+                await loadChillers();
+                await loadPendingBatches();
+                await loadRecentReceipts();
+                HighlandLiveRefresh.start(() => Promise.all([
+                    loadPendingBatches(),
+                    loadRecentReceipts(),
+                    loadChillers()
+                ]));
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+
+        function getInitials(firstName, lastName) {
+            const f = firstName ? firstName.charAt(0).toUpperCase() : '';
+            const l = lastName ? lastName.charAt(0).toUpperCase() : '';
+            return f + l || 'FG';
+        }
+
+        async function loadChillers() {
+            try {
+                const response = await WarehouseFGService.getChillers();
+                chillers = response.data || [];
+                const batchId = document.getElementById('receiveBatchId')?.value;
+                const selectedBatch = pendingBatches.find(batch => batch.id == batchId);
+                renderReceiveChillerOptions(selectedBatch || null);
+            } catch (error) {
+                console.error('Failed to load chillers:', error);
+            }
+        }
+
+        function getBatchRequiredCapacity(batch) {
+            if (!batch) return 0;
+            const packagingTotal = (batch.packaging_lines || []).reduce(
+                (sum, line) => sum + Math.max(0, Number(line.quantity || 0)),
+                0
+            );
+            if (packagingTotal > 0) return packagingTotal;
+            return Math.max(0, Number(
+                batch.total_pieces
+                ?? batch.quantity_available
+                ?? batch.actual_yield
+                ?? batch.expected_yield
+                ?? 0
+            ));
+        }
+
+        function renderReceiveChillerOptions(batch) {
+            const select = document.getElementById('receiveChiller');
+            const help = document.getElementById('receiveCapacityHelp');
+            const submitButton = document.getElementById('receiveSubmitButton');
+            if (!select) return;
+
+            const required = getBatchRequiredCapacity(batch);
+            const previousValue = select.value;
+            select.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = required > 0
+                ? `Select a chiller for ${required.toLocaleString()} unit(s)...`
+                : 'Select chiller...';
+            select.appendChild(placeholder);
+
+            let fittingCount = 0;
+            chillers
+                .filter(c => Number(c.is_active) === 1 && !['maintenance', 'offline'].includes(String(c.status || '')))
+                .forEach(c => {
+                    const currentCount = Math.max(0, Number(c.current_count || 0));
+                    const capacity = Number(c.capacity || 0);
+                    const unlimited = capacity <= 0;
+                    const available = unlimited ? Number.POSITIVE_INFINITY : Math.max(0, capacity - currentCount);
+                    const cannotFit = required > 0 && !unlimited && available < required;
+                    const option = document.createElement('option');
+                    option.value = c.id;
+                    option.disabled = cannotFit;
+                    if (cannotFit) {
+                        option.textContent = `${c.chiller_name || c.name} — cannot fit (needs ${required.toLocaleString()}, ${available.toLocaleString()} available)`;
+                    } else if (unlimited) {
+                        option.textContent = `${c.chiller_name || c.name} (no capacity limit configured)`;
+                    } else {
+                        option.textContent = `${c.chiller_name || c.name} (${available.toLocaleString()} available after current stock)`;
+                    }
+                    select.appendChild(option);
+                    if (!cannotFit) fittingCount += 1;
+                });
+
+            if ([...select.options].some(option => option.value === previousValue && !option.disabled)) {
+                select.value = previousValue;
+            }
+            select.disabled = required > 0 && fittingCount === 0;
+            if (submitButton) {
+                submitButton.disabled = required <= 0 || fittingCount === 0;
+            }
+            if (help) {
+                help.className = fittingCount === 0 && required > 0
+                    ? 'text-xs text-error mt-2 font-medium'
+                    : 'text-xs text-base-content/60 mt-2';
+                help.textContent = required <= 0
+                    ? 'The released batch quantity could not be determined.'
+                    : fittingCount === 0
+                        ? `No available chiller can hold all ${required.toLocaleString()} unit(s). Free capacity or configure another chiller before receiving.`
+                        : `The entire batch needs ${required.toLocaleString()} unit(s). Chillers without enough room cannot be selected.`;
+            }
+        }
+
+        async function loadPendingBatches() {
+            try {
+                const response = await WarehouseFGService.getPendingBatches();
+                if (!response || response.success === false) {
+                    throw new Error(response?.message || 'Failed to load receive-from-production queue');
+                }
+                const payload = response.data;
+                if (Array.isArray(payload?.batches)) {
+                    pendingBatches = payload.batches;
+                } else if (Array.isArray(payload)) {
+                    pendingBatches = payload;
+                } else {
+                    pendingBatches = [];
+                }
+                const count = pendingBatches.length;
+                document.getElementById('pendingCount').textContent = count;
+                document.getElementById('pendingBadge').textContent = count;
+                document.getElementById('pendingReceivingBadge').textContent = count;
+                const notif = document.getElementById('notifCount');
+                if (notif) notif.textContent = count;
+                renderPendingBatches();
+            } catch (error) {
+                console.error('Failed to load pending batches:', error);
+                pendingBatches = [];
+                document.getElementById('pendingCount').textContent = '0';
+                document.getElementById('pendingBadge').textContent = '0';
+                document.getElementById('pendingReceivingBadge').textContent = '0';
+                const notif = document.getElementById('notifCount');
+                if (notif) notif.textContent = '0';
+                const msg = error?.message || error?.response?.data?.message || 'Could not load queue';
+                document.getElementById('pendingBatchesTable').innerHTML = `
+                    <tr><td colspan="7" class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-triangle text-4xl mb-2"></i>
+                        <p class="font-semibold">Failed to load items</p>
+                        <p class="text-sm text-base-content/60 mt-1">${HighlandSecurity.escapeHtml(msg)}</p>
+                        <button type="button" class="btn btn-sm btn-outline mt-3" onclick="loadPendingBatches()">Retry</button>
+                    </td></tr>`;
+                if (typeof showToast === 'function') {
+                    showToast(msg, 'error');
+                }
+            }
+        }
+
+        function renderPendingBatches() {
+            const tbody = document.getElementById('pendingBatchesTable');
+
+            if (!pendingBatches || pendingBatches.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8">
+                    <i class="fas fa-check-circle text-success text-4xl mb-2"></i>
+                    <p class="text-base-content/60">No packaged goods awaiting chiller assignment</p>
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = pendingBatches.map(batch => {
+                let qtyDisplay = batch.inventory_display
+                    || batch.total_pieces
+                    || batch.quantity_available
+                    || batch.quantity
+                    || '--';
+                let packLine = batch.pack_config_label || '';
+                let integrityHtml = '';
+                try {
+                    if (typeof PackUnits !== 'undefined') {
+                        qtyDisplay = PackUnits.formatQuantity(batch, { preferSplit: true }) || qtyDisplay;
+                        packLine = PackUnits.formatPackLine(batch) || packLine;
+                        const integrity = PackUnits.checkIntegrity(batch);
+                        if (integrity && !integrity.ok) {
+                            integrityHtml = PackUnits.integrityBadgeHtml(batch);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('PackUnits display fallback', e);
+                }
+
+                const skuLines = (batch.packaging_lines || []).filter(line => Number(line.quantity || 0) > 0);
+                const productName = skuLines.length === 1
+                    ? ProductDisplay.name(skuLines[0])
+                    : ProductDisplay.name(batch);
+                const skuSummary = skuLines.length > 1
+                    ? skuLines.map(line => `${ProductDisplay.name(line)} (${Number(line.quantity).toLocaleString()})`).join(' · ')
+                    : '';
+
+                const packagedAt = batch.packaged_at || batch.production_date;
+                const packagedLabel = packagedAt ? new Date(packagedAt).toLocaleDateString() : 'N/A';
+                const qcOk = !batch.qc_status || batch.qc_status === 'released' || batch.qc_decision === 'approved';
+                const qcBadge = qcOk
+                    ? '<span class="badge badge-success badge-sm gap-1"><i class="fas fa-check"></i> QC Passed</span>'
+                    : `<span class="badge badge-warning badge-sm">${escapeHtml(batch.qc_status || 'Pending QC')}</span>`;
+
+                return `
+                <tr class="pending-row hover">
+                    <td>
+                        <code class="font-mono text-sm bg-base-200 px-2 py-1 rounded">${escapeHtml(batch.batch_code || batch.batch_number || ('FG-' + batch.id))}</code>
+                    </td>
+                    <td>
+                        <div class="font-medium">${escapeHtml(productName)}</div>
+                        ${skuSummary ? `<div class="text-xs text-base-content/60">SKUs: ${escapeHtml(skuSummary)}</div>` : ''}
+                        <div class="text-xs text-info mt-0.5">${packLine}</div>
+                        ${integrityHtml}
+                    </td>
+                    <td class="text-right font-bold text-primary">${qtyDisplay}</td>
+                    <td>${packagedLabel}</td>
+                    <td>${batch.expiry_date ? new Date(batch.expiry_date).toLocaleDateString() : 'N/A'}</td>
+                    <td>${qcBadge}</td>
+                    <td>
+                        <button class="btn btn-primary btn-sm gap-1" onclick="openReceiveModal(${batch.id})">
+                            <i class="fas fa-dolly"></i> Receive
+                        </button>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        async function loadRecentReceipts() {
+            try {
+                const response = await WarehouseFGService.getInventoryTransactions({ type: 'receive', limit: 10 });
+                const receipts = response.data?.transactions || response.data || [];
+
+                let todayCount = 0;
+                let todayUnits = 0;
+                const today = new Date().toDateString();
+
+                if (Array.isArray(receipts)) {
+                    receipts.forEach(r => {
+                        if (new Date(r.created_at).toDateString() === today) {
+                            todayCount++;
+                            todayUnits += parseInt(r.quantity) || 0;
+                        }
+                    });
+                }
+
+                document.getElementById('receivedToday').textContent = todayCount;
+                document.getElementById('unitsToday').textContent = todayUnits.toLocaleString();
+
+                renderRecentReceipts(Array.isArray(receipts) ? receipts : []);
+            } catch (error) {
+                console.error('Failed to load recent receipts:', error);
+            }
+        }
+
+        function renderRecentReceipts(receipts) {
+            const tbody = document.getElementById('recentReceiptsTable');
+
+            if (!receipts || receipts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-base-content/60">
+                    <i class="fas fa-inbox text-4xl mb-2"></i>
+                    <p>No recent put-aways</p>
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = receipts.map(r => {
+                const row = {
+                    pieces_per_box: r.pieces_per_box,
+                    base_unit: r.base_unit,
+                    box_unit: r.box_unit,
+                    quantity_boxes: r.quantity_boxes,
+                    quantity_pieces: r.quantity_pieces,
+                    boxes_available: r.quantity_boxes,
+                    pieces_available: r.quantity_pieces
+                };
+                const packs = PackUnits.readBoxes(row);
+                const loose = PackUnits.readLoosePieces(row);
+                const total = PackUnits.totalBase(row);
+                const baseLabel = PackUnits.pluralize(PackUnits.baseUnit(row), total === 1 ? 1 : 2);
+
+                return `
+                <tr class="hover">
+                    <td class="text-sm">${new Date(r.created_at).toLocaleString()}</td>
+                    <td><code class="text-xs bg-base-200 px-2 py-1 rounded">${escapeHtml(r.batch_code || 'N/A')}</code></td>
+                    <td class="font-medium">
+                        ${escapeHtml(ProductDisplay.name(r))}
+                        <div class="text-xs text-info">${PackUnits.formatPackLine(row)}</div>
+                    </td>
+                    <td class="text-right">${packs > 0 ? packs : '-'}</td>
+                    <td class="text-right">${loose > 0 ? loose : '-'}</td>
+                    <td class="text-right font-semibold">${total.toLocaleString()} ${baseLabel}</td>
+                    <td><span class="badge badge-ghost badge-sm">${escapeHtml(r.chiller_name || 'N/A')}</span></td>
+                    <td class="text-sm text-base-content/70">${escapeHtml(r.received_by_name || 'System')}</td>
+                </tr>
+            `}).join('');
+        }
+
+        function openReceiveModal(itemId) {
+            const batch = pendingBatches.find(b => b.id === itemId || b.id == itemId);
+            if (!batch) return;
+
+            const skuLines = (batch.packaging_lines || []).filter(line => Number(line.quantity || 0) > 0);
+            const productName = skuLines.length > 1
+                ? skuLines.map(line => `${ProductDisplay.name(line)} (${Number(line.quantity).toLocaleString()})`).join(' · ')
+                : ProductDisplay.name(skuLines[0] || batch);
+
+            const qtyDisplay = PackUnits.formatQuantity(batch, { preferSplit: true });
+            const packLine = PackUnits.formatPackLine(batch);
+            const integrity = PackUnits.checkIntegrity(batch);
+
+            let source = 'From packaging';
+            if (batch.packaged_at) {
+                source += ` – ${new Date(batch.packaged_at).toLocaleString()}`;
+            }
+            if (batch.notes) {
+                source = batch.notes.split('\n')[0];
+            }
+
+            document.getElementById('receiveBatchId').value = itemId;
+            document.getElementById('receiveBatchCode').textContent = batch.batch_code || batch.batch_number || ('FG-' + batch.id);
+            document.getElementById('receiveProduct').textContent = productName;
+            document.getElementById('receiveQuantity').textContent = qtyDisplay;
+            document.getElementById('receiveExpiry').textContent = batch.expiry_date ? new Date(batch.expiry_date).toLocaleDateString() : 'N/A';
+            document.getElementById('receiveSource').textContent = source;
+            document.getElementById('receiveSource').title = source;
+            document.getElementById('receiveConversionRate').textContent = packLine;
+
+            const warnEl = document.getElementById('receiveIntegrityWarn');
+            const warnText = document.getElementById('receiveIntegrityText');
+            if (!integrity.ok) {
+                warnEl.classList.remove('hidden');
+                warnText.textContent = integrity.issues.join('. ') + '. Put-away will still assign location; use Adjust if counts are wrong.';
+            } else {
+                warnEl.classList.add('hidden');
+                warnText.textContent = '';
+            }
+
+            renderReceiveChillerOptions(batch);
+            document.getElementById('receiveChiller').value = '';
+            document.getElementById('receiveNotes').value = '';
+            document.getElementById('receiveModal').showModal();
+        }
+
+        document.getElementById('receiveForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const batchId = document.getElementById('receiveBatchId').value;
+            const chillerId = document.getElementById('receiveChiller').value;
+            const notes = document.getElementById('receiveNotes').value;
+
+            if (!chillerId) {
+                showToast('Please select a destination chiller', 'warning');
+                return;
+            }
+
+            try {
+                // V4.1: Receive QC-released batch into FG inventory (creates per-size rows)
+                const result = await WarehouseFGService.receiveBatchFromProduction(batchId, chillerId, notes);
+                const d = result?.data || {};
+                const chillerName = chillers.find(c => c.id == chillerId)?.chiller_name
+                    || chillers.find(c => c.id == chillerId)?.name
+                    || 'chiller';
+                const total = d.total_pieces ?? '';
+                const lines = d.lines_received ?? '';
+                showToast(total
+                    ? `Received ${total} pieces (${lines} line${lines == 1 ? '' : 's'}) into ${chillerName}`
+                    : `Batch received into ${chillerName}`, 'success');
+                document.getElementById('receiveModal').close();
+                await loadPendingBatches();
+                await loadRecentReceipts();
+                await loadChillers();
+            } catch (error) {
+                console.error('Failed to receive batch:', error);
+                showToast(error?.response?.data?.message || error?.message || 'Failed to receive batch', 'error');
+                await loadChillers();
+            }
+        });
+    </script>
+</body>
+
+</html>

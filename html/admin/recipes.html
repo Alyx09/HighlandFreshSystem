@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <style id="roleGuardPending">html { visibility: hidden; }</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Production Recipes | Admin | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Axios -->
+    <script src="../../js/vendor/axios.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #editorView {
+            min-height: calc(100vh - 4rem);
+            background: oklch(var(--b2));
+        }
+
+        /* ERP document shell */
+        .recipe-doc {
+            max-width: 72rem;
+            margin: 0 auto;
+        }
+        .recipe-doc-header {
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.75rem;
+            padding: 0.875rem 1.125rem;
+        }
+        .recipe-doc-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1.25;
+        }
+        .recipe-doc-code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            color: oklch(var(--bc) / 0.55);
+        }
+        .recipe-meta-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            align-items: center;
+        }
+        .recipe-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 0.25rem 0.55rem;
+            border-radius: 0.375rem;
+            background: oklch(var(--b2));
+            border: 1px solid oklch(var(--b3));
+            color: oklch(var(--bc) / 0.75);
+        }
+        .recipe-chip .chip-label {
+            opacity: 0.55;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .recipe-chip.is-warn {
+            background: oklch(var(--wa) / 0.12);
+            border-color: oklch(var(--wa) / 0.4);
+            color: oklch(var(--wa));
+        }
+        .recipe-section {
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        .recipe-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.55rem 0.875rem;
+            border-bottom: 1px solid oklch(var(--b3));
+            background: oklch(var(--b2) / 0.55);
+        }
+        .recipe-section-head h2 {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: oklch(var(--bc) / 0.55);
+            margin: 0;
+        }
+        .recipe-section-body {
+            padding: 0.75rem 0.875rem;
+        }
+        .recipe-field-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: oklch(var(--bc) / 0.5);
+            margin-bottom: 0.25rem;
+        }
+        .recipe-field-label .req { color: oklch(var(--er)); }
+
+        /* Dense ERP BOM grid */
+        .bom-erp {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8125rem;
+        }
+        .bom-erp thead th {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: oklch(var(--bc) / 0.55);
+            background: oklch(var(--b2));
+            border-bottom: 1px solid oklch(var(--b3));
+            padding: 0.45rem 0.5rem;
+            text-align: left;
+            white-space: nowrap;
+        }
+        .bom-erp tbody td {
+            padding: 0.3rem 0.4rem;
+            border-bottom: 1px solid oklch(var(--b3) / 0.7);
+            vertical-align: middle;
+        }
+        .bom-erp tbody tr:hover td {
+            background: oklch(var(--b2) / 0.45);
+        }
+        .bom-erp tbody tr.bom-row-error td {
+            background: oklch(var(--er) / 0.06);
+        }
+        .bom-erp .bom-line-no {
+            width: 2rem;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            color: oklch(var(--bc) / 0.4);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .bom-erp .input, .bom-erp .select {
+            min-height: 2rem;
+            height: 2rem;
+            font-size: 0.8125rem;
+            border-radius: 0.375rem;
+        }
+        .bom-erp .bom-unit {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: oklch(var(--bc) / 0.65);
+            background: oklch(var(--b2));
+            text-align: center;
+        }
+        .bom-erp-foot {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-top: 1px solid oklch(var(--b3));
+            background: oklch(var(--b2) / 0.4);
+            font-size: 0.75rem;
+        }
+        .recipe-blocker {
+            border-left: 3px solid oklch(var(--er));
+        }
+        .recipe-doc input.input-sm-erp,
+        .recipe-doc select.select-sm-erp {
+            min-height: 2.25rem;
+            height: 2.25rem;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Admin Panel</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <!-- Main Menu -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- User Management -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">User
+                    Management</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="users.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users-cog w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Users &amp; Accounts</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Supply Chain -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Supply Chain
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="farmers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-tractor w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Farmers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="suppliers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Suppliers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="customers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-store w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Customers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Product Catalog -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Product
+                    Catalog</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="products.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-box w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Products</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recipes.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-clipboard-list w-5 text-center"></i>
+                            <span class="flex-1">Recipes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="ingredients.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-seedling w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Raw Ingredients</span>
+                        </a>
+                    </li>
+                    <li><a href="ingredients.html?view=packaging" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-box-open w-5 text-center text-base-content/60"></i><span class="flex-1">Packaging Materials</span></a></li>
+                </ul>
+            </div>
+            <!-- Infrastructure -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Infrastructure
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="storage.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-warehouse w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Storage &amp; Tanks</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="chillers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-snowflake w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Chillers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Sales & Orders -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Sales &amp;
+                    Orders</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="orders.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-list w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Orders for Approval</span>
+                            <span id="pendingOrdersBadge" class="badge badge-warning badge-sm"></span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Quality Control -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Quality
+                    Control</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="disposals.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-trash-alt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Disposals</span>
+                            <span id="pendingDisposalsBadge" class="badge badge-warning badge-sm"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recalls.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-exclamation-triangle w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Batch Recalls</span>
+                            <span id="activeRecallsBadge" class="badge badge-error badge-sm"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="qc-standards.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-check w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">QC Standards</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">GM</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">General Manager</p>
+                    <p class="text-xs text-base-content/60 truncate">Administrator</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a><i class="fas fa-user-cog w-4"></i> Profile</a></li>
+                        <li><a><i class="fas fa-cog w-4"></i> Settings</a></li>
+                        <li class="border-t border-base-300 mt-1 pt-1">
+                            <a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6 min-h-16">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1 min-w-0 py-2">
+                <div class="breadcrumbs text-sm py-0">
+                    <ul>
+                        <li><a href="dashboard.html">Admin</a></li>
+                        <li><a href="recipes.html" onclick="closeEditor(); return true;">Recipes</a></li>
+                        <li id="crumbEditor" class="font-semibold hidden">Editor</li>
+                        <li id="crumbList" class="font-semibold">Production Recipes</li>
+                    </ul>
+                </div>
+                <h1 class="text-lg lg:text-xl font-bold text-base-content leading-tight" id="pageTitle">Production Recipes</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <div id="headerListActions" class="flex items-center gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="openEditor()">
+                        <i class="fas fa-plus"></i><span class="hidden sm:inline ml-1">New Recipe</span>
+                    </button>
+                </div>
+                <div id="headerEditorActions" class="hidden flex items-center gap-2">
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="closeEditor()">
+                        <i class="fas fa-arrow-left"></i><span class="hidden sm:inline ml-1">Back</span>
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" id="headerSaveBtn" onclick="document.getElementById('recipeForm').requestSubmit()">
+                        <i class="fas fa-save"></i><span class="hidden sm:inline ml-1">Save</span>
+                    </button>
+                </div>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- List view -->
+        <div id="listView" class="p-3 md:p-4 space-y-3 flex-1">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <p class="text-xs text-base-content/50">
+                    Process + BOM for base liquids - packaging under
+                    <a href="products.html" class="link link-primary">Products</a>
+                </p>
+                <span class="text-xs text-base-content/50 font-mono" id="listCountLabel">
+                    <span id="totalCount">0</span> total · <span id="activeCount">0</span> active · <span id="typeCount">0</span> types
+                </span>
+            </div>
+
+            <div class="bg-base-100 border border-base-300 rounded-xl p-2.5">
+                <div class="flex flex-col md:flex-row gap-2">
+                    <div class="input input-bordered input-sm flex items-center gap-2 flex-1 min-h-9">
+                        <i class="fas fa-search text-base-content/40 text-xs"></i>
+                        <input type="text" id="searchInput" placeholder="Search code or liquid…"
+                            class="grow border-none focus:outline-none bg-transparent text-sm"
+                            onkeyup="handleSearch(event)">
+                    </div>
+                    <select id="typeFilter" class="select select-bordered select-sm w-full md:w-44 min-h-9" onchange="loadData()">
+                        <option value="">All categories</option>
+                        <option value="pasteurized_milk">Pasteurized Milk</option>
+                        <option value="flavored_milk">Flavored Milk</option>
+                        <option value="yogurt">Yogurt</option>
+                        <option value="cheese">Cheese</option>
+                        <option value="butter">Butter</option>
+                        <option value="cream">Cream</option>
+                        <option value="milk_bar">Milk Bar / Frozen Dairy Bar</option>
+                    </select>
+                    <select id="statusFilter" class="select select-bordered select-sm w-full md:w-32 min-h-9" onchange="loadData()">
+                        <option value="1" selected>Active</option>
+                        <option value="">All status</option>
+                        <option value="0">Retired</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="bg-base-100 border border-base-300 rounded-xl overflow-hidden">
+                <div class="overflow-x-auto max-h-[calc(100vh-14rem)] overflow-y-auto">
+                    <table class="table table-sm table-zebra">
+                        <thead class="sticky top-0 bg-base-200 z-[1]">
+                            <tr>
+                                <th class="text-xs uppercase tracking-wide">Code</th>
+                                <th class="text-xs uppercase tracking-wide">Base liquid</th>
+                                <th class="text-xs uppercase tracking-wide">Category</th>
+                                <th class="text-xs uppercase tracking-wide">Milk</th>
+                                <th class="text-xs uppercase tracking-wide">Base milk</th>
+                                <th class="text-xs uppercase tracking-wide">Std yield</th>
+                                <th class="text-xs uppercase tracking-wide">BOM</th>
+                                <th class="text-xs uppercase tracking-wide">Status</th>
+                                <th class="text-xs uppercase tracking-wide text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTable">
+                            <tr>
+                                <td colspan="9" class="text-center py-8">
+                                    <i class="fas fa-spinner fa-spin text-2xl text-base-content/40"></i>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-3 py-2 border-t border-base-300 flex justify-between items-center text-xs">
+                    <div class="text-base-content/60" id="paginationInfo">Showing 0 of 0</div>
+                    <div class="join" id="paginationButtons"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FULL-PAGE RECIPE DOCUMENT EDITOR -->
+        <div id="editorView" class="hidden flex-1">
+            <form id="recipeForm" class="p-3 md:p-4">
+                <input type="hidden" id="recordId" value="">
+                <input type="hidden" id="base_product_id" value="">
+                <input type="hidden" id="product_id" value="">
+                <input type="hidden" id="recipe_code" value="">
+                <!-- legacy hidden targets kept for JS compat -->
+                <input type="hidden" id="categoryDisplay" value="">
+                <input type="hidden" id="milkTypeDisplay" value="">
+
+                <div class="recipe-doc space-y-3">
+
+                    <!-- Document header: Name + Code + Status (ERP primary hierarchy) -->
+                    <header class="recipe-doc-header">
+                        <div class="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-4">
+                            <div class="flex-1 min-w-0 space-y-2">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="recipe-doc-code" id="recipeCodeBadge">NEW</span>
+                                    <span id="statusBadge" class="badge badge-success badge-sm gap-1">
+                                        <i class="fas fa-circle text-[0.4rem]"></i> Active
+                                    </span>
+                                    <label class="inline-flex items-center gap-1.5 text-xs text-base-content/50 cursor-pointer ml-1">
+                                        <input type="checkbox" id="is_active" class="toggle toggle-primary toggle-xs" checked onchange="syncStatusBadge()">
+                                        Active for bulk cooking
+                                    </label>
+                                </div>
+                                <div>
+                                    <p class="recipe-field-label mb-1">Base liquid <span class="req">*</span>
+                                        <span class="normal-case tracking-normal font-normal opacity-70">— defines recipe name</span>
+                                    </p>
+                                    <select id="baseProductSelect" class="select select-bordered select-sm-erp w-full max-w-xl font-semibold" required onchange="onBaseProductSelect()">
+                                        <option value="">Select base liquid…</option>
+                                    </select>
+                                    <h2 class="recipe-doc-title mt-2" id="recipeDocTitle">Untitled recipe</h2>
+                                </div>
+                                <!-- Inherited master-data chips (single place — no Product Context sidebar) -->
+                                <div class="recipe-meta-chips" id="productMetaChips">
+                                    <span class="recipe-chip text-base-content/40">Select a product to load master data</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2 shrink-0 lg:pt-1">
+                                <a href="products.html" class="btn btn-ghost btn-sm border border-base-300" title="Edit product master">
+                                    <i class="fas fa-external-link-alt text-xs"></i> Products
+                                </a>
+                                <button type="button" class="btn btn-ghost btn-sm" onclick="closeEditor()">Cancel</button>
+                                <button type="submit" class="btn btn-primary btn-sm" id="saveBtn">
+                                    <i class="fas fa-save"></i> Save
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Blocking workflow banner -->
+                        <div id="milkTypeWarning" class="hidden mt-3 alert alert-error py-2 px-3 text-sm recipe-blocker">
+                            <i class="fas fa-ban"></i>
+                            <div class="flex-1">
+                                <p class="font-semibold">Cannot save — milk type missing on product</p>
+                                <p class="text-xs opacity-90">Set milk type on the base product before activating this recipe for production.</p>
+                            </div>
+                            <a href="products.html" class="btn btn-sm btn-error btn-outline">Fix in Products</a>
+                        </div>
+                        <div id="noSkuWarning" class="hidden mt-2 alert alert-warning py-2 px-3 text-sm">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span class="text-xs">Bulk cooking is allowed without a packaging SKU. Packaging and finished-goods receiving stay blocked until an active size is added under Products.</span>
+                        </div>
+                    </header>
+
+                    <!-- Parameters: batch + process in one dense band -->
+                    <section class="recipe-section">
+                        <div class="recipe-section-head">
+                            <h2>Standard batch &amp; process</h2>
+                            <span class="text-[0.65rem] text-base-content/45">BOM quantities are for this batch · production scales by planned ÷ yield</span>
+                        </div>
+                        <div class="recipe-section-body">
+                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-x-3 gap-y-2.5">
+                                <div>
+                                    <p class="recipe-field-label">Base milk (L) <span class="req">*</span></p>
+                                     <input type="number" id="base_milk_liters" class="input input-bordered input-sm-erp w-full"
+                                         step="0.01" min="1" max="99999999.99" inputmode="decimal" required placeholder="100"
+                                         title="Minimum 1 L — milk input for the standard batch"
+                                         oninput="refreshMassBalanceHint()" onblur="formatRecipeNumberInput(this, 2); refreshMassBalanceHint()">
+                                </div>
+                                <div class="col-span-2 md:col-span-1">
+                                    <p class="recipe-field-label">Standard yield (reference) <span class="req">*</span></p>
+                                    <div class="flex gap-1.5">
+                                         <input type="number" id="expected_yield" class="input input-bordered input-sm-erp flex-1 min-w-0"
+                                             step="1" min="1" max="2147483647" inputmode="numeric" required placeholder="95"
+                                             title="Recipe scaling basis only — Production enters the planned batch separately"
+                                             oninput="refreshMassBalanceHint(); syncRecipeBatchLimitDefault()" onblur="formatRecipeNumberInput(this, 0); refreshMassBalanceHint(); syncRecipeBatchLimitDefault()">
+                                        <select id="yield_unit" class="select select-bordered input-sm-erp w-[5.5rem] shrink-0" onchange="refreshMassBalanceHint()">
+                                            <option value="liters">L</option>
+                                            <option value="kg">kg</option>
+                                            <option value="units">units</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="recipe-field-label">Maximum one run (L) <span class="req">*</span></p>
+                                    <input type="number" id="max_batch_liters" class="input input-bordered input-sm-erp w-full"
+                                        step="0.01" min="1" max="99999999.99" inputmode="decimal" required placeholder="60"
+                                        title="Verified usable output limit of the cooking vessel. Larger plans must be split into separate runs."
+                                        oninput="this.dataset.userEdited='1'" onblur="formatRecipeNumberInput(this, 2)">
+                                </div>
+                                <div>
+                                    <p class="recipe-field-label">Pasteurize (°C)</p>
+                                    <input type="number" id="pasteurization_temp" class="input input-bordered input-sm-erp w-full" step="0.1" min="0" max="150" value="81" onblur="formatRecipeNumberInput(this, 2)">
+                                </div>
+                                <div>
+                                    <p class="recipe-field-label">Time (min)</p>
+                                    <input type="number" id="pasteurization_time_mins" class="input input-bordered input-sm-erp w-full" min="1" max="1440" step="1" inputmode="numeric" value="15" onblur="formatRecipeNumberInput(this, 0)">
+                                </div>
+                                <div>
+                                    <p class="recipe-field-label">Cool to (°C)</p>
+                                    <input type="number" id="cooling_temp" class="input input-bordered input-sm-erp w-full" step="0.1" min="-20" max="50" data-allow-negative value="4" onblur="formatRecipeNumberInput(this, 2)">
+                                </div>
+                            </div>
+                            <div class="mt-2.5">
+                                <p class="recipe-field-label">Instructions / notes</p>
+                                <input type="text" id="special_instructions" class="input input-bordered input-sm-erp w-full"
+                                    placeholder="QC checkpoints, critical steps…">
+                                <input type="hidden" id="description" value="">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Bill of Materials — primary ERP surface -->
+                    <section class="recipe-section">
+                        <div class="recipe-section-head">
+                            <div class="flex items-center gap-2">
+                                <h2>Bill of materials</h2>
+                                <span class="badge badge-ghost badge-xs font-mono" id="bomLineCount">0 lines</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[0.65rem] text-base-content/45 hidden sm:inline">UOM locked to ingredient master</span>
+                                <button type="button" class="btn btn-primary btn-xs gap-1" onclick="addIngredientRow()">
+                                    <i class="fas fa-plus text-[0.6rem]"></i> Add line
+                                </button>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="bom-erp" id="bomTable">
+                                <thead>
+                                    <tr>
+                                        <th class="bom-line-no">#</th>
+                                        <th style="min-width:14rem">Component</th>
+                                        <th style="width:6.5rem">Qty</th>
+                                        <th style="width:4.5rem">UOM</th>
+                                        <th style="min-width:8rem">Notes</th>
+                                        <th style="width:2.25rem"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bomTableBody">
+                                    <tr id="bomEmptyRow">
+                                        <td colspan="6" class="text-center py-6 text-base-content/45 text-sm">
+                                            No components. Add lines for non-milk ingredients (cultures, sugar, rennet…).
+                                            Base milk is defined above — not as a BOM row.
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="bom-erp-foot">
+                            <span id="bomFootSummary" class="text-base-content/50">0 components · quantities for standard batch only</span>
+                            <button type="button" class="btn btn-ghost btn-xs" onclick="addIngredientRow()">
+                                <i class="fas fa-plus mr-1"></i> Add line
+                            </button>
+                        </div>
+                        <div id="massBalanceHint" class="mx-3 mb-2 text-xs text-base-content/55 hidden"></div>
+                        <div id="massBalanceError" class="hidden mx-3 mb-3 alert alert-error py-2 text-xs">
+                            <i class="fas fa-ban"></i>
+                            <span id="massBalanceErrorText">Configuration Error: Total ingredient volume does not match the expected yield.</span>
+                        </div>
+                        <div id="bomBlocker" class="hidden mx-3 mb-3 alert alert-warning py-2 text-xs">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Active recipes used in production should have a complete BOM. Add at least one component or confirm milk-only process.</span>
+                        </div>
+                    </section>
+
+                    <!-- Compact SKU reference (not a second identity panel) -->
+                    <details class="recipe-section group" id="skuDetails">
+                        <summary class="recipe-section-head cursor-pointer list-none flex items-center justify-between [&::-webkit-details-marker]:hidden">
+                            <h2>Packaging SKUs <span class="font-normal normal-case tracking-normal text-base-content/40" id="ctxSkuCountLabel">(0)</span></h2>
+                            <i class="fas fa-chevron-down text-xs text-base-content/40 group-open:rotate-180 transition-transform"></i>
+                        </summary>
+                        <div class="recipe-section-body pt-0">
+                            <p class="text-[0.7rem] text-base-content/45 mb-2">Read-only from Products — do not create separate recipes per bottle size.</p>
+                            <ul id="ctxSkuList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 text-sm">
+                                <li class="text-base-content/40 text-xs">Select a base liquid first</li>
+                            </ul>
+                        </div>
+                    </details>
+
+                    <div class="flex justify-end gap-2 pb-6">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="closeEditor()">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm" id="saveBtnBottom">
+                            <i class="fas fa-save"></i> Save recipe
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast toast-end z-50" id="toastContainer"></div>
+
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/ui/notification-layer.js?v=20260816-1"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="general_manager,admin"></script>
+    <script src="../../js/admin/admin.service.js"></script>
+
+
+    <script>
+        let currentPage = 1;
+        let searchTimeout = null;
+        let availableIngredients = [];
+        let baseProducts = [];
+        let editorMode = false;
+        let productMissingMilkType = false;
+
+        const CATEGORY_LABELS = {
+            pasteurized_milk: 'Pasteurized Milk',
+            bottled_milk: 'Pasteurized Milk',
+            flavored_milk: 'Flavored Milk',
+            yogurt: 'Yogurt',
+            cheese: 'Cheese',
+            butter: 'Butter',
+            cream: 'Cream',
+            milk_bar: 'Milk Bar'
+        };
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : type === 'warning' ? 'alert-warning' : 'alert-info';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg max-w-md`;
+            toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3800);
+        }
+
+        function handleSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => { currentPage = 1; loadData(); }, 300);
+        }
+
+        function setEditorChrome(on) {
+            editorMode = on;
+            document.getElementById('listView').classList.toggle('hidden', on);
+            document.getElementById('editorView').classList.toggle('hidden', !on);
+            document.getElementById('headerListActions').classList.toggle('hidden', on);
+            document.getElementById('headerEditorActions').classList.toggle('hidden', !on);
+            document.getElementById('crumbList').classList.toggle('hidden', on);
+            document.getElementById('crumbEditor').classList.toggle('hidden', !on);
+            const editing = !!document.getElementById('recordId').value;
+            document.getElementById('pageTitle').textContent = on
+                ? (editing ? 'Edit Recipe' : 'New Recipe')
+                : 'Production Recipes';
+            document.getElementById('crumbEditor').textContent = editing ? 'Edit' : 'New';
+            updateSaveBlockedState();
+        }
+
+        function syncStatusBadge() {
+            const active = document.getElementById('is_active').checked;
+            const badge = document.getElementById('statusBadge');
+            if (!badge) return;
+            badge.className = `badge badge-sm gap-1 ${active ? 'badge-success' : 'badge-warning'}`;
+            badge.innerHTML = active
+                ? '<i class="fas fa-circle text-[0.4rem]"></i> Active'
+                : '<i class="fas fa-circle text-[0.4rem]"></i> Retired';
+            updateSaveBlockedState();
+        }
+
+        function updateSaveBlockedState() {
+            const active = document.getElementById('is_active')?.checked;
+            const blocked = productMissingMilkType && active;
+            ['saveBtn', 'saveBtnBottom', 'headerSaveBtn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.disabled = blocked;
+                el.classList.toggle('btn-disabled', blocked);
+                el.title = blocked ? 'Fix milk type on product before saving as Active' : '';
+            });
+            const milkWarn = document.getElementById('milkTypeWarning');
+            if (milkWarn) {
+                // Always show if missing; escalate copy when active
+                if (productMissingMilkType) {
+                    milkWarn.classList.remove('hidden');
+                }
+            }
+        }
+
+        /* ── Base products ── */
+        async function loadBaseProducts() {
+            try {
+                const url = `${ApiConfig.baseUrl}/admin/products.php?action=base_products`;
+                const res = await fetch(url, { headers: ApiConfig.getHeaders() });
+                const json = await res.json();
+                if (json.success && Array.isArray(json.data?.base_products)) {
+                    baseProducts = json.data.base_products;
+                } else {
+                    const response = await AdminService.getProducts({ limit: 200 });
+                    if (response.success) {
+                        const raw = response.data?.products || [];
+                        const map = new Map();
+                        raw.forEach(p => {
+                            const id = p.base_product_id || `n:${p.product_name}`;
+                            if (!map.has(id)) {
+                                map.set(id, {
+                                    id: p.base_product_id || null,
+                                    name: p.base_product_name || p.product_name,
+                                    category: p.category,
+                                    milk_type_id: p.milk_type_id,
+                                    milk_type_name: p.milk_type_name,
+                                    default_shelf_life_days: p.shelf_life_days,
+                                    skus: []
+                                });
+                            }
+                        });
+                        baseProducts = Array.from(map.values());
+                    }
+                }
+                populateBaseProductSelect();
+            } catch (e) {
+                console.error(e);
+                showToast('Failed to load base products', 'error');
+            }
+        }
+
+        function populateBaseProductSelect(selectedId = '') {
+            const sel = document.getElementById('baseProductSelect');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Select base liquid…</option>';
+            baseProducts.forEach(bp => {
+                if (!bp.id) return;
+                const opt = document.createElement('option');
+                opt.value = bp.id;
+                const cat = CATEGORY_LABELS[bp.category] || bp.category || '';
+                const milkWarn = (bp.milk_type_id !== null && bp.milk_type_id !== undefined && bp.milk_type_id !== '') ? '' : ' · no milk type';
+                opt.textContent = `${bp.name} (${cat})${milkWarn}`;
+                if (String(bp.id) === String(selectedId)) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        function onBaseProductSelect() {
+            const id = document.getElementById('baseProductSelect').value;
+            document.getElementById('base_product_id').value = id || '';
+            const bp = baseProducts.find(b => String(b.id) === String(id));
+            if (!bp) {
+                productMissingMilkType = false;
+                document.getElementById('categoryDisplay').value = '';
+                document.getElementById('milkTypeDisplay').value = '';
+                document.getElementById('milkTypeWarning').classList.add('hidden');
+                document.getElementById('noSkuWarning')?.classList.add('hidden');
+                document.getElementById('product_id').value = '';
+                document.getElementById('recipeDocTitle').textContent = 'Untitled recipe';
+                renderProductChips(null);
+                renderSkuList([]);
+                updateSaveBlockedState();
+                return;
+            }
+
+            document.getElementById('recipeDocTitle').textContent = bp.name || 'Untitled recipe';
+            document.getElementById('categoryDisplay').value = CATEGORY_LABELS[bp.category] || bp.category || '';
+
+            productMissingMilkType = bp.milk_type_id === null || bp.milk_type_id === undefined || bp.milk_type_id === '';
+            if (productMissingMilkType) {
+                document.getElementById('milkTypeDisplay').value = 'Not set';
+                document.getElementById('milkTypeWarning').classList.remove('hidden');
+            } else {
+                document.getElementById('milkTypeDisplay').value = bp.milk_type_name || (bp.milk_type_id == 0 ? 'N/A' : `Type #${bp.milk_type_id}`);
+                document.getElementById('milkTypeWarning').classList.add('hidden');
+            }
+
+            const skus = bp.skus || [];
+            const activeSkus = skus.filter(s => Number(s.is_active) === 1);
+            // Recipes describe bulk liquid. Packaging SKUs are downstream choices,
+            // so never silently bind the recipe to the first bottle size.
+            document.getElementById('product_id').value = '';
+            document.getElementById('noSkuWarning')?.classList.toggle('hidden', activeSkus.length > 0);
+
+            renderProductChips(bp);
+            renderSkuList(skus);
+            updateSaveBlockedState();
+        }
+
+        function renderProductChips(bp) {
+            const el = document.getElementById('productMetaChips');
+            if (!el) return;
+            if (!bp) {
+                el.innerHTML = '<span class="recipe-chip text-base-content/40">Select a product to load master data</span>';
+                return;
+            }
+            const cat = CATEGORY_LABELS[bp.category] || bp.category || '—';
+            const milk = bp.milk_type_name || (bp.milk_type_id ? `#${bp.milk_type_id}` : 'Not set');
+            const shelf = `${bp.default_shelf_life_days ?? bp.shelf_life_days ?? 8}d shelf`;
+            const skuN = (bp.skus || []).length;
+            const milkChipClass = bp.milk_type_id ? 'recipe-chip' : 'recipe-chip is-warn';
+            el.innerHTML = `
+                <span class="recipe-chip"><span class="chip-label">Category</span> ${escapeHtml(cat)}</span>
+                <span class="${milkChipClass}"><span class="chip-label">Milk</span> ${escapeHtml(milk)}</span>
+                <span class="recipe-chip"><span class="chip-label">Shelf</span> ${escapeHtml(shelf)}</span>
+                <span class="recipe-chip"><span class="chip-label">SKUs</span> ${skuN}</span>
+            `;
+        }
+
+        function renderSkuList(skus) {
+            const list = document.getElementById('ctxSkuList');
+            const countLabel = document.getElementById('ctxSkuCountLabel');
+            if (countLabel) countLabel.textContent = `(${skus?.length || 0})`;
+            if (!list) return;
+            if (!skus || !skus.length) {
+                list.innerHTML = '<li class="text-base-content/40 text-xs">No packaging SKUs on this liquid</li>';
+                return;
+            }
+            list.innerHTML = skus.map(s => {
+                const size = s.unit_size ? `${s.unit_size}${s.unit_measure || ''}` : '';
+                return `<li class="flex items-center justify-between gap-2 rounded-md border border-base-300 bg-base-200/40 px-2 py-1.5">
+                    <span class="truncate text-xs font-medium">${escapeHtml(s.product_name || s.product_code)}</span>
+                    <span class="font-mono text-[0.7rem] text-base-content/50 shrink-0">${escapeHtml(size)}</span>
+                </li>`;
+            }).join('');
+        }
+
+        /* ── BOM grid ── */
+        async function loadIngredients() {
+            try {
+                const response = await AdminService.getIngredients({ limit: 200, is_active: 1 });
+                if (response.success) {
+                    availableIngredients = (response.data.ingredients || []).filter(i => {
+                        const category = String(i.category_name || i.category || '').toLowerCase();
+                        return !category.includes('packag') && !category.includes('container');
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function bomEmptyState(show) {
+            const row = document.getElementById('bomEmptyRow');
+            if (row) row.classList.toggle('hidden', !show);
+        }
+
+        function renumberBomLines() {
+            const rows = document.querySelectorAll('#bomTableBody tr.bom-row');
+            rows.forEach((row, i) => {
+                const cell = row.querySelector('.bom-line-no');
+                if (cell) cell.textContent = String(i + 1);
+            });
+            const n = rows.length;
+            const countEl = document.getElementById('bomLineCount');
+            if (countEl) countEl.textContent = `${n} line${n === 1 ? '' : 's'}`;
+            const foot = document.getElementById('bomFootSummary');
+            if (foot) {
+                foot.textContent = n
+                    ? `${n} component${n === 1 ? '' : 's'} · quantities for standard batch only`
+                    : '0 components · quantities for standard batch only';
+            }
+            bomEmptyState(n === 0);
+            refreshBomIngredientChoices();
+            if (typeof refreshMassBalanceHint === 'function') refreshMassBalanceHint();
+        }
+
+        function addIngredientRow(ingredient = null) {
+            const selectedIds = new Set(Array.from(document.querySelectorAll('#bomTableBody .bom-ingredient'))
+                .map(select => select.value)
+                .filter(Boolean));
+            if (!ingredient && availableIngredients.length > 0 && selectedIds.size >= availableIngredients.length) {
+                showToast('Every available component is already in this recipe. Update an existing row instead.', 'info');
+                return;
+            }
+            bomEmptyState(false);
+            const tbody = document.getElementById('bomTableBody');
+            const rowId = 'bom_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.className = 'bom-row';
+
+            const options = availableIngredients.map(i => {
+                const selected = ingredient && String(ingredient.ingredient_id) === String(i.id) ? 'selected' : '';
+                return `<option value="${i.id}" data-unit="${escapeAttr(i.unit_of_measure || 'kg')}" ${selected}>${escapeHtml(i.ingredient_name)}</option>`;
+            }).join('');
+
+            const unit = ingredient ? (ingredient.master_unit || ingredient.unit || 'kg') : '';
+            const qty = ingredient ? formatRecipeNumber(ingredient.quantity, 3) : '';
+            const notes = ingredient ? (ingredient.notes || '') : '';
+
+            tr.innerHTML = `
+                <td class="bom-line-no">·</td>
+                <td>
+                    <select class="select select-bordered select-sm w-full bom-ingredient" required onchange="onBomIngredientChange(this)">
+                        <option value="">Select component…</option>
+                        ${options}
+                    </select>
+                </td>
+                <td>
+                    <input type="number" step="0.001" min="0.001" max="9999999.999" inputmode="decimal" class="input input-bordered input-sm w-full bom-qty text-right font-mono"
+                        value="${qty}" required placeholder="0.001"
+                        title="Minimum 0.001 — no zero or negative quantities"
+                        oninput="refreshMassBalanceHint()" onblur="formatRecipeNumberInput(this, 3); refreshMassBalanceHint()">
+                </td>
+                <td>
+                    <input type="text" class="input input-bordered input-sm w-full bom-unit" value="${escapeAttr(unit)}" readonly tabindex="-1" title="Locked to ingredient master">
+                </td>
+                <td>
+                    <input type="text" class="input input-bordered input-sm w-full bom-notes" value="${escapeAttr(notes)}" placeholder="—">
+                </td>
+                <td class="text-center">
+                    <button type="button" class="btn btn-ghost btn-xs text-error/80 hover:text-error" onclick="removeBomRow('${rowId}')" title="Remove line">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+
+            const sel = tr.querySelector('.bom-ingredient');
+            if (sel.value) onBomIngredientChange(sel);
+            renumberBomLines();
+        }
+
+        function onBomIngredientChange(select) {
+            const tr = select.closest('tr');
+            const selectedId = select.value;
+            const selectedLabel = select.options[select.selectedIndex]?.textContent?.trim() || 'This component';
+            if (selectedId) {
+                const selects = Array.from(document.querySelectorAll('#bomTableBody .bom-ingredient'));
+                const existing = selects.find(candidate => candidate !== select && candidate.value === selectedId);
+                if (existing) {
+                    const existingRow = existing.closest('tr');
+                    const existingLine = Array.from(document.querySelectorAll('#bomTableBody tr.bom-row')).indexOf(existingRow) + 1;
+                    select.value = select.dataset.lastValue || '';
+                    showToast(`${selectedLabel} is already on line ${existingLine}. Update its quantity there.`, 'warning');
+                    existingRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    existingRow?.classList.add('ring', 'ring-warning', 'ring-2');
+                    setTimeout(() => existingRow?.classList.remove('ring', 'ring-warning', 'ring-2'), 1600);
+                    existing?.focus();
+                } else {
+                    select.dataset.lastValue = selectedId;
+                }
+            } else {
+                select.dataset.lastValue = '';
+            }
+            const opt = select.options[select.selectedIndex];
+            const unit = opt?.getAttribute('data-unit') || 'kg';
+            tr.querySelector('.bom-unit').value = select.value ? unit : '';
+            tr.classList.remove('bom-row-error');
+            refreshBomIngredientChoices();
+        }
+
+        function refreshBomIngredientChoices() {
+            const selects = Array.from(document.querySelectorAll('#bomTableBody .bom-ingredient'));
+            const selectedIds = new Set(selects.map(select => select.value).filter(Boolean));
+            selects.forEach(select => {
+                Array.from(select.options).forEach(option => {
+                    if (!option.value) return;
+                    option.disabled = option.value !== select.value && selectedIds.has(option.value);
+                });
+            });
+            document.querySelectorAll('button[onclick="addIngredientRow()"], button[onclick="addIngredientRow();"]').forEach(button => {
+                const noChoicesRemain = availableIngredients.length > 0 && selectedIds.size >= availableIngredients.length;
+                button.disabled = noChoicesRemain;
+                button.title = noChoicesRemain
+                    ? 'Every available component is already in this recipe'
+                    : 'Add component';
+            });
+        }
+
+        function removeBomRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) row.remove();
+            renumberBomLines();
+        }
+
+        function clearBom() {
+            document.querySelectorAll('#bomTableBody tr.bom-row').forEach(r => r.remove());
+            renumberBomLines();
+        }
+
+        function getBomFromForm() {
+            const rows = document.querySelectorAll('#bomTableBody tr.bom-row');
+            const lines = [];
+            rows.forEach(row => {
+                const select = row.querySelector('.bom-ingredient');
+                const qty = row.querySelector('.bom-qty');
+                const notes = row.querySelector('.bom-notes');
+                const unit = row.querySelector('.bom-unit')?.value || '';
+                if (select.value && qty.value) {
+                    lines.push({
+                        ingredient_id: parseInt(select.value, 10),
+                        ingredient_name: select.options[select.selectedIndex]?.textContent?.trim() || 'Solid ingredient',
+                        quantity: parseFloat(qty.value),
+                        unit,
+                        notes: notes.value || ''
+                    });
+                }
+            });
+            return lines;
+        }
+
+        /** Keep volume, mass, and counted packaging separate. */
+        const MASS_BALANCE_MIN_RATIO = 0.90;
+
+        function syncRecipeBatchLimitDefault() {
+            const standard = document.getElementById('expected_yield');
+            const maximum = document.getElementById('max_batch_liters');
+            if (!standard || !maximum || maximum.dataset.userEdited === '1') return;
+            const value = Number(standard.value || 0);
+            maximum.value = value > 0 ? formatRecipeNumber(value, 2) : '';
+        }
+
+        function summarizeBomUnits(bomLines) {
+            const summary = { liquidLiters: 0, solidKg: 0, countedUnits: 0 };
+            (bomLines || []).forEach(line => {
+                const q = parseFloat(line.quantity);
+                if (!Number.isFinite(q) || q <= 0) return;
+                const unit = String(line.unit || '').trim().toLowerCase();
+                if (['l', 'lt', 'liter', 'liters', 'litre', 'litres'].includes(unit)) {
+                    summary.liquidLiters += q;
+                } else if (['ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres'].includes(unit)) {
+                    summary.liquidLiters += q / 1000;
+                } else if (['kg', 'kilogram', 'kilograms'].includes(unit)) {
+                    summary.solidKg += q;
+                } else if (['g', 'gram', 'grams'].includes(unit)) {
+                    summary.solidKg += q / 1000;
+                } else {
+                    summary.countedUnits += q;
+                }
+            });
+            return summary;
+        }
+
+        function evaluateMassBalance() {
+            const baseMilk = parseFloat(document.getElementById('base_milk_liters')?.value);
+            const yieldVal = parseFloat(document.getElementById('expected_yield')?.value);
+            const yieldUnit = document.getElementById('yield_unit')?.value || 'liters';
+            const bom = getBomFromForm();
+            const components = summarizeBomUnits(bom);
+            const milk = Number.isFinite(baseMilk) && baseMilk > 0 ? baseMilk : 0;
+            const liquidInput = milk + components.liquidLiters;
+            const yieldOk = Number.isFinite(yieldVal) && yieldVal > 0;
+            const isLiquidYield = ['liters', 'liter', 'litres', 'litre', 'l', 'lt'].includes(String(yieldUnit).toLowerCase());
+            const ratio = isLiquidYield && yieldOk ? liquidInput / yieldVal : null;
+
+            const result = {
+                ok: true,
+                liquidInput,
+                milk,
+                ...components,
+                yieldVal: yieldOk ? yieldVal : 0,
+                yieldUnit,
+                isLiquidYield,
+                ratio,
+                failedRule: null,
+                message: ''
+            };
+
+            if (!yieldOk || milk <= 0) {
+                result.ok = false;
+                result.message = 'Base milk and expected yield must be greater than zero.';
+                return result;
+            }
+
+            if (isLiquidYield && liquidInput + 1e-9 < yieldVal * MASS_BALANCE_MIN_RATIO) {
+                result.ok = false;
+                result.failedRule = 'input_below_yield';
+                result.message = 'Configuration Error: Liquid input is below 90% of the expected liquid yield. Solids and packaging are not counted as liters.';
+                return result;
+            }
+
+            if (isLiquidYield && yieldVal + 1e-9 < liquidInput * 0.90) {
+                result.ok = false;
+                result.failedRule = 'yield_below_input';
+                result.message = 'Configuration Error: Expected liquid yield is below 90% of liquid input. Correct the recipe amount or record a properly reviewed standard recipe.';
+                return result;
+            }
+
+            const oversizedSolid = bom.find(line => {
+                const q = Number(line.quantity) || 0;
+                const unit = String(line.unit || '').toLowerCase();
+                const kg = ['kg', 'kilogram', 'kilograms'].includes(unit)
+                    ? q
+                    : ['g', 'gram', 'grams'].includes(unit) ? q / 1000 : null;
+                return kg != null && kg > milk * 0.25 + 1e-9;
+            });
+            if (oversizedSolid) {
+                result.ok = false;
+                result.failedRule = 'solid_dose';
+                result.message = `Configuration Error: ${oversizedSolid.ingredient_name || 'A solid ingredient'} exceeds 25% of the milk batch. Check the amount and unit before saving.`;
+                return result;
+            }
+
+            return result;
+        }
+
+        function refreshMassBalanceHint() {
+            const hint = document.getElementById('massBalanceHint');
+            const errBox = document.getElementById('massBalanceError');
+            const errText = document.getElementById('massBalanceErrorText');
+            if (!hint) return;
+
+            const r = evaluateMassBalance();
+            hint.classList.remove('hidden');
+            if (r.isLiquidYield) {
+                const pct = r.ratio != null && Number.isFinite(r.ratio) ? Math.round(r.ratio * 100) : '—';
+                hint.innerHTML = `Liquid balance: milk <strong>${formatRecipeNumber(r.milk, 2)}</strong> L + liquid ingredients `
+                    + `<strong>${formatRecipeNumber(r.liquidLiters, 2)}</strong> L = <strong>${formatRecipeNumber(r.liquidInput, 2)}</strong> L `
+                    + `vs yield <strong>${formatRecipeNumber(r.yieldVal, 2)}</strong> L (${pct}%). `
+                    + `Solids: <strong>${formatRecipeNumber(r.solidKg, 3)}</strong> kg; counted items: <strong>${formatRecipeNumber(r.countedUnits, 2)}</strong>.`;
+            } else {
+                hint.innerHTML = `Components stay separate: liquid <strong>${formatRecipeNumber(r.liquidInput, 2)}</strong> L, solids `
+                    + `<strong>${formatRecipeNumber(r.solidKg, 3)}</strong> kg, counted items <strong>${formatRecipeNumber(r.countedUnits, 2)}</strong>. `
+                    + `No cross-unit balance is calculated without an approved density or package conversion.`;
+            }
+
+            if (!r.ok && r.yieldVal > 0 && r.milk > 0) {
+                errBox?.classList.remove('hidden');
+                if (errText) errText.textContent = r.message;
+                hint.classList.add('text-error');
+            } else {
+                errBox?.classList.add('hidden');
+                hint.classList.remove('text-error');
+            }
+        }
+
+        function validateRecipeMassBalanceOrAlert() {
+            const r = evaluateMassBalance();
+            refreshMassBalanceHint();
+            if (!r.ok) {
+                const detail = `Liquid input ${r.liquidInput.toFixed(2)} L vs yield ${r.yieldVal.toFixed(2)} ${r.yieldUnit} `
+                    + `(milk ${r.milk.toFixed(2)} L + liquid ingredients ${r.liquidLiters.toFixed(2)} L). `
+                    + (r.failedRule === 'yield_below_input'
+                        ? 'Expected liquid output must retain at least 80% of liquid input unless an approved loss rule exists.'
+                        : r.failedRule === 'solid_dose'
+                            ? 'A single solid component above 25% of milk volume requires formula review.'
+                        : `Liquid input must reach at least ${Math.round(MASS_BALANCE_MIN_RATIO * 100)}% of expected yield.`);
+                showToast(`${r.message} ${detail}`, 'error');
+                return false;
+            }
+            return true;
+        }
+
+        function populateBom(ingredients) {
+            clearBom();
+            if (!ingredients || !ingredients.length) return;
+            ingredients.forEach(ing => addIngredientRow(ing));
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+        function escapeAttr(s) {
+            return escapeHtml(s).replace(/`/g, '');
+        }
+
+        function formatRecipeNumber(value, maximumDecimals = 3) {
+            if (value == null || String(value).trim() === '') return '';
+            const amount = Number(value);
+            if (!Number.isFinite(amount)) return String(value);
+            return amount.toFixed(maximumDecimals).replace(/0+$/, '').replace(/\.$/, '');
+        }
+
+        function formatRecipeNumberInput(input, maximumDecimals = 3) {
+            if (!input || input.value.trim() === '') return;
+            input.value = formatRecipeNumber(input.value, maximumDecimals);
+        }
+
+        /* ── List ── */
+        async function loadData() {
+            const tableBody = document.getElementById('dataTable');
+            tableBody.innerHTML = '<tr><td colspan="9" class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl"></i></td></tr>';
+            try {
+                const params = {
+                    page: currentPage,
+                    limit: 20,
+                    search: document.getElementById('searchInput').value,
+                    product_type: document.getElementById('typeFilter').value,
+                    is_active: document.getElementById('statusFilter').value
+                };
+                const response = await AdminService.getRecipes(params);
+                if (response.success) {
+                    renderTable(response.data.recipes);
+                    renderPagination(response.data.pagination);
+                    loadStatistics();
+                } else {
+                    showToast('Failed to load recipes', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Error loading recipes', 'error');
+            }
+        }
+
+        async function loadStatistics() {
+            try {
+                const response = await AdminService.getRecipes({ action: 'statistics' });
+                if (response.success) {
+                    document.getElementById('totalCount').textContent = response.data.total || 0;
+                    document.getElementById('activeCount').textContent = response.data.active || 0;
+                    document.getElementById('typeCount').textContent = (response.data.by_type || []).length;
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        function renderTable(recipes) {
+            const tableBody = document.getElementById('dataTable');
+            if (!recipes || !recipes.length) {
+                tableBody.innerHTML = `<tr><td colspan="9" class="text-center py-12 text-base-content/60">
+                    <i class="fas fa-clipboard-list text-4xl mb-3 block opacity-30"></i>
+                    No recipes found.
+                    <button class="btn btn-xs btn-primary ml-2" onclick="openEditor()">New Recipe</button>
+                </td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = recipes.map(r => {
+                const cat = r.category || r.product_type;
+                const activeSkuCount = (r.skus || []).filter(s => Number(s.is_active) === 1).length;
+                const productLinkNote = !r.base_product_id
+                    ? '<div class="text-xs text-error">Missing base-product link</div>'
+                    : activeSkuCount === 0
+                        ? '<div class="text-xs text-warning">Bulk-only · packaging setup needed</div>'
+                        : `<div class="text-xs text-base-content/50">${activeSkuCount} active packaging size(s)</div>`;
+                return `<tr class="hover">
+                    <td><span class="font-mono text-sm font-semibold">${escapeHtml(r.recipe_code)}</span></td>
+                    <td>
+                        <div class="font-semibold">${escapeHtml(r.product_name)}</div>
+                        ${productLinkNote}
+                    </td>
+                    <td><span class="badge badge-outline badge-sm">${escapeHtml(CATEGORY_LABELS[cat] || cat || '—')}</span></td>
+                    <td class="text-sm">${escapeHtml(r.milk_type_name || '—')}</td>
+                    <td class="font-mono text-sm">${formatRecipeNumber(r.base_milk_liters, 2)} L</td>
+                    <td class="font-mono text-sm" title="Recipe scaling basis and verified one-run limit">${formatRecipeNumber(r.expected_yield, 2)} ${escapeHtml(r.yield_unit || 'liters')} <span class="text-[10px] text-base-content/40">standard</span><div class="text-[10px] text-base-content/50">Max one run: ${formatRecipeNumber(r.max_batch_liters || r.bulk_yield_liters || r.expected_yield, 2)} L</div></td>
+                    <td><span class="badge badge-ghost badge-sm font-mono">${r.ingredient_count ?? (r.ingredients || []).length}</span></td>
+                    <td>
+                        <span class="badge ${r.is_active == 1 ? 'badge-success' : 'badge-warning'} badge-sm">
+                            ${r.is_active == 1 ? 'Active' : 'Retired'}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex gap-1 justify-center">
+                            <button type="button" class="btn btn-ghost btn-xs" onclick="openEditor(${r.id})" title="Open">
+                                <i class="fas fa-folder-open"></i>
+                            </button>
+                            ${r.is_active == 1 ? `<button type="button" class="btn btn-ghost btn-xs text-warning" onclick="retireRecipe(${r.id})" title="Retire">
+                                <i class="fas fa-box-archive"></i>
+                            </button>` : ''}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderPagination(pagination) {
+            const info = document.getElementById('paginationInfo');
+            const buttons = document.getElementById('paginationButtons');
+            if (!pagination) return;
+            const start = (pagination.page - 1) * pagination.limit + 1;
+            const end = Math.min(pagination.page * pagination.limit, pagination.total);
+            info.textContent = pagination.total ? `Showing ${start}–${end} of ${pagination.total}` : 'Showing 0 of 0';
+            let html = '';
+            for (let i = 1; i <= (pagination.pages || 1); i++) {
+                html += `<button type="button" class="join-item btn btn-sm ${i === pagination.page ? 'btn-active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+            }
+            buttons.innerHTML = html;
+        }
+
+        function goToPage(page) { currentPage = page; loadData(); }
+
+        /* ── Editor ── */
+        function resetEditorForm() {
+            document.getElementById('recipeForm').reset();
+            document.getElementById('recordId').value = '';
+            document.getElementById('base_product_id').value = '';
+            document.getElementById('product_id').value = '';
+            document.getElementById('recipe_code').value = '';
+            document.getElementById('recipeCodeBadge').textContent = 'NEW';
+            document.getElementById('recipeDocTitle').textContent = 'Untitled recipe';
+            document.getElementById('is_active').checked = true;
+            document.getElementById('pasteurization_temp').value = 81;
+            document.getElementById('pasteurization_time_mins').value = 15;
+            document.getElementById('cooling_temp').value = 4;
+            document.getElementById('yield_unit').value = 'liters';
+            document.getElementById('max_batch_liters').value = '';
+            document.getElementById('max_batch_liters').dataset.userEdited = '0';
+            document.getElementById('special_instructions').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('milkTypeWarning').classList.add('hidden');
+            document.getElementById('noSkuWarning')?.classList.add('hidden');
+            productMissingMilkType = false;
+            clearBom();
+            populateBaseProductSelect();
+            renderProductChips(null);
+            renderSkuList([]);
+            syncStatusBadge();
+        }
+
+        async function openEditor(id = null, requestedBaseProductId = null) {
+            resetEditorForm();
+            if (!baseProducts.length) await loadBaseProducts();
+            if (!availableIngredients.length) await loadIngredients();
+
+            if (id) {
+                try {
+                    const response = await AdminService.getRecipe(id);
+                    if (!response.success) {
+                        showToast(response.message || 'Failed to load recipe', 'error');
+                        return;
+                    }
+                    const r = response.data.recipe;
+                    document.getElementById('recordId').value = r.id;
+                    document.getElementById('recipe_code').value = r.recipe_code || '';
+                    document.getElementById('recipeCodeBadge').textContent = r.recipe_code || `#${r.id}`;
+                    document.getElementById('base_product_id').value = r.base_product_id || '';
+                    document.getElementById('product_id').value = r.product_id || '';
+                    populateBaseProductSelect(r.base_product_id || '');
+
+                    if (r.skus && r.skus.length) {
+                        const bp = baseProducts.find(b => String(b.id) === String(r.base_product_id));
+                        if (bp) bp.skus = r.skus;
+                    }
+                    onBaseProductSelect();
+                    if (!r.base_product_id && r.product_name) {
+                        document.getElementById('recipeDocTitle').textContent = r.product_name;
+                    }
+
+                    document.getElementById('base_milk_liters').value = formatRecipeNumber(r.base_milk_liters, 2);
+                    document.getElementById('expected_yield').value = formatRecipeNumber(r.bulk_yield_liters || r.expected_yield, 2);
+                    document.getElementById('max_batch_liters').value = formatRecipeNumber(r.max_batch_liters || r.bulk_yield_liters || r.expected_yield, 2);
+                    document.getElementById('max_batch_liters').dataset.userEdited = '1';
+                    document.getElementById('yield_unit').value = r.yield_unit || 'liters';
+                    document.getElementById('pasteurization_temp').value = formatRecipeNumber(r.pasteurization_temp ?? 81, 2);
+                    document.getElementById('pasteurization_time_mins').value = formatRecipeNumber(r.pasteurization_time_mins ?? 15, 2);
+                    document.getElementById('cooling_temp').value = formatRecipeNumber(r.cooling_temp ?? 4, 2);
+                    document.getElementById('special_instructions').value = r.special_instructions || r.description || '';
+                    document.getElementById('description').value = r.description || '';
+                    document.getElementById('is_active').checked = r.is_active == 1;
+                    populateBom(r.ingredients || []);
+                    syncStatusBadge();
+                    refreshMassBalanceHint();
+                } catch (e) {
+                    console.error(e);
+                    showToast('Failed to load recipe', 'error');
+                    return;
+                }
+            } else if (requestedBaseProductId) {
+                const requestedBase = baseProducts.find(
+                    bp => String(bp.id) === String(requestedBaseProductId)
+                );
+                if (!requestedBase) {
+                    showToast('The selected product could not be found. Return to Products and try again.', 'error');
+                    return;
+                }
+                populateBaseProductSelect(requestedBaseProductId);
+                onBaseProductSelect();
+            }
+
+            setEditorChrome(true);
+            refreshMassBalanceHint();
+            try {
+                const url = new URL(window.location.href);
+                if (id) {
+                    url.searchParams.set('id', id);
+                    url.searchParams.delete('base_product_id');
+                } else {
+                    url.searchParams.delete('id');
+                    if (requestedBaseProductId) {
+                        url.searchParams.set('base_product_id', requestedBaseProductId);
+                    } else {
+                        url.searchParams.delete('base_product_id');
+                    }
+                }
+                history.replaceState({}, '', url);
+            } catch (_) { /* ignore */ }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function closeEditor() {
+            setEditorChrome(false);
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('id');
+                url.searchParams.delete('base_product_id');
+                history.replaceState({}, '', url);
+            } catch (_) { /* ignore */ }
+            loadData();
+        }
+
+        async function retireRecipe(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Retire Recipe',
+                message: 'Retire this recipe? It will no longer be available for new production runs.',
+                confirmText: 'Retire',
+                tone: 'warning',
+                icon: 'fa-box-archive'
+            });
+            if (!confirmed) return;
+            try {
+                const response = await AdminService.deleteRecipe(id);
+                if (response.success) {
+                    showToast('Recipe retired', 'success');
+                    loadData();
+                } else {
+                    showToast(response.message || 'Failed to retire', 'error');
+                }
+            } catch (e) {
+                showToast('Error retiring recipe', 'error');
+            }
+        }
+
+        document.getElementById('recipeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const recordId = document.getElementById('recordId').value;
+            const baseProductId = document.getElementById('base_product_id').value
+                || document.getElementById('baseProductSelect').value;
+            const isActive = document.getElementById('is_active').checked;
+
+            if (!baseProductId) {
+                showToast('Select a base product (liquid)', 'error');
+                return;
+            }
+
+            // Hard block: active recipe without milk type
+            if (isActive && productMissingMilkType) {
+                document.getElementById('milkTypeWarning').classList.remove('hidden');
+                showToast('Cannot save Active recipe — set milk type on the product first', 'error');
+                return;
+            }
+
+            // Soft block: duplicate BOM lines
+            const bom = getBomFromForm();
+            const seen = new Set();
+            for (const line of bom) {
+                if (seen.has(line.ingredient_id)) {
+                    showToast('Duplicate components in BOM — remove duplicates before saving', 'error');
+                    return;
+                }
+                seen.add(line.ingredient_id);
+            }
+
+            // Mass-balance guardrail (intercept Save)
+            if (!validateRecipeMassBalanceOrAlert()) {
+                return;
+            }
+
+            // Reject zero/negative numeric fields (HTML min may be bypassed)
+            const baseMilk = parseFloat(document.getElementById('base_milk_liters').value);
+            const expYield = parseFloat(document.getElementById('expected_yield').value);
+            const maxBatch = parseFloat(document.getElementById('max_batch_liters').value);
+            if (!(baseMilk >= 1) || !(expYield >= 1) || !(maxBatch >= expYield)) {
+                showToast('Base milk and standard yield must be at least 1. Maximum one run must be at least the standard yield.', 'error');
+                return;
+            }
+            for (const line of bom) {
+                if (!(line.quantity >= 0.01)) {
+                    showToast('Each BOM quantity must be at least 0.01', 'error');
+                    return;
+                }
+            }
+
+            const formData = {
+                base_product_id: parseInt(baseProductId, 10),
+                // A recipe belongs to the base liquid, never one bottle size.
+                product_id: null,
+                base_milk_liters: document.getElementById('base_milk_liters').value,
+                expected_yield: document.getElementById('expected_yield').value,
+                max_batch_liters: document.getElementById('max_batch_liters').value,
+                yield_unit: document.getElementById('yield_unit').value,
+                pasteurization_temp: document.getElementById('pasteurization_temp').value,
+                pasteurization_time_mins: document.getElementById('pasteurization_time_mins').value,
+                cooling_temp: document.getElementById('cooling_temp').value,
+                special_instructions: document.getElementById('special_instructions').value,
+                description: document.getElementById('description').value || document.getElementById('special_instructions').value,
+                is_active: isActive ? 1 : 0,
+                ingredients: bom
+            };
+
+            const saveBtns = ['saveBtn', 'saveBtnBottom', 'headerSaveBtn']
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+            saveBtns.forEach(b => { b.classList.add('loading'); b.disabled = true; });
+
+            try {
+                let response;
+                if (recordId) {
+                    response = await AdminService.updateRecipe(recordId, formData);
+                } else {
+                    response = await AdminService.createRecipe(formData);
+                }
+
+                if (response.success) {
+                    showToast(response.message || (recordId ? 'Recipe updated' : 'Recipe created'), 'success');
+                    if (!recordId) currentPage = 1;
+                    closeEditor();
+                } else {
+                    const errMsg = response.message
+                        || (response.errors && Object.values(response.errors).join('; '))
+                        || 'Failed to save';
+                    showToast(errMsg, 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Error saving recipe', 'error');
+            } finally {
+                saveBtns.forEach(b => {
+                    b.classList.remove('loading');
+                    b.disabled = false;
+                });
+                updateSaveBlockedState();
+            }
+        });
+
+        // Theme
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        const savedTheme = localStorage.getItem('theme') || 'emerald';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.getElementById('themeToggle').checked = savedTheme === 'dark';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const user = AuthService.getCurrentUser?.();
+            if (user) {
+                const name = `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.full_name || 'User';
+                const el = document.getElementById('sidebarUserName');
+                if (el) el.textContent = name;
+                const f = (user.first_name || name || 'G')[0];
+                const l = (user.last_name || 'M')[0];
+                const ini = document.getElementById('userInitials');
+                if (ini) ini.textContent = (f + l).toUpperCase();
+            }
+
+            await Promise.all([loadIngredients(), loadBaseProducts()]);
+            await loadData();
+
+            const params = new URLSearchParams(window.location.search);
+            const openId = params.get('id');
+            const requestedBaseProductId = params.get('base_product_id');
+            if (openId) {
+                await openEditor(parseInt(openId, 10));
+            } else if (requestedBaseProductId) {
+                await openEditor(null, parseInt(requestedBaseProductId, 10));
+            }
+        });
+    </script>
+</body>
+
+</html>

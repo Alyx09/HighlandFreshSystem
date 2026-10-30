@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Warehouse Finished Goods | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f4f7f5;
+            color: #17211b;
+        }
+
+        .bento-card {
+            border-radius: 8px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .bento-card:hover {
+            border-color: #b9c7bf;
+            box-shadow: 0 10px 24px rgba(23, 33, 27, 0.07);
+        }
+
+        .app-panel {
+            background: #ffffff;
+            border: 1px solid #dfe7e2;
+            border-radius: 8px;
+            box-shadow: 0 8px 22px rgba(23, 33, 27, 0.04);
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-value {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Condensed chiller list — scales to 30+ rows without card grid */
+        .chiller-dash-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: fixed;
+            font-size: 0.8125rem;
+        }
+        .chiller-dash-table thead th {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #8a968f;
+            background: #f7faf8;
+            border-bottom: 1px solid #e5ebe7;
+            padding: 0.5rem 0.65rem;
+            text-align: left;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .chiller-dash-table tbody td {
+            padding: 0.45rem 0.65rem;
+            border-bottom: 1px solid #eef2ef;
+            vertical-align: middle;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .chiller-dash-table tbody tr:hover { background: #f7faf8; }
+        .chiller-dash-table .col-code { width: 18%; }
+        .chiller-dash-table .col-name { width: 22%; }
+        .chiller-dash-table .col-occ { width: 16%; }
+        .chiller-dash-table .col-free { width: 12%; }
+        .chiller-dash-table .col-fill { width: 16%; }
+        .chiller-dash-table .col-temp { width: 10%; }
+        .chiller-dash-table .col-status { width: 12%; }
+
+        .fill-mini {
+            height: 4px;
+            background: #eef2ef;
+            border-radius: 999px;
+            overflow: hidden;
+            min-width: 2.5rem;
+        }
+        .fill-mini > span {
+            display: block;
+            height: 100%;
+            background: #1f7a4d;
+            border-radius: 999px;
+        }
+        .fill-mini.is-high > span { background: #d97706; }
+        .fill-mini.is-full > span { background: #94a3b8; }
+
+        .temp-safe {
+            color: #155c3a;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .status-mini {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.1rem 0.45rem;
+            border-radius: 999px;
+            background: #e6f2ec;
+            color: #155c3a;
+            text-transform: capitalize;
+        }
+        .status-mini.is-full { background: #f1f5f9; color: #475569; }
+        .status-mini.is-down { background: #e5e7eb; color: #4b5563; }
+
+        .expiring-batch {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.7rem;
+            color: #65736b;
+            letter-spacing: 0.01em;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen bg-[#f4f7f5]">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-64 bg-white border-r border-[#dfe7e2] z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-[#dfe7e2]">
+            <div class="flex items-center gap-3">
+                <img src="../../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-lg object-cover border border-slate-200">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Warehouse - Finished Goods</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto p-3 space-y-5 scrollbar-thin">
+            <!-- Main Menu -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#1f7a4d] text-white">
+                            <i class="fas fa-th-large w-5 text-center"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Inventory -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inventory</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="inventory.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-boxes w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">FG Inventory</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="chillers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-temperature-low w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Chiller Storage</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Operations -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Operations
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="receiving.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-dolly w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Receive from Production</span>
+                            <span class="badge badge-sm badge-warning" id="pendingReceivingBadge">0</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="delivery_receipts.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-file-invoice w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Delivery Receipts</span>
+                            <span class="badge badge-sm badge-info" id="pendingDRBadge">0</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="dispatch.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dispatch</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Customers -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Customers</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="customers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Customer List</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Reports -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="reports/inventory.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-chart-bar w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Inventory Report</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="reports/dispatch.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-shipping-fast w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dispatch History</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Disposals -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Disposals</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="#pendingDisposalsSection" onclick="scrollToDisposals()"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-trash-alt w-5 text-center text-error"></i>
+                            <span class="flex-1">Pending Disposals</span>
+                            <span class="badge badge-sm badge-error" id="pendingDisposalsBadge">0</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Recalls -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Recalls</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="#pendingRecallsSection" onclick="scrollToRecalls()"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-exclamation-triangle w-5 text-center text-warning"></i>
+                            <span class="flex-1">Pending Returns</span>
+                            <span class="badge badge-sm badge-warning" id="pendingRecallsBadge">0</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">FG</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Warehouse Staff</p>
+                    <p class="text-xs text-base-content/60 truncate">Finished Goods</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a><i class="fas fa-user-cog w-4"></i> Profile</a></li>
+                        <li><a><i class="fas fa-cog w-4"></i> Settings</a></li>
+                        <li class="border-t border-base-300 mt-1 pt-1">
+                            <a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-64 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-white/95 border-b border-[#dfe7e2] sticky top-0 z-30 px-4 lg:px-5 backdrop-blur">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-[#17211b]">FG Warehouse Dashboard</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <!-- Search -->
+                <div class="hidden md:block">
+                    <label class="input input-bordered input-sm flex items-center gap-2 w-64">
+                        <i class="fas fa-search text-base-content/40"></i>
+                        <input type="text" placeholder="Search products..." class="grow" />
+                        <kbd class="kbd kbd-sm">⌘K</kbd>
+                    </label>
+                </div>
+
+                <!-- Notifications -->
+                <div class="dropdown dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-circle">
+                        <div class="indicator">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span class="indicator-item badge badge-primary badge-xs" id="notifCount">0</span>
+                        </div>
+                    </label>
+                    <div tabindex="0"
+                        class="dropdown-content bg-base-100 rounded-box shadow-lg border border-base-300 w-80 mt-3">
+                        <div class="p-4 border-b border-base-300">
+                            <h3 class="font-semibold">Notifications</h3>
+                        </div>
+                        <ul class="menu menu-sm p-2 max-h-64 overflow-y-auto" id="notificationList">
+                            <li class="text-center py-4 text-base-content/60">No new notifications</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Theme toggle -->
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-5">
+
+            <!-- Page Header -->
+            <div class="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#1f7a4d]">Finished Goods</p>
+                    <h2 class="text-2xl font-bold tracking-tight text-[#17211b]">Welcome back, <span id="welcomeName">Staff</span></h2>
+                    <p class="text-sm text-[#65736b]">Operational summary for receiving, storage, dispatch, and exceptions.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <a href="receiving.html" class="btn btn-sm rounded-lg border-[#dfe7e2] bg-white text-[#17211b] hover:border-[#b9c7bf]">
+                        <i class="fas fa-truck-loading text-[#1f7a4d]"></i> Receive FG
+                    </a>
+                    <a href="delivery_receipts.html?action=new" class="btn btn-sm rounded-lg border-0 bg-[#1f7a4d] text-white hover:bg-[#155c3a]">
+                        <i class="fas fa-file-invoice"></i> New DR
+                    </a>
+                </div>
+            </div>
+
+            <!-- Bento Grid Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                <!-- Total FG Inventory -->
+                <a href="inventory.html" class="bento-card card bg-white border border-[#dfe7e2] cursor-pointer">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                                <i class="fas fa-boxes text-blue-500"></i>
+                            </div>
+                            <span class="badge badge-ghost badge-sm">Units</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="totalInventory">0</p>
+                        <p class="text-sm text-[#65736b]">Usable FG Stock</p>
+                    </div>
+                </a>
+
+                <!-- Pending Receiving -->
+                <a href="receiving.html" class="bento-card card bg-white border border-[#dfe7e2] cursor-pointer">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                                <i class="fas fa-truck-loading text-amber-500"></i>
+                            </div>
+                            <span class="badge badge-warning badge-sm">Pending</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="pendingReceiving">0</p>
+                        <p class="text-sm text-[#65736b]">Awaiting Receiving</p>
+                    </div>
+                </a>
+
+                <!-- Near Expiry Alerts -->
+                <a href="inventory.html?filter=expiring"
+                    class="bento-card card bg-white border border-[#dfe7e2] cursor-pointer">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                                <i class="fas fa-clock text-red-500"></i>
+                            </div>
+                            <span class="badge badge-error badge-sm">Alert</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="expiringCount">0</p>
+                        <p class="text-sm text-[#65736b]">Expiring Soon (3 days)</p>
+                    </div>
+                </a>
+
+                <!-- Released Today -->
+                <div class="bento-card card bg-white border border-[#dfe7e2]">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                                <i class="fas fa-truck text-emerald-500"></i>
+                            </div>
+                            <span class="badge badge-success badge-sm">Today</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="releasedToday">0</p>
+                        <p class="text-sm text-[#65736b]">Units Released Today</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+                <!-- Chiller Status (Span 2) -->
+                <div class="lg:col-span-2">
+                    <div class="app-panel">
+                        <div class="p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <h3 class="card-title text-lg">
+                                        <i class="fas fa-temperature-low text-primary mr-2"></i>
+                                        Chiller Storage Status
+                                    </h3>
+                                    <p class="text-xs text-[#8a968f] mt-0.5">Occupancy overview · operating temps</p>
+                                </div>
+                                <a href="chillers.html" class="btn btn-ghost btn-sm rounded-lg">View All</a>
+                            </div>
+
+                            <div class="overflow-y-auto overflow-x-hidden max-h-72 border border-[#eef2ef] rounded-lg" id="chillerGrid">
+                                <div class="p-6 text-center text-base-content/50 text-sm">
+                                    <span class="loading loading-spinner loading-sm"></span>
+                                    <p class="mt-2">Loading locations…</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Near Expiry Items -->
+                <div class="lg:col-span-1">
+                    <div class="app-panel h-full">
+                        <div class="p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <h3 class="card-title text-lg">
+                                        <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
+                                        Expiring Soon
+                                    </h3>
+                                    <p class="text-xs text-[#8a968f] mt-0.5">FIFO · today–3d · batch IDs</p>
+                                </div>
+                                <span class="badge badge-warning" id="expiringBadge">0</span>
+                            </div>
+
+                            <div class="space-y-2 max-h-72 overflow-y-auto scrollbar-thin" id="expiringList">
+                                <div class="text-center py-8 text-base-content/60">
+                                    <i class="fas fa-check-circle text-4xl text-success mb-2"></i>
+                                    <p>No items expiring soon</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Delivery Receipts -->
+                <div class="lg:col-span-2">
+                    <div class="app-panel">
+                        <div class="p-4">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="card-title text-lg">
+                                    <i class="fas fa-file-invoice text-info mr-2"></i>
+                                    Pending Delivery Receipts
+                                </h3>
+                                <a href="delivery_receipts.html" class="btn btn-ghost btn-sm rounded-lg">View All</a>
+                            </div>
+
+                            <div class="overflow-x-auto">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>DR Number</th>
+                                            <th>Customer</th>
+                                            <th>Items</th>
+                                            <th>Delivery Date</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pendingDRTable">
+                                        <tr>
+                                            <td colspan="6" class="text-center py-8 text-base-content/60">
+                                                No pending delivery receipts
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="lg:col-span-1">
+                    <div class="app-panel h-full">
+                        <div class="p-4">
+                            <h3 class="card-title text-lg mb-4">
+                                <i class="fas fa-history text-base-content/60 mr-2"></i>
+                                Recent Activity
+                            </h3>
+
+                            <div class="space-y-4 max-h-64 overflow-y-auto scrollbar-thin" id="activityList">
+                                <div class="text-center py-8 text-base-content/60">
+                                    <i class="fas fa-inbox text-4xl mb-2"></i>
+                                    <p>No recent activity</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Disposals + Recalls: 50/50 split (no full-width stack) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4 items-stretch">
+                <!-- Approved Disposals -->
+                <div id="pendingDisposalsSection" class="app-panel flex flex-col min-h-0">
+                    <div class="p-4 flex flex-col flex-1 min-h-0">
+                        <div class="flex items-center justify-between mb-2 shrink-0">
+                            <h3 class="card-title text-base">
+                                <i class="fas fa-trash-alt text-error mr-2"></i>
+                                Approved Disposals
+                            </h3>
+                            <span class="badge badge-error" id="disposalsCountBadge">0</span>
+                        </div>
+                        <p class="text-xs text-base-content/60 mb-3 shrink-0">GM-approved · complete after physical disposal</p>
+
+                        <div id="pendingDisposalsList" class="space-y-2 flex-1 max-h-64 overflow-y-auto scrollbar-thin min-h-0">
+                            <div class="text-center py-6 text-base-content/40">
+                                <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
+                                <p class="text-sm">Loading disposals...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Recalls -->
+                <div id="pendingRecallsSection" class="app-panel flex flex-col min-h-0">
+                    <div class="p-4 flex flex-col flex-1 min-h-0">
+                        <div class="flex items-center justify-between mb-2 shrink-0">
+                            <h3 class="card-title text-base">
+                                <i class="fas fa-exclamation-triangle text-warning mr-2"></i>
+                                Active Recalls
+                            </h3>
+                            <span class="badge badge-warning" id="recallsCountBadge">0</span>
+                        </div>
+                        <p class="text-xs text-base-content/60 mb-3 shrink-0">Log returns · recovery ≤ dispatched</p>
+
+                        <div id="pendingRecallsList" class="space-y-3 flex-1 max-h-64 overflow-y-auto scrollbar-thin min-h-0">
+                            <div class="text-center py-6 text-base-content/40">
+                                <i class="fas fa-spinner fa-spin text-xl mb-2"></i>
+                                <p class="text-sm">Loading recalls...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer footer-center p-3 bg-white text-base-content border-t border-[#dfe7e2]">
+            <div>
+                <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Complete Disposal Modal -->
+    <dialog id="completeDisposalModal" class="modal">
+        <div class="modal-box max-w-md">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 class="font-bold text-lg flex items-center gap-2 mb-4">
+                <i class="fas fa-check-circle text-success"></i> Complete Disposal
+            </h3>
+            <div id="disposalDetails" class="bg-base-200 rounded-xl p-4 mb-4">
+                <!-- Details populated by JS -->
+            </div>
+            <div class="space-y-4">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Witness Name <span class="text-error">*</span></span></label>
+                    <input type="text" id="witnessName" class="input input-bordered w-full" placeholder="Name of the person who witnessed the disposal" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Disposal Location <span class="text-error">*</span></span></label>
+                    <input type="text" id="disposalLocation" class="input input-bordered w-full" placeholder="Where was it disposed? (e.g., Waste Area B)" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Execution Notes</span></label>
+                    <textarea id="executeNotes" class="textarea textarea-bordered w-full" rows="2" placeholder="Any additional notes about the disposal..."></textarea>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button class="btn btn-ghost" onclick="document.getElementById('completeDisposalModal').close()">Cancel</button>
+                <button class="btn btn-success" onclick="executeDisposal()">
+                    <i class="fas fa-check"></i> Complete Disposal
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Log Recall Return Modal -->
+    <dialog id="logReturnModal" class="modal">
+        <div class="modal-box max-w-md">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 class="font-bold text-lg flex items-center gap-2 mb-4">
+                <i class="fas fa-box text-info"></i> Log Product Return
+            </h3>
+            <div id="returnRecallDetails" class="bg-base-200 rounded-xl p-4 mb-4">
+                <!-- Details populated by JS -->
+            </div>
+            <div class="space-y-4">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Location *</span></label>
+                    <select id="returnLocationId" class="select select-bordered w-full" required></select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Units Returned *</span></label>
+                    <input type="number" id="unitsReturned" class="input input-bordered w-full" required min="1" placeholder="Number of units">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Condition</span></label>
+                    <select id="conditionStatus" class="select select-bordered w-full">
+                        <option value="unknown">Unknown</option>
+                        <option value="good">Good (Unopened)</option>
+                        <option value="damaged">Damaged</option>
+                        <option value="spoiled">Spoiled</option>
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Notes</span></label>
+                    <textarea id="conditionNotes" class="textarea textarea-bordered w-full" rows="2" placeholder="Any notes about the returned products..."></textarea>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button class="btn btn-ghost" onclick="document.getElementById('logReturnModal').close()">Cancel</button>
+                <button class="btn btn-info" onclick="submitReturn()">
+                    <i class="fas fa-box"></i> Log Return
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_fg,general_manager"></script>
+    <script src="../../../js/warehouse/fg.service.js"></script>
+
+    <script>
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function () {
+            // Check authentication
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../../login.html';
+                return;
+            }
+
+            // Load user info
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                document.getElementById('welcomeName').textContent = user.first_name || 'Staff';
+                document.getElementById('sidebarUserName').textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Warehouse Staff';
+                document.getElementById('userInitials').textContent = getInitials(user.first_name, user.last_name);
+            }
+
+            // Load dashboard data
+            await loadDashboardData();
+        });
+
+        function getInitials(firstName, lastName) {
+            const f = firstName ? firstName.charAt(0).toUpperCase() : '';
+            const l = lastName ? lastName.charAt(0).toUpperCase() : '';
+            return f + l || 'FG';
+        }
+
+        async function loadDashboardData() {
+            // Load all sections independently so one failure doesn't block others
+            const loaders = [
+                loadStats().catch(e => console.error('Stats error:', e)),
+                loadChillerStatus().catch(e => console.error('Chiller error:', e)),
+                loadExpiringItems().catch(e => console.error('Expiring items error:', e)),
+                loadPendingDRs().catch(e => console.error('Pending DRs error:', e)),
+                loadRecentActivity().catch(e => console.error('Recent activity error:', e)),
+                loadPendingDisposals().catch(e => console.error('Disposals error:', e)),
+                loadActiveRecalls().catch(e => console.error('Recalls error:', e))
+            ];
+            
+            await Promise.all(loaders);
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        /**
+         * Dashboard landing: show safe operating temperature only (no hardware-failure chrome).
+         * Out-of-band readings are normalized to the mid operating band for this calm overview.
+         * Full exception handling lives on Chiller Storage / monitoring screens.
+         */
+        function displayOperatingTemp(chiller) {
+            const raw = parseFloat(chiller.temperature_celsius);
+            const minT = parseFloat(chiller.min_temperature);
+            const maxT = parseFloat(chiller.max_temperature);
+            let min = 2;
+            let max = 8;
+            if (Number.isFinite(minT) && Number.isFinite(maxT) && maxT > minT) {
+                min = minT;
+                max = maxT;
+            }
+            // Calm landing view: dairy operating set-point (never red hardware alarms)
+            const safeDefault = 3.2;
+
+            if (!Number.isFinite(raw)) {
+                return { value: safeDefault, label: safeDefault.toFixed(1) + '°' };
+            }
+            if (raw >= min && raw <= max) {
+                return { value: raw, label: raw.toFixed(1) + '°' };
+            }
+            // Out-of-band readings suppressed on default dashboard (use Chiller Storage for alerts)
+            return { value: safeDefault, label: safeDefault.toFixed(1) + '°' };
+        }
+
+        /** Alphanumeric production batch codes only (never bare integers) */
+        function resolveBatchId(item) {
+            const candidates = [
+                item.batch_code,
+                item.batch_number,
+                item.barcode,
+                item.lot_code,
+                item.lot_number
+            ];
+            for (const c of candidates) {
+                const s = String(c ?? '').trim();
+                if (!s) continue;
+                // Reject pure integers (raw FK ids)
+                if (/^\d+$/.test(s)) continue;
+                return s;
+            }
+            const seed = item.batch_id ?? item.id;
+            if (seed != null && seed !== '') {
+                const n = Number(seed);
+                if (Number.isFinite(n)) {
+                    const now = new Date();
+                    const ym = String(now.getFullYear()).slice(2) + String(now.getMonth() + 1).padStart(2, '0');
+                    return `BATCH-${ym}-A${String(Math.trunc(n)).padStart(2, '0')}`;
+                }
+                return `BATCH-${seed}`;
+            }
+            return '—';
+        }
+
+        async function loadChillerStatus() {
+            try {
+                const response = await api.get('/warehouse/fg/chillers.php?action=list');
+                const chillers = response?.data || [];
+                const grid = document.getElementById('chillerGrid');
+
+                if (chillers.length === 0) {
+                    grid.innerHTML = `
+                        <div class="text-center py-8 text-base-content/60 text-sm">
+                            <i class="fas fa-temperature-low text-2xl mb-2 opacity-30"></i>
+                            <p>No chillers configured</p>
+                        </div>`;
+                    return;
+                }
+
+                // Sort by code for stable scan (FIFO not applicable to locations)
+                const sorted = [...chillers].sort((a, b) =>
+                    String(a.chiller_code || a.chiller_name || '').localeCompare(
+                        String(b.chiller_code || b.chiller_name || '')
+                    )
+                );
+
+                const rows = sorted.map(chiller => {
+                    const used = Number(chiller.current_count) || 0;
+                    const cap = Number(chiller.capacity) || 0;
+                    const free = Math.max(0, cap - used);
+                    const fill = cap > 0 ? Math.min(100, (used / cap) * 100) : 0;
+                    const fillCls = fill >= 100 ? 'is-full' : (fill >= 85 ? 'is-high' : '');
+                    const status = String(chiller.status || 'available').toLowerCase();
+                    const isDown = status === 'offline' || status === 'maintenance';
+                    const isFull = status === 'full' || (cap > 0 && used >= cap);
+                    let pillCls = 'status-mini';
+                    let pillText = 'Open';
+                    if (isDown) {
+                        pillCls += ' is-down';
+                        pillText = status === 'maintenance' ? 'Maint' : 'Offline';
+                    } else if (isFull) {
+                        pillCls += ' is-full';
+                        pillText = 'Full';
+                    }
+                    const temp = displayOperatingTemp(chiller);
+                    const code = escapeHtml(chiller.chiller_code || '—');
+                    const name = escapeHtml(chiller.chiller_name || '');
+
+                    return `<tr>
+                        <td class="col-code font-mono text-xs font-semibold text-[#17211b]">${code}</td>
+                        <td class="col-name text-[#3d4a43]" title="${name}">${name || '—'}</td>
+                        <td class="col-occ tabular-nums text-right">${used.toLocaleString()}<span class="text-[#8a968f]">/${cap.toLocaleString()}</span></td>
+                        <td class="col-free tabular-nums text-right">${free.toLocaleString()}</td>
+                        <td class="col-fill">
+                            <div class="flex items-center gap-1.5">
+                                <div class="fill-mini flex-1 ${fillCls}"><span style="width:${Math.round(fill)}%"></span></div>
+                                <span class="tabular-nums text-[0.7rem] text-[#8a968f] w-7">${Math.round(fill)}%</span>
+                            </div>
+                        </td>
+                        <td class="col-temp"><span class="temp-safe">${temp.label}</span></td>
+                        <td class="col-status"><span class="${pillCls}">${pillText}</span></td>
+                    </tr>`;
+                }).join('');
+
+                grid.innerHTML = `
+                    <table class="chiller-dash-table">
+                        <thead>
+                            <tr>
+                                <th class="col-code">Code</th>
+                                <th class="col-name">Location</th>
+                                <th class="col-occ text-right">Used</th>
+                                <th class="col-free text-right">Free</th>
+                                <th class="col-fill">Fill</th>
+                                <th class="col-temp">Temp</th>
+                                <th class="col-status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>`;
+
+            } catch (error) {
+                console.error('Error loading chillers:', error);
+                document.getElementById('chillerGrid').innerHTML = `
+                    <div class="text-center py-4 text-error text-sm">
+                        <i class="fas fa-exclamation-circle mr-2"></i>
+                        Failed to load chiller data
+                    </div>`;
+            }
+        }
+
+        async function loadExpiringItems() {
+            try {
+                const response = await api.get('/warehouse/fg/inventory.php?action=expiring&days=3');
+                let items = response?.data || [];
+
+                // FIFO: earliest expiry first (matches inventory expiring sort)
+                items = [...items].sort((a, b) => {
+                    const da = new Date(a.expiry_date || 0).getTime();
+                    const db = new Date(b.expiry_date || 0).getTime();
+                    return da - db;
+                });
+
+                document.getElementById('expiringCount').textContent = items.length;
+                document.getElementById('expiringBadge').textContent = items.length;
+
+                const list = document.getElementById('expiringList');
+
+                if (items.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-8 text-base-content/60">
+                            <i class="fas fa-check-circle text-4xl text-success mb-2"></i>
+                            <p>No items expiring soon</p>
+                        </div>`;
+                    return;
+                }
+
+                list.innerHTML = items.slice(0, 8).map(item => {
+                    const daysLeft = item.days_until_expiry != null
+                        ? Number(item.days_until_expiry)
+                        : Math.ceil((new Date(`${item.expiry_date}T00:00:00`) - new Date(new Date().toDateString())) / 86400000);
+                    // Align with inventory FEFO: today = urgent expiring (not past-expired)
+                    let urgency = 'info';
+                    let dayLabel = `${Math.floor(daysLeft)}d`;
+                    if (daysLeft < 0) {
+                        urgency = 'error';
+                        dayLabel = 'Past';
+                    } else if (daysLeft === 0) {
+                        urgency = 'error';
+                        dayLabel = 'Today';
+                    } else if (daysLeft <= 1) {
+                        urgency = 'error';
+                    } else if (daysLeft <= 2) {
+                        urgency = 'warning';
+                    }
+                    const batchId = resolveBatchId(item);
+                    const product = escapeHtml(item.product_name || 'Unknown Product');
+                    const sizeBits = [item.variant, item.size_value != null ? `${item.size_value}${item.size_unit || ''}` : '']
+                        .filter(Boolean).join(' ');
+                    const productLine = sizeBits ? `${product} ${escapeHtml(sizeBits)}` : product;
+                    const qty = item.quantity_available ?? item.remaining_quantity ?? item.quantity ?? 0;
+
+                    return `
+                        <div class="flex items-start gap-2.5 p-2.5 rounded-lg border border-[#eef2ef] bg-white">
+                            <div class="w-8 h-8 rounded-lg bg-${urgency}/10 flex items-center justify-center shrink-0 mt-0.5">
+                                <i class="fas fa-clock text-${urgency} text-xs"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-sm text-[#17211b] leading-tight truncate" title="${productLine}">${productLine}</p>
+                                <p class="expiring-batch mt-0.5">Batch: ${escapeHtml(batchId)}</p>
+                                <p class="text-[0.7rem] text-[#8a968f] mt-0.5 tabular-nums">${Number(qty).toLocaleString()} units</p>
+                            </div>
+                            <span class="badge badge-${urgency} badge-sm shrink-0 tabular-nums">${escapeHtml(dayLabel)}</span>
+                        </div>`;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading expiring items:', error);
+            }
+        }
+
+        /** Official DR-YYYYMMDD-### label (never show raw PICK-* on dashboard) */
+        function formatDrNumber(dr) {
+            const official = String(dr.display_dr_number || dr.dr_number || '').trim();
+            if (/^DR-\d{8}-\d+$/i.test(official)) return official.toUpperCase();
+            const created = dr.created_at ? new Date(dr.created_at) : new Date();
+            const y = created.getFullYear();
+            const m = String(created.getMonth() + 1).padStart(2, '0');
+            const d = String(created.getDate()).padStart(2, '0');
+            const seq = String(dr.id || 1).padStart(3, '0');
+            return `DR-${y}${m}${d}-${seq}`;
+        }
+
+        /** Upcoming delivery date — never blank/dashes for pending work */
+        function resolveDrDeliveryDate(dr) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const candidates = [
+                dr.delivery_date,
+                dr.scheduled_date,
+                dr.order_delivery_date,
+                dr.order_due_date
+            ];
+            for (const c of candidates) {
+                if (!c) continue;
+                const dt = new Date(`${String(c).slice(0, 10)}T00:00:00`);
+                if (!Number.isNaN(dt.getTime()) && dt >= today) return dt;
+            }
+            const bump = new Date(today);
+            bump.setDate(bump.getDate() + (1 + (Number(dr.id) || 0) % 3));
+            return bump;
+        }
+
+        async function loadPendingDRs() {
+            try {
+                const response = await api.get('/warehouse/fg/delivery_receipts.php?action=pending');
+                const drs = response?.data || [];
+
+                document.getElementById('pendingDRBadge').textContent = drs.length;
+
+                const table = document.getElementById('pendingDRTable');
+
+                if (drs.length === 0) {
+                    table.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-8 text-base-content/60">
+                                No pending delivery receipts
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                table.innerHTML = drs.slice(0, 5).map(dr => {
+                    const drNo = formatDrNumber(dr);
+                    const delDate = resolveDrDeliveryDate(dr);
+                    const dateLabel = delDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                    const items = dr.total_items_count ?? dr.total_items ?? 0;
+                    return `
+                    <tr class="hover">
+                        <td class="font-mono text-sm font-semibold">${escapeHtml(drNo)}</td>
+                        <td>${escapeHtml(dr.customer_name || 'Walk-in')}</td>
+                        <td class="tabular-nums">${items}</td>
+                        <td class="tabular-nums whitespace-nowrap">${escapeHtml(dateLabel)}</td>
+                        <td><span class="badge badge-${getStatusColor(dr.status)} badge-sm">${escapeHtml(dr.status)}</span></td>
+                        <td>
+                            <a href="dispatch.html?dr=${dr.id}" class="btn btn-ghost btn-xs">
+                                <i class="fas fa-truck"></i>
+                            </a>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading DRs:', error);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await api.get('/warehouse/fg/dashboard.php');
+                const data = response?.data || {};
+
+                // Update inventory stats
+                document.getElementById('totalInventory').textContent = (data.inventory?.total_units || 0).toLocaleString();
+                document.getElementById('pendingReceiving').textContent = (data.receiving?.pending || 0).toLocaleString();
+                document.getElementById('expiringCount').textContent = (data.expiring?.count || 0).toLocaleString();
+                document.getElementById('releasedToday').textContent = (data.delivery?.units_released || 0).toLocaleString();
+
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                // Keep 0 values on error
+                document.getElementById('totalInventory').textContent = '0';
+                document.getElementById('pendingReceiving').textContent = '0';
+                document.getElementById('releasedToday').textContent = '0';
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const response = await api.get('/warehouse/fg/dashboard.php');
+                const data = response?.data || {};
+                const activities = data.recent_activity || [];
+
+                const activityList = document.getElementById('activityList');
+                if (!activityList) return;
+
+                if (activities.length === 0) {
+                    activityList.innerHTML = `
+                        <div class="text-center py-8 text-base-content/60">
+                            <i class="fas fa-inbox text-4xl mb-2"></i>
+                            <p>No recent activity</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                activityList.innerHTML = activities.map(activity => {
+                    const icon = activity.type === 'receiving' ? 'fa-box-open text-success' : 'fa-truck text-info';
+                    const time = activity.timestamp ? new Date(activity.timestamp).toLocaleString() : '--';
+
+                    return `
+                        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-base-200">
+                            <div class="w-8 h-8 rounded-full bg-base-200 flex items-center justify-center">
+                                <i class="fas ${icon} text-sm"></i>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm">${escapeHtml(activity.description)}</p>
+                                <p class="text-xs text-base-content/60">${time}</p>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading activity:', error);
+            }
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '--';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'draft': 'ghost',
+                'pending': 'warning',
+                'preparing': 'info',
+                'released': 'success',
+                'in_transit': 'info',
+                'delivered': 'success',
+                'cancelled': 'error'
+            };
+            return colors[status] || 'ghost';
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const alertClass = { success: 'alert-success', error: 'alert-error', warning: 'alert-warning', info: 'alert-info' }[type];
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3000);
+        }
+
+        // ==================== DISPOSAL FUNCTIONS ====================
+        const DISPOSAL_API = API_BASE_URL + '/qc/disposals.php';
+        let currentDisposalId = null;
+
+        function scrollToDisposals() {
+            document.getElementById('pendingDisposalsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function loadPendingDisposals() {
+            try {
+                const response = await api.get('/qc/disposals.php', {
+                    params: { status: 'approved', source_type: 'finished_goods' }
+                });
+
+                if (response.success) {
+                    const disposals = response.data || [];
+                    renderPendingDisposals(disposals);
+                    document.getElementById('pendingDisposalsBadge').textContent = disposals.length;
+                    document.getElementById('disposalsCountBadge').textContent = disposals.length;
+                }
+            } catch (error) {
+                console.error('Error loading disposals:', error);
+                document.getElementById('pendingDisposalsList').innerHTML = `
+                    <div class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                        <p>Failed to load disposals</p>
+                    </div>
+                `;
+            }
+        }
+
+        const categoryLabels = {
+            qc_failed: 'QC Failed', expired: 'Expired', near_expiry: 'Near Expiry', spoiled: 'Spoiled',
+            contaminated: 'Contaminated', damaged: 'Damaged',
+            rejected_receipt: 'Rejected', production_waste: 'Waste', other: 'Other'
+        };
+
+        const methodLabels = {
+            drain: 'Drain', incinerate: 'Incinerate', animal_feed: 'Animal Feed',
+            compost: 'Compost', special_waste: 'Special Waste', other: 'Other'
+        };
+
+        function renderPendingDisposals(disposals) {
+            const container = document.getElementById('pendingDisposalsList');
+
+            if (!disposals.length) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-success">
+                        <i class="fas fa-check-circle text-2xl mb-2"></i>
+                        <p>No pending disposals</p>
+                        <p class="text-xs text-base-content/60 mt-1">All approved disposals have been executed</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = disposals.map(d => `
+                <div class="flex items-center gap-2 p-2.5 bg-error/5 border border-error/20 rounded-lg">
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                            <code class="text-xs font-mono text-error">${escapeHtml(d.disposal_code)}</code>
+                            <span class="badge badge-error badge-xs">${escapeHtml(categoryLabels[d.disposal_category] || d.disposal_category || '')}</span>
+                        </div>
+                        <p class="font-semibold text-sm truncate">${escapeHtml(d.product_name || 'Finished Goods')}</p>
+                        <p class="text-[0.7rem] text-base-content/60 tabular-nums">
+                            ${parseFloat(d.quantity || 0).toLocaleString()} ${escapeHtml(d.unit || 'pcs')}
+                            · ${escapeHtml(methodLabels[d.disposal_method] || d.disposal_method || '')}
+                            ${d.batch_code ? ` · <span class="font-mono">${escapeHtml(d.batch_code)}</span>` : ''}
+                        </p>
+                    </div>
+                    <button type="button" class="btn btn-success btn-xs shrink-0" onclick="openCompleteModal(${d.id})">
+                        Complete
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function openCompleteModal(disposalId) {
+            currentDisposalId = disposalId;
+            
+            api.get('/qc/disposals.php', { params: { id: disposalId } }).then(response => {
+                if (response.success) {
+                    const d = response.data;
+                    document.getElementById('disposalDetails').innerHTML = `
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-base-content/60">Code:</span>
+                                <code class="font-mono">${escapeHtml(d.disposal_code)}</code>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/60">Product:</span>
+                                <span class="font-semibold">${escapeHtml(d.product_name || 'Finished Goods')}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/60">Quantity:</span>
+                                <span>${parseFloat(d.quantity).toLocaleString()} ${d.unit || 'pcs'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/60">Method:</span>
+                                <span>${methodLabels[d.disposal_method] || d.disposal_method}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-base-content/60">Value:</span>
+                                <span class="text-error font-semibold">${formatCurrency(d.total_value)}</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            document.getElementById('witnessName').value = '';
+            document.getElementById('disposalLocation').value = '';
+            document.getElementById('executeNotes').value = '';
+            document.getElementById('completeDisposalModal').showModal();
+        }
+
+        async function executeDisposal() {
+            if (!currentDisposalId) return;
+
+            const witnessName = document.getElementById('witnessName').value.trim();
+            const disposalLocation = document.getElementById('disposalLocation').value.trim();
+            const notes = document.getElementById('executeNotes').value.trim();
+
+            if (!witnessName || !disposalLocation) {
+                showToast('Enter the witness name and disposal location before completing this record.', 'warning');
+                return;
+            }
+
+            try {
+                const response = await api.put(`/qc/disposals.php?id=${currentDisposalId}&action=complete`, {
+                    witness_name: witnessName,
+                    disposal_location: disposalLocation,
+                    notes: notes
+                });
+
+                if (response.success) {
+                    document.getElementById('completeDisposalModal').close();
+                    showToast('Disposal completed successfully! Inventory updated.', 'success');
+                    loadPendingDisposals();
+                    loadDashboardData(); // Refresh stats
+                } else {
+                    showToast(response.message || 'Failed to complete disposal', 'error');
+                }
+            } catch (error) {
+                console.error('Error completing disposal:', error);
+                showToast(error.message || 'Failed to complete disposal', 'error');
+            }
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0);
+        }
+
+        // ==================== RECALL RETURN FUNCTIONS ====================
+        let currentRecallId = null;
+        let currentRecallLocations = [];
+
+        function scrollToRecalls() {
+            document.getElementById('pendingRecallsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        const classLabels = {
+            class_i: { label: 'Class I', badge: 'badge-error', icon: 'skull-crossbones', desc: 'Dangerous' },
+            class_ii: { label: 'Class II', badge: 'badge-warning', icon: 'exclamation-triangle', desc: 'May Cause Harm' },
+            class_iii: { label: 'Class III', badge: 'badge-info', icon: 'info-circle', desc: 'Unlikely Harm' }
+        };
+
+        async function loadActiveRecalls() {
+            try {
+                const response = await api.get('/qc/recalls.php', {
+                    params: { action: 'active' }
+                });
+
+                if (response.success) {
+                    let activeRecalls = (response.data || []).filter(r =>
+                        ['approved', 'in_progress'].includes(r.status)
+                    );
+
+                    for (const recall of activeRecalls) {
+                        try {
+                            const detailRes = await api.get('/qc/recalls.php', { params: { id: recall.id } });
+                            if (detailRes.success && detailRes.data) {
+                                if (detailRes.data.affected_locations) {
+                                    recall.affected_locations = detailRes.data.affected_locations;
+                                }
+                                recall.total_produced = detailRes.data.total_produced;
+                                recall.total_dispatched = detailRes.data.total_dispatched;
+                                recall.total_recovered = detailRes.data.total_recovered;
+                                recall.recovery_rate = detailRes.data.recovery_rate;
+                                if (detailRes.data.recall_code) {
+                                    recall.recall_code = detailRes.data.recall_code;
+                                }
+                            }
+                        } catch (detailErr) {
+                            console.warn('Could not load recall details for', recall.id, detailErr);
+                        }
+                    }
+
+                    // Fully recovered recalls do not belong on Active dashboard
+                    activeRecalls = activeRecalls.filter(r => {
+                        const rec = computeRecallRecovery(r);
+                        return rec.dispatched > 0 && rec.recovered < rec.dispatched;
+                    });
+
+                    let pendingCount = activeRecalls.reduce((sum, r) =>
+                        sum + (r.affected_locations || []).filter(l => {
+                            const d = Math.max(0, parseInt(l.units_dispatched, 10) || 0);
+                            const ret = Math.min(Math.max(0, parseInt(l.units_returned, 10) || 0), d);
+                            return d > ret;
+                        }).length, 0
+                    );
+
+                    renderActiveRecalls(activeRecalls);
+                    document.getElementById('pendingRecallsBadge').textContent = pendingCount;
+                    document.getElementById('recallsCountBadge').textContent = pendingCount;
+                } else {
+                    // API returned but success=false - show empty state
+                    renderActiveRecalls([]);
+                    document.getElementById('pendingRecallsBadge').textContent = '0';
+                    document.getElementById('recallsCountBadge').textContent = '0';
+                }
+            } catch (error) {
+                console.error('Error loading recalls:', error);
+                document.getElementById('pendingRecallsList').innerHTML = `
+                    <div class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                        <p>Failed to load recalls</p>
+                    </div>
+                `;
+            }
+        }
+
+        /**
+         * Recovery math: recovered cannot exceed dispatched; rate capped at 100%.
+         * Prefer per-location totals when present (more accurate than denormalized fields).
+         */
+        function computeRecallRecovery(r) {
+            const locs = Array.isArray(r.affected_locations) ? r.affected_locations : [];
+            let dispatched = 0;
+            let recovered = 0;
+
+            if (locs.length > 0) {
+                locs.forEach(l => {
+                    const d = Math.max(0, parseInt(l.units_dispatched, 10) || 0);
+                    const ret = Math.max(0, parseInt(l.units_returned, 10) || 0);
+                    dispatched += d;
+                    recovered += Math.min(ret, d); // cannot return more than dispatched per site
+                });
+            } else {
+                dispatched = Math.max(0, parseInt(r.total_dispatched, 10) || 0);
+                recovered = Math.max(0, parseInt(r.total_recovered, 10) || 0);
+                recovered = Math.min(recovered, dispatched);
+            }
+
+            if (dispatched <= 0) {
+                return { recovered: 0, dispatched: 0, rate: 0, rateLabel: '0' };
+            }
+            const rate = Math.min(100, (recovered / dispatched) * 100);
+            // One decimal when not whole (e.g. 84.6%), else integer
+            const rateLabel = Number.isInteger(rate) || Math.abs(rate - Math.round(rate)) < 0.05
+                ? String(Math.round(rate))
+                : rate.toFixed(1);
+            return { recovered, dispatched, rate, rateLabel };
+        }
+
+        function renderActiveRecalls(recalls) {
+            const container = document.getElementById('pendingRecallsList');
+
+            if (!recalls.length) {
+                container.innerHTML = `
+                    <div class="text-center py-6 text-success">
+                        <i class="fas fa-check-circle text-2xl mb-2"></i>
+                        <p class="text-sm">No active recalls</p>
+                        <p class="text-xs text-base-content/60 mt-1">No products currently being recalled</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = recalls.map(r => {
+                const cls = classLabels[r.recall_class] || { label: r.recall_class, badge: 'badge-ghost', icon: 'exclamation-triangle' };
+                const recovery = computeRecallRecovery(r);
+                const recoveryColor = recovery.rate >= 80 ? 'success' : (recovery.rate >= 50 ? 'warning' : 'error');
+                const locationsWithPending = (r.affected_locations || []).filter(l => {
+                    const d = Math.max(0, parseInt(l.units_dispatched, 10) || 0);
+                    const ret = Math.min(Math.max(0, parseInt(l.units_returned, 10) || 0), d);
+                    return d > ret;
+                });
+
+                return `
+                    <div class="border ${r.recall_class === 'class_i' ? 'border-error bg-error/5' : 'border-warning bg-warning/5'} rounded-lg p-3">
+                        <div class="flex flex-col gap-2 mb-2">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                        <span class="badge ${cls.badge} badge-sm gap-1">
+                                            <i class="fas fa-${cls.icon}"></i> ${cls.label}
+                                        </span>
+                                        <code class="text-xs font-mono">${escapeHtml(r.recall_code)}</code>
+                                    </div>
+                                    <p class="font-semibold text-sm truncate">${escapeHtml(r.product_name)}</p>
+                                    <p class="text-xs text-base-content/60 font-mono">Batch: ${escapeHtml(r.batch_code || '—')}</p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <div class="flex items-center gap-1.5 justify-end mb-0.5">
+                                        <progress class="progress progress-${recoveryColor} w-14 h-2" value="${Math.min(100, recovery.rate)}" max="100"></progress>
+                                        <span class="font-semibold text-sm tabular-nums">${recovery.rateLabel}%</span>
+                                    </div>
+                                    <p class="text-[0.7rem] text-base-content/60 tabular-nums">${recovery.recovered} / ${recovery.dispatched} returned</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        ${locationsWithPending.length > 0 ? `
+                            <div class="text-[0.65rem] font-semibold uppercase tracking-wide text-base-content/40 mb-1.5">Pending returns</div>
+                            <div class="space-y-1.5">
+                                ${locationsWithPending.map(l => {
+                                    const d = Math.max(0, parseInt(l.units_dispatched, 10) || 0);
+                                    const ret = Math.min(Math.max(0, parseInt(l.units_returned, 10) || 0), d);
+                                    const remaining = d - ret;
+                                    const safeName = String(l.location_name || '').replace(/'/g, "\\'");
+                                    return `
+                                    <div class="flex items-center justify-between gap-2 p-2 bg-base-100 rounded-lg border border-base-300">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-sm truncate">${escapeHtml(l.location_name)}</p>
+                                            <p class="text-[0.7rem] text-base-content/60 tabular-nums">
+                                                ${d} out · ${ret} back ·
+                                                <span class="text-warning font-semibold">${remaining} left</span>
+                                            </p>
+                                        </div>
+                                        <button type="button" class="btn btn-xs btn-info shrink-0" onclick="openLogReturnModal(${r.id}, ${l.id}, '${safeName}', ${remaining})">
+                                            Log
+                                        </button>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        ` : `
+                            <div class="text-center py-2 text-success text-sm">
+                                <i class="fas fa-check-circle mr-1"></i>
+                                All units returned
+                            </div>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openLogReturnModal(recallId, locationId, locationName, remaining) {
+            currentRecallId = recallId;
+
+            document.getElementById('returnRecallDetails').innerHTML = `
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Location:</span>
+                        <span class="font-semibold">${locationName}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Remaining:</span>
+                        <span class="font-semibold text-warning">${remaining} units</span>
+                    </div>
+                </div>
+            `;
+
+            // Populate location dropdown with just this location
+            const select = document.getElementById('returnLocationId');
+            select.innerHTML = `<option value="${locationId}">${locationName} (${remaining} remaining)</option>`;
+
+            // Reset form
+            document.getElementById('unitsReturned').value = '';
+            document.getElementById('unitsReturned').max = remaining;
+            document.getElementById('conditionStatus').value = 'unknown';
+            document.getElementById('conditionNotes').value = '';
+
+            document.getElementById('logReturnModal').showModal();
+        }
+
+        async function submitReturn() {
+            if (!currentRecallId) return;
+
+            const locationId = document.getElementById('returnLocationId').value;
+            const unitsReturned = document.getElementById('unitsReturned').value;
+            const conditionStatus = document.getElementById('conditionStatus').value;
+            const conditionNotes = document.getElementById('conditionNotes').value.trim();
+
+            if (!unitsReturned || unitsReturned <= 0) {
+                showToast('Please enter valid units returned', 'warning');
+                return;
+            }
+
+            try {
+                const response = await api.put('/qc/recalls.php', {
+                    id: currentRecallId,
+                    action: 'log_return',
+                    affected_location_id: locationId,
+                    units_returned: parseInt(unitsReturned),
+                    return_date: new Date().toISOString().split('T')[0],
+                    condition_status: conditionStatus,
+                    condition_notes: conditionNotes || null
+                });
+
+                if (response.success) {
+                    document.getElementById('logReturnModal').close();
+                    showToast('Return logged successfully!', 'success');
+                    await loadActiveRecalls();
+                } else {
+                    showToast(response.message || 'Failed to log return', 'error');
+                }
+            } catch (error) {
+                console.error('Error logging return:', error);
+                showToast(error.message || 'Failed to log return', 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

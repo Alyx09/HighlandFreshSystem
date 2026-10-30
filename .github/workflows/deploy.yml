@@ -1,0 +1,225 @@
+name: Deploy Highland Fresh to GoogieHost
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # allow manual runs from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: highland-fresh-googiehost-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Verify and synchronize live mailbox credentials
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGIEHOST_SMTP_PASSWORD: ${{ secrets.GOOGIEHOST_SMTP_PASSWORD }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+        run: python .github/scripts/sync_live_mail_env.py
+
+      - name: FTP deploy to GoogieHost
+        id: deploy_primary
+        continue-on-error: true
+        uses: SamKirkland/ftp-deploy-action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          # The deploy-only FTP account is rooted at
+          # /domains/highlandfresh.whf.bz/public_html already.
+          server-dir: ./
+          # Do NOT delete server files that aren't in the repo (protects .env, etc.)
+          dangerous-clean-slate: false
+          # Never upload development files, database exports, backups, or secrets.
+          exclude: |
+            .git/**
+            .github/**
+            .claude/**
+            .vscode/**
+            tests/**
+            docs/**
+            cron/**
+            config/**
+            backups/**
+            tmp/**
+            storage/logs/**
+            uploads/**
+            .playwright-mcp/**
+            system_context/**
+            **/node_modules/**
+            /vendor/**
+            **/*.sql
+            **/*.log
+            **/.DS_Store
+            **/Thumbs.db
+            setup.php
+            test_evidence.jpg
+            highland_fresh_azure.sql
+            package.json
+            package-lock.json
+            tailwind.config.js
+            tailwind.config.json
+            web.config
+            .gitignore
+            .env*
+            css/input.css
+            temp_schema.txt
+            api/config/DigiCertGlobalRootCA.crt.pem
+
+      - name: Wait before retrying a busy shared FTP host
+        if: steps.deploy_primary.outcome == 'failure'
+        shell: bash
+        run: sleep 45
+
+      - name: Retry FTP deploy to GoogieHost
+        if: steps.deploy_primary.outcome == 'failure'
+        id: deploy_retry
+        continue-on-error: true
+        uses: SamKirkland/ftp-deploy-action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: ./
+          dangerous-clean-slate: false
+          exclude: |
+            .git/**
+            .github/**
+            .claude/**
+            .vscode/**
+            tests/**
+            docs/**
+            cron/**
+            config/**
+            backups/**
+            tmp/**
+            storage/logs/**
+            uploads/**
+            .playwright-mcp/**
+            system_context/**
+            **/node_modules/**
+            /vendor/**
+            **/*.sql
+            **/*.log
+            **/.DS_Store
+            **/Thumbs.db
+            .idea/**
+            package.json
+            package-lock.json
+            composer.json
+            composer.lock
+            tailwind.config.js
+            tailwind.config.json
+            web.config
+            .gitignore
+            .env*
+            css/input.css
+            temp_schema.txt
+            api/config/DigiCertGlobalRootCA.crt.pem
+            html/production/_autologin.html
+            *.zip
+            *.tar.gz
+            server_dot_env.txt
+            highland_fresh_no_triggers.sql
+            HighlandFreshAppV4_deploy*
+            C:/Users/**
+
+      - name: Install resilient FTP fallback
+        if: steps.deploy_primary.outcome == 'failure' && steps.deploy_retry.outcome == 'failure'
+        shell: bash
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      - name: Resume deployment with low-concurrency FTP
+        if: steps.deploy_primary.outcome == 'failure' && steps.deploy_retry.outcome == 'failure'
+        id: deploy_fallback
+        shell: bash
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          lftp <<LFTP_COMMANDS
+          set cmd:fail-exit true
+          set ftp:passive-mode true
+          # GoogieHost's FTP endpoint advertises opportunistic TLS with a
+          # certificate issued for a different shared-host name. The primary
+          # deploy is intentionally plain FTP, so keep the fallback consistent
+          # instead of accepting a mismatched certificate.
+          set ftp:ssl-allow false
+          set net:timeout 25
+          set net:max-retries 8
+          set net:reconnect-interval-base 5
+          set net:reconnect-interval-max 30
+          open --user "$FTP_USERNAME" --env-password "ftp://$FTP_SERVER"
+          mirror --reverse --continue --parallel=1 --no-perms --verbose \
+            --exclude-glob .git/** \
+            --exclude-glob .github/** \
+            --exclude-glob .claude/** \
+            --exclude-glob .vscode/** \
+            --exclude-glob tests/** \
+            --exclude-glob docs/** \
+            --exclude-glob cron/** \
+            --exclude-glob config/** \
+            --exclude-glob backups/** \
+            --exclude-glob tmp/** \
+            --exclude-glob storage/logs/** \
+            --exclude-glob uploads/** \
+            --exclude-glob .playwright-mcp/** \
+            --exclude-glob system_context/** \
+            --exclude-glob '**/node_modules/**' \
+            --exclude-glob vendor/** \
+            --exclude-glob '*.sql' \
+            --exclude-glob '*.log' \
+            --exclude-glob .idea/** \
+            --exclude-glob package.json \
+            --exclude-glob package-lock.json \
+            --exclude-glob composer.json \
+            --exclude-glob composer.lock \
+            --exclude-glob tailwind.config.js \
+            --exclude-glob tailwind.config.json \
+            --exclude-glob web.config \
+            --exclude-glob .gitignore \
+            --exclude-glob '.env*' \
+            --exclude-glob css/input.css \
+            --exclude-glob temp_schema.txt \
+            --exclude-glob api/config/DigiCertGlobalRootCA.crt.pem \
+            --exclude-glob html/production/_autologin.html \
+            --exclude-glob '*.zip' \
+            --exclude-glob '*.tar.gz' \
+            --exclude-glob server_dot_env.txt \
+            --exclude-glob HighlandFreshAppV4_deploy* \
+            ./ ./
+          bye
+          LFTP_COMMANDS
+
+      - name: Force and verify coordinated email files
+        if: >-
+          steps.deploy_primary.outcome == 'success' ||
+          steps.deploy_retry.outcome == 'success' ||
+          steps.deploy_fallback.outcome == 'success'
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: python .github/scripts/force_deploy_email_files.py

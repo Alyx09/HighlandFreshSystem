@@ -1,0 +1,116 @@
+RewriteEngine On
+
+# Prefer the Highland Fresh PHP entry point over any hosting-provider
+# placeholder index.html left in public_html.
+DirectoryIndex index.php
+
+# CRITICAL: Pass the Authorization request header to PHP-FPM.
+#
+# PHP-FPM (which InfinityFree uses) does NOT forward the Authorization
+# request header to PHP by default — it just disappears, so
+# $_SERVER['HTTP_AUTHORIZATION'] is never populated and every JWT-authenticated
+# API call returns 401. The fix: copy the incoming Authorization header into
+# the HTTP_AUTHORIZATION env var via three different mechanisms (mod_setenvif,
+# mod_headers, and mod_rewrite), any one of which should be enough on
+# InfinityFree's Apache + PHP-FPM setup.
+#
+# This must come before any other RewriteRule that might handle the request
+# so the env var is set before the PHP handler runs.
+
+# Method 1: mod_setenvif (most reliable, works on virtually all Apache configs)
+<IfModule mod_setenvif.c>
+    SetEnvIfNoCase ^Authorization$ "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
+# Method 2: mod_headers
+# Only rewrite Authorization when the env var is actually populated.
+# Without the "env=" guard RequestHeader renders an unset %{...}e as the
+# literal string "(null)", which corrupts getallheaders() on mod_php
+# (local XAMPP) and makes every JWT-authenticated API call return 401.
+# Use %{HTTP_AUTHORIZATION}e (the env var set by Method 1/3), not the
+# request header %{Authorization}, which under FPM is the missing piece.
+<IfModule mod_headers.c>
+    RequestHeader set Authorization "%{HTTP_AUTHORIZATION}e" env=HTTP_AUTHORIZATION
+</IfModule>
+
+# Method 3: mod_rewrite (as a final fallback)
+<IfModule mod_rewrite.c>
+    RewriteCond %{HTTP:Authorization} ^(.+)$
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+</IfModule>
+
+# Redirect non-loopback traffic to HTTPS.
+# Local browser automation must be able to use plain HTTP because XAMPP's
+# development certificate is not trusted by the Computer Use safety layer.
+# This exception never applies to another device on the LAN: its Host header
+# is the laptop's LAN address or hostname, so it remains HTTPS-only.
+# InfinityFree uses a reverse proxy — Apache sees HTTPS as "off" even when
+# the client connected via HTTPS. Check X-Forwarded-Proto first (set by the
+# proxy), falling back to the native %{HTTPS} for hosts that terminate SSL
+# at Apache (e.g. local XAMPP with SSL, Azure).
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.(1|2)|\[::1\])(:[0-9]+)?$ [NC]
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=302]
+
+# Allow direct access to existing files and directories
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Handle API requests - ensure .php extension works
+RewriteRule ^api/(.*)$ api/$1 [L]
+
+# Fallback to index.php for SPA-style routing.
+# Skip asset paths (js/css/images/fonts) so missing asset files 404 cleanly
+# instead of being silently rewritten to index.php -> login.html (which the
+# browser then refuses to execute as JavaScript due to MIME type mismatch).
+RewriteCond %{REQUEST_URI} !\.(js|css|map|jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot|otf|pdf|mp4|webm|ogg|wav|mp3)$
+RewriteRule ^ index.php [L]
+
+# Security headers
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# This file decides where every API request is sent. Always revalidate it so
+# devices on the local network do not keep an older localhost-only address.
+<Files "api.js">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </IfModule>
+</Files>
+
+# Protected pages contain their allowed-role list in the HTML. Revalidate all
+# screens so a browser cannot keep enforcing an older RBAC policy after an update.
+<FilesMatch "\.html$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, must-revalidate"
+    </IfModule>
+</FilesMatch>
+
+# Role-protected printable documents change when workflow permissions change.
+# Revalidate them so an older allowed-role list cannot remain in browser cache.
+<FilesMatch "^(print_po|print_pr|print_receiving_report)\.html$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </IfModule>
+</FilesMatch>
+
+# Deny access to sensitive files
+<FilesMatch "\.(pem|sh|md)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Deny access to hidden files
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

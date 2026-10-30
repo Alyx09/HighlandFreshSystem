@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Production | Highland Fresh</title>
+
+    <!-- Tailwind CSS + DaisyUI CDN -->
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .bento-card {
+            @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-value {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Floor work-queue home (MES-style) */
+        .floor-status-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 1rem;
+            align-items: center;
+            font-size: 0.75rem;
+            font-variant-numeric: tabular-nums;
+            color: oklch(var(--bc) / 0.6);
+        }
+        .floor-status-bar strong {
+            color: oklch(var(--bc));
+            font-weight: 700;
+        }
+        .work-queue-item {
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.75rem;
+            background: oklch(var(--b1));
+            padding: 0.875rem 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+        @media (min-width: 768px) {
+            .work-queue-item {
+                flex-direction: row;
+                align-items: center;
+                justify-content: space-between;
+            }
+        }
+        .work-queue-item.is-primary {
+            border-color: oklch(var(--p) / 0.45);
+            box-shadow: 0 0 0 1px oklch(var(--p) / 0.15), 0 8px 24px -12px oklch(var(--p) / 0.35);
+        }
+        .work-queue-item .wq-meta {
+            min-width: 0;
+            flex: 1;
+        }
+        .blocker-panel {
+            border-left: 3px solid oklch(var(--er));
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Mobile Sidebar Backdrop (filled/used by ProductionSidebar) -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar shell — content filled by ProductionSidebar -->
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col"></aside>
+
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <!-- DaisyUI .navbar > * is inline-flex (row); force column so title stacks above subtitle -->
+            <div class="flex-1 min-w-0 flex-col items-start justify-center gap-0.5">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content leading-tight">Production Floor</h1>
+                <p class="text-xs text-base-content/50 truncate leading-snug">
+                    <span id="greeting">Shift</span>
+                    <span class="opacity-40 mx-1" aria-hidden="true">·</span>
+                    <span id="welcomeName">Operator</span>
+                </p>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- Floor work queue — MES style -->
+        <main class="flex-1 p-3 md:p-4 max-w-4xl mx-auto w-full space-y-3">
+
+            <!-- Thin situational awareness (not KPI theater) -->
+            <div class="floor-status-bar rounded-xl border border-base-300 bg-base-100 px-3 py-2">
+                <span>Active runs <strong id="runsInProgress">0</strong></span>
+                <span class="opacity-30">|</span>
+                <span>Done today <strong id="runsCompleted">0</strong></span>
+                <span class="opacity-30">|</span>
+                <span>Milk issued <strong id="availableMilk">0</strong> L</span>
+                <span class="opacity-30">|</span>
+                <span>CCP open <strong id="ccpAlerts">0</strong></span>
+            </div>
+
+            <!-- Blockers with CTAs (only when relevant) -->
+            <div id="blockerPanel" class="hidden space-y-2">
+                <div id="milkWarning" class="alert alert-error blocker-panel py-3 hidden">
+                    <i class="fas fa-ban"></i>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-sm">No milk issued to production</h3>
+                        <p class="text-xs opacity-90" id="milkWarningDetail">Request milk before starting a new run.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 shrink-0" id="milkWarningActions"></div>
+                </div>
+                <div id="ccpBlocker" class="alert alert-warning blocker-panel py-3 hidden">
+                    <i class="fas fa-thermometer-half"></i>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-sm">CCP logs need attention</h3>
+                        <p class="text-xs opacity-90"><span id="ccpBlockerCount">0</span> open alert(s) — log temperatures before advancing stages.</p>
+                    </div>
+                    <a href="ccp_logging.html" class="btn btn-sm btn-warning shrink-0">Log CCP</a>
+                </div>
+            </div>
+
+            <section id="customerDemandSection" class="hidden border border-warning/40 bg-base-100 overflow-hidden rounded-lg">
+                <div class="flex items-center justify-between gap-3 px-3 py-2.5 border-b border-base-300 bg-warning/10">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <i class="fas fa-boxes-stacked text-warning"></i>
+                        <h2 class="text-xs font-bold uppercase tracking-wider text-base-content/65">Customer orders needing production</h2>
+                    </div>
+                    <span id="customerDemandCount" class="badge badge-warning badge-sm">0</span>
+                </div>
+                <div id="customerDemandList" class="divide-y divide-base-300"></div>
+            </section>
+
+            <!-- YOUR WORK QUEUE (primary) -->
+            <section class="rounded-xl border border-base-300 bg-base-100 overflow-hidden">
+                <div class="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-base-300 bg-base-200/50">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-base-content/55">Your work queue</h2>
+                    <span class="text-[0.7rem] text-base-content/45" id="queueHint">Next executable step per active run</span>
+                </div>
+                <div id="nextStepCards" class="p-3 space-y-2">
+                    <div class="text-center py-8 text-base-content/40">
+                        <span class="loading loading-spinner loading-md text-primary"></span>
+                        <p class="text-sm mt-2">Loading work queue…</p>
+                    </div>
+                </div>
+                <div id="startRunFooter" class="px-3 pb-3 hidden">
+                    <a id="startRunBtn" href="requisitions.html?action=new" class="btn btn-outline btn-sm btn-block gap-2">
+                        <i class="fas fa-clipboard-list"></i> Request materials
+                    </a>
+                    <p id="startRunGate" class="text-[0.7rem] text-center text-base-content/45 mt-1.5 hidden"></p>
+                </div>
+            </section>
+
+            <!-- Waiting on others -->
+            <details class="rounded-xl border border-base-300 bg-base-100 group" id="waitingSection">
+                <summary class="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-base-content/55">
+                        Waiting on others
+                        <span class="badge badge-ghost badge-xs ml-1 font-mono" id="waitingCount">0</span>
+                    </h2>
+                    <i class="fas fa-chevron-down text-xs text-base-content/40 group-open:rotate-180 transition-transform"></i>
+                </summary>
+                <div id="pendingReqsList" class="px-3 pb-3 space-y-1.5">
+                    <p class="text-xs text-base-content/45 py-2">No pending requisitions</p>
+                </div>
+            </details>
+
+            <!-- Recent completed (compact, demoted) -->
+            <details class="rounded-xl border border-base-300 bg-base-100 group">
+                <summary class="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                    <h2 class="text-xs font-bold uppercase tracking-wider text-base-content/55">Recent runs</h2>
+                    <div class="flex items-center gap-2">
+                        <a href="batches.html" class="btn btn-ghost btn-xs" onclick="event.stopPropagation()">All</a>
+                        <i class="fas fa-chevron-down text-xs text-base-content/40 group-open:rotate-180 transition-transform"></i>
+                    </div>
+                </summary>
+                <div class="overflow-x-auto px-1 pb-2">
+                    <table class="table table-xs">
+                        <thead>
+                            <tr>
+                                <th>Run</th>
+                                <th>Product</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentRunsTable">
+                            <tr><td colspan="4" class="text-center py-3 text-base-content/40">Loading…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+
+        </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast toast-end" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="production_staff,general_manager"></script>
+    <script>window.PRODUCTION_ACTIVE_PAGE = "dashboard";</script>
+    <script src="../../js/production/sidebar.js"></script>
+    <script src="../../js/production/run-flow.js"></script>
+    <script src="../../js/production/production.service.js"></script>
+    <script>
+        // Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Theme Toggle
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        // Check authentication
+
+        let dashState = { availableMilk: 0, warehouseMilk: 0, ccpAlerts: 0 };
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+
+            const user = AuthService.getCurrentUser();
+            const nameEl = document.getElementById('sidebarUserName');
+            if (nameEl) nameEl.textContent = `${user.first_name} ${user.last_name}`;
+            const welcome = document.getElementById('welcomeName');
+            if (welcome) welcome.textContent = user.first_name || 'Operator';
+            const initials = document.getElementById('userInitials');
+            if (initials) initials.textContent = ((user.first_name?.[0] || '') + (user.last_name?.[0] || '')).toUpperCase() || 'PS';
+
+            const hour = new Date().getHours();
+            let greeting = 'Morning shift';
+            if (hour >= 12 && hour < 17) greeting = 'Afternoon shift';
+            else if (hour >= 17) greeting = 'Evening shift';
+            const gEl = document.getElementById('greeting');
+            if (gEl) gEl.textContent = greeting;
+
+            await loadDashboard();
+            await loadWorkQueue();
+        });
+
+        async function loadDashboard() {
+            try {
+                const response = await ProductionService.getDashboardStats();
+                if (!response.success) return;
+                const data = response.data || {};
+
+                const availableMilk = parseFloat(data.available_milk || 0);
+                const warehouseMilk = parseFloat(data.warehouse_tank_milk || 0);
+                const ccp = data.ccp_alerts || 0;
+                dashState = { availableMilk, warehouseMilk, ccpAlerts: ccp };
+
+                document.getElementById('runsInProgress').textContent = data.today?.in_progress || 0;
+                document.getElementById('runsCompleted').textContent = data.today?.completed || 0;
+                document.getElementById('availableMilk').textContent = availableMilk.toLocaleString();
+                document.getElementById('ccpAlerts').textContent = ccp;
+
+                // Sidebar badges (if present)
+                const setBadge = (id, n) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = n;
+                };
+                setBadge('activeRunsBadge', data.today?.in_progress || 0);
+                setBadge('pendingReqsBadge', data.pending_requisitions || 0);
+                setBadge('ccpAlertsBadge', ccp);
+
+                renderBlockers(availableMilk, warehouseMilk, ccp);
+                renderCustomerProductionDemand(data.customer_production_demand || []);
+                renderPendingRequisitions(data.pending_requisitions_list || []);
+                renderRecentRuns(data.recent_runs || []);
+                updateStartRunGate(availableMilk, warehouseMilk);
+            } catch (error) {
+                console.error('Dashboard error:', error);
+                showToast('Failed to load floor status', 'error');
+            }
+        }
+
+        function renderCustomerProductionDemand(demands) {
+            const section = document.getElementById('customerDemandSection');
+            const container = document.getElementById('customerDemandList');
+            const count = document.getElementById('customerDemandCount');
+            const list = Array.isArray(demands) ? demands : [];
+            count.textContent = String(list.length);
+            section.classList.toggle('hidden', list.length === 0);
+            if (!list.length) {
+                container.innerHTML = '';
+                return;
+            }
+
+            container.innerHTML = list.map(demand => {
+                const shortage = Number(demand.shortage_quantity || 0);
+                const unit = escapeHtml(demand.base_unit || 'piece');
+                const due = demand.delivery_date ? new Date(`${demand.delivery_date}T00:00:00`).toLocaleDateString() : 'No date';
+                const late = Number.isFinite(Number(demand.days_until_due)) && Number(demand.days_until_due) < 0;
+                const planParams = new URLSearchParams({
+                    action: 'new',
+                    source: 'sales_order',
+                    sales_order_id: String(demand.order_id || ''),
+                    order_number: demand.order_number || '',
+                    customer: demand.customer_name || '',
+                    product: demand.product_name || '',
+                    product_code: demand.product_code || '',
+                    shortage: String(shortage),
+                    unit: demand.base_unit || 'piece',
+                    needed_by: demand.delivery_date || ''
+                });
+                if (demand.recipe_id) planParams.set('recipe_id', String(demand.recipe_id));
+                const action = demand.recipe_id
+                    ? `<a href="requisitions.html?${planParams.toString()}" class="btn btn-warning btn-sm shrink-0"><i class="fas fa-clipboard-list"></i> Plan production</a>`
+                    : '<span class="badge badge-error badge-outline whitespace-nowrap">Recipe needed</span>';
+                return `<div class="p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <strong>${escapeHtml(demand.product_name || '')}</strong>
+                            <span class="font-mono text-xs text-base-content/50">${escapeHtml(demand.product_code || '')}</span>
+                            ${late ? '<span class="badge badge-error badge-xs">Overdue</span>' : ''}
+                        </div>
+                        <p class="text-sm mt-1"><strong>${shortage.toLocaleString()} ${unit}${shortage === 1 ? '' : 's'}</strong> still needed for ${escapeHtml(demand.order_number || '')}</p>
+                        <p class="text-xs text-base-content/55 mt-0.5">${escapeHtml(demand.customer_name || 'Customer')} &middot; requested delivery ${escapeHtml(due)}</p>
+                    </div>
+                    ${action}
+                </div>`;
+            }).join('');
+        }
+
+        function renderBlockers(availableMilk, warehouseMilk, ccp) {
+            const panel = document.getElementById('blockerPanel');
+            const milkEl = document.getElementById('milkWarning');
+            const ccpEl = document.getElementById('ccpBlocker');
+            let any = false;
+
+            if (availableMilk <= 0) {
+                any = true;
+                milkEl.classList.remove('hidden');
+                const detail = document.getElementById('milkWarningDetail');
+                const actions = document.getElementById('milkWarningActions');
+                if (warehouseMilk > 0) {
+                    detail.innerHTML = `Warehouse has <strong>${warehouseMilk.toLocaleString()} L</strong> usable milk. Request issue before starting a milk-based run.`;
+                    actions.innerHTML = `<a href="requisitions.html?action=new" class="btn btn-sm btn-error">Request milk</a>`;
+                } else {
+                    detail.textContent = 'Warehouse has no usable milk to issue. Wait for receiving/QC, or start only non-milk work.';
+                    actions.innerHTML = `<a href="requisitions.html" class="btn btn-sm btn-outline">View requisitions</a>`;
+                }
+            } else {
+                milkEl.classList.add('hidden');
+            }
+
+            if (ccp > 0) {
+                any = true;
+                ccpEl.classList.remove('hidden');
+                document.getElementById('ccpBlockerCount').textContent = String(ccp);
+            } else {
+                ccpEl.classList.add('hidden');
+            }
+
+            panel.classList.toggle('hidden', !any);
+        }
+
+        function updateStartRunGate(availableMilk, warehouseMilk) {
+            const footer = document.getElementById('startRunFooter');
+            const btn = document.getElementById('startRunBtn');
+            const gate = document.getElementById('startRunGate');
+            if (!footer) return;
+            footer.classList.remove('hidden');
+
+            btn.classList.remove('btn-disabled');
+            btn.removeAttribute('aria-disabled');
+            btn.href = 'requisitions.html?action=new';
+            gate.classList.remove('hidden');
+            gate.textContent = 'Production starts after Warehouse fully issues the requested cooking materials.';
+        }
+
+        function renderPendingRequisitions(requisitions) {
+            const container = document.getElementById('pendingReqsList');
+            const countEl = document.getElementById('waitingCount');
+            const list = requisitions || [];
+            if (countEl) countEl.textContent = String(list.length);
+
+            if (!list.length) {
+                container.innerHTML = '<p class="text-xs text-base-content/45 py-2">Nothing waiting on warehouse</p>';
+                return;
+            }
+
+            container.innerHTML = list.slice(0, 8).map(req => `
+                <a href="requisitions.html" class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-200/40 px-2.5 py-2 hover:bg-base-200 transition-colors">
+                    <div class="min-w-0">
+                        <p class="font-mono text-xs font-bold truncate">${escapeHtml(req.requisition_code || '')}</p>
+                        <p class="text-[0.7rem] text-base-content/55 truncate">${req.total_items || 0} items · ${escapeHtml(req.priority || 'normal')} priority</p>
+                    </div>
+                    <span class="badge badge-sm ${req.status === 'pending' ? 'badge-warning' : 'badge-info'} shrink-0">${escapeHtml(req.status || '')}</span>
+                </a>
+            `).join('');
+        }
+
+        function renderRecentRuns(runs) {
+            const tbody = document.getElementById('recentRunsTable');
+            if (!runs || !runs.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-base-content/45 py-3">No recent runs</td></tr>';
+                return;
+            }
+
+            const statusColors = {
+                planned: 'badge-ghost',
+                in_progress: 'badge-primary',
+                pasteurization: 'badge-warning',
+                processing: 'badge-info',
+                cooling: 'badge-info',
+                packaging: 'badge-info',
+                completed: 'badge-success',
+                cancelled: 'badge-error'
+            };
+
+            tbody.innerHTML = runs.slice(0, 8).map(run => `
+                <tr class="hover cursor-pointer" onclick="window.location='run-workbench.html?run_id=${run.id}'">
+                    <td class="font-mono font-semibold text-xs">${escapeHtml(run.run_code)}</td>
+                    <td class="text-xs max-w-[8rem] truncate">${escapeHtml(run.product_name || '')}</td>
+                    <td><span class="badge badge-xs ${statusColors[run.status] || 'badge-ghost'}">${escapeHtml((run.status || '').replace(/_/g, ' '))}</span></td>
+                    <td class="text-right">
+                        <a href="run-workbench.html?run_id=${run.id}" class="btn btn-ghost btn-xs" onclick="event.stopPropagation()">Open</a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadWorkQueue() {
+            const container = document.getElementById('nextStepCards');
+            if (!container) return;
+
+            if (typeof ProductionRunFlow === 'undefined') {
+                container.innerHTML = `
+                    <div class="text-center py-6">
+                        <p class="text-sm text-base-content/50 mb-3">Open the workbench to continue production.</p>
+                        <a href="run-workbench.html" class="btn btn-primary btn-sm">Open Workbench</a>
+                    </div>`;
+                return;
+            }
+
+            try {
+                const r = await ProductionService.getRuns({ status_group: 'active', limit: 20 });
+                const runs = Array.isArray(r.data) ? r.data : (r.data?.runs || []);
+                const activeStatuses = ['planned', 'in_progress', 'pasteurization', 'processing', 'cooling', 'packaging'];
+                const activeRuns = runs.filter(run => activeStatuses.includes(run.status)).slice(0, 8);
+
+                if (window.ProductionSidebar) {
+                    ProductionSidebar.showBadge('activeRunsBadge', activeRuns.length);
+                }
+                document.getElementById('runsInProgress').textContent = activeRuns.length;
+
+                // Update conversions badge
+                try {
+                    const convRes = await axios.get(`${API_BASE_URL}/production/conversions.php`, { params: { action: 'summary' } });
+                    if (convRes.data.success && window.ProductionSidebar) {
+                        ProductionSidebar.showBadge('conversionsBadge', convRes.data.data.pending || 0);
+                    }
+                } catch (e) { /* optional */ }
+
+                if (!activeRuns.length) {
+                    const readyReqs = await loadReadyRequisitions();
+                    if (readyReqs.length) {
+                        container.innerHTML = readyReqs.map((req, index) => renderReadyRequisitionCard(req, index === 0)).join('');
+                        return;
+                    }
+
+                    container.innerHTML = `
+                        <div class="text-center py-8 px-2">
+                            <p class="font-semibold text-base-content/60">No active runs</p>
+                            <p class="text-xs text-base-content/45 mt-1 mb-4">Request the recipe materials, then start from the fulfilled Warehouse handoff.</p>
+                            <a href="requisitions.html?action=new" class="btn btn-primary btn-sm gap-2"><i class="fas fa-clipboard-list"></i> Request materials</a>
+                        </div>`;
+                    return;
+                }
+
+                const items = [];
+                for (let i = 0; i < activeRuns.length; i++) {
+                    const run = activeRuns[i];
+                    let full = run;
+                    try {
+                        const dr = await ProductionService.getRun(run.id);
+                        if (dr.success) full = dr.data;
+                    } catch (e) { /* use list row */ }
+
+                    const step = ProductionRunFlow.getNextStep(full);
+                    const tones = ProductionRunFlow.toneClasses(step.tone);
+                    const runId = full.id || run.id;
+                    const isPrimary = i === 0;
+                    // Prefer workbench for execution continuity
+                    const href = (step.href && step.href.includes('run-workbench'))
+                        ? step.href
+                        : `run-workbench.html?run_id=${runId}`;
+
+                    items.push(`
+                        <div class="work-queue-item ${isPrimary ? 'is-primary' : ''}">
+                            <div class="wq-meta">
+                                ${isPrimary ? '<p class="text-[0.65rem] font-bold uppercase tracking-wide text-primary mb-0.5">Do this next</p>' : ''}
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-mono font-bold text-sm">${escapeHtml(full.run_code || run.run_code)}</span>
+                                    <span class="badge badge-ghost badge-xs">${escapeHtml((full.status || '').replace(/_/g, ' '))}</span>
+                                </div>
+                                <p class="text-sm text-base-content/75 truncate">${escapeHtml(full.product_name || run.product_name || '')}</p>
+                                <p class="text-sm font-semibold mt-1">${escapeHtml(step.title)}</p>
+                                <p class="text-xs text-base-content/55">${escapeHtml(step.detail || '')}</p>
+                            </div>
+                            <div class="flex gap-2 shrink-0 w-full md:w-auto">
+                                <a href="${href}" class="btn ${isPrimary ? 'btn-primary' : tones.btn} btn-sm flex-1 md:flex-none gap-1 min-w-[9rem]">
+                                    ${escapeHtml(step.cta || 'Continue')} <i class="fas fa-arrow-right text-xs"></i>
+                                </a>
+                            </div>
+                        </div>
+                    `);
+                }
+                container.innerHTML = items.join('');
+            } catch (e) {
+                console.error(e);
+                container.innerHTML = `
+                    <div class="alert alert-warning text-sm py-2">
+                        Could not load work queue.
+                        <a class="link font-semibold" href="run-workbench.html">Open workbench</a>
+                    </div>`;
+            }
+        }
+
+        async function loadReadyRequisitions() {
+            try {
+                const response = await ProductionService.getRequisitions({
+                    workflow: 'active',
+                    status: 'fulfilled',
+                    limit: 8
+                });
+                const rows = response?.data || [];
+                return rows.filter(req => {
+                    const hasRun = !!(req.production_run_id || req.run_code);
+                    const hasPlan = Number(req.planned_recipe_id || 0) > 0 && Number(req.planned_quantity || 0) > 0;
+                    const recipeOk = Number(req.planned_recipe_exists || 0) > 0 || !!req.planned_product_name;
+                    const pendingLines = Number(req.pending_item_count || 0);
+                    const partialLines = Number(req.partial_item_count || 0);
+                    return !hasRun && hasPlan && recipeOk && pendingLines === 0 && partialLines === 0;
+                });
+            } catch (error) {
+                console.error('Ready requisitions error:', error);
+                return [];
+            }
+        }
+
+        function renderReadyRequisitionCard(req, isPrimary) {
+            const product = `${req.planned_product_name || 'Production batch'}${req.planned_variant ? ` (${req.planned_variant})` : ''}`;
+            const qty = `${req.planned_quantity || ''} ${req.planned_yield_unit || ''}`.trim();
+            const isYogurt = String(req.planned_product_type || '').toLowerCase() === 'yogurt';
+            const href = isYogurt
+                ? `pasteurization.html?from_requisition=${encodeURIComponent(req.id)}`
+                : buildRunStartHref(req);
+            const cta = isYogurt ? 'Pasteurize Milk' : 'Prepare Run';
+            const title = isYogurt ? 'Pasteurize released milk' : 'Materials released';
+            const detail = isYogurt
+                ? 'Warehouse Raw released the materials. Yogurt must use pasteurized milk before the run starts.'
+                : 'Warehouse Raw released the materials. Prepare the planned run from this request.';
+
+            return `
+                <div class="work-queue-item ${isPrimary ? 'is-primary' : ''}">
+                    <div class="wq-meta">
+                        ${isPrimary ? '<p class="text-[0.65rem] font-bold uppercase tracking-wide text-primary mb-0.5">Do this next</p>' : ''}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="font-mono font-bold text-sm">${escapeHtml(req.requisition_code || '')}</span>
+                            <span class="badge badge-success badge-xs">Released</span>
+                        </div>
+                        <p class="text-sm text-base-content/75 truncate">${escapeHtml(product)}${qty ? ` - ${escapeHtml(qty)}` : ''}</p>
+                        <p class="text-sm font-semibold mt-1">${escapeHtml(title)}</p>
+                        <p class="text-xs text-base-content/55">${escapeHtml(detail)}</p>
+                    </div>
+                    <div class="flex gap-2 shrink-0 w-full md:w-auto">
+                        <a href="${href}" class="btn btn-primary btn-sm flex-1 md:flex-none gap-1 min-w-[9rem]">
+                            ${escapeHtml(cta)} <i class="fas fa-arrow-right text-xs"></i>
+                        </a>
+                    </div>
+                </div>`;
+        }
+
+        function buildRunStartHref(req) {
+            const params = new URLSearchParams({
+                action: 'new',
+                req_id: String(req.id),
+                recipe_id: String(req.planned_recipe_id),
+                planned_quantity: String(req.planned_quantity),
+                req_code: req.requisition_code || ''
+            });
+            return `batches.html?${params.toString()}`;
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info';
+            const icon = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg`;
+            toast.innerHTML = `<i class="fas ${icon}"></i><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+
+</html>

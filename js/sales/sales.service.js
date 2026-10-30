@@ -1,0 +1,1065 @@
+/**
+ * Highland Fresh - Sales Custodian Module Services
+ * 
+ * API service layer for sales custodian management
+ * Uses the global 'api' object from api.js which handles auth tokens
+ * 
+ * Supports:
+ * - Customer management and credit tracking
+ * - Sales orders processing
+ * - Invoice (CSI) generation and management
+ * - Payment recording and aging reports
+ * - Dashboard statistics
+ * 
+ * @version 4.0
+ */
+
+const SalesService = {
+    baseUrl: '/sales',
+
+    // ========================================
+    // Dashboard
+    // ========================================
+
+    /**
+     * Get sales dashboard summary statistics
+     * @param {string} period - Period to get stats for (day, week, month, year)
+     */
+    async getDashboardStats(period = 'month') {
+        try {
+            const response = await api.get(`${this.baseUrl}/dashboard.php`, {
+                params: { action: 'summary', period }
+            });
+            // Map response to expected format for dashboard
+            if (response.data) {
+                const data = response.data;
+                return {
+                    data: {
+                        today_credit_sales: data.sales?.total_sales || 0,
+                        today_order_count: data.sales?.invoice_count || 0,
+                        total_receivables: data.receivables?.total_receivables || 0,
+                        receivables_count: data.customers?.active || 0,
+                        overdue_amount: data.receivables?.overdue_amount || 0,
+                        overdue_count: data.receivables?.overdue_count || 0,
+                        pending_orders: data.orders?.pending?.count || 0,
+                        pipeline: {
+                            draft: data.orders?.draft?.count || 0,
+                            pending: data.orders?.pending?.count || 0,
+                            approved: data.orders?.approved?.count || 0,
+                            preparing: data.orders?.preparing?.count || 0,
+                            dispatched: data.orders?.dispatched?.count || 0,
+                            delivered: data.orders?.delivered?.count || 0
+                        }
+                    }
+                };
+            }
+            return response;
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get sales dashboard summary statistics (raw)
+     */
+    async getDashboardSummary(period = 'month') {
+        try {
+            return await api.get(`${this.baseUrl}/dashboard.php`, {
+                params: { action: 'summary', period }
+            });
+        } catch (error) {
+            console.error('Error fetching dashboard summary:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get aging summary for receivables
+     * Used by dashboard and aging report page
+     */
+    async getAgingSummary() {
+        try {
+            // Get both summary and customer details
+            const [summaryRes, customersRes] = await Promise.all([
+                api.get(`${this.baseUrl}/dashboard.php`, { params: { action: 'aging_summary' } }),
+                api.get(`${this.baseUrl}/customers.php`, { params: { action: 'aging', min_balance: 0 } })
+            ]);
+
+            const buckets = summaryRes.data?.buckets || {};
+            const customers = customersRes.data || [];
+
+            // Keep not-yet-due balances separate from balances that are already late.
+            const transformedCustomers = customers.map(c => {
+                const current = Math.round((parseFloat(c.balance_current) || 0) * 100) / 100;
+                const d130 = Math.round((parseFloat(c.balance_1_30) || 0) * 100) / 100;
+                const d3160 = Math.round((parseFloat(c.balance_31_60) || 0) * 100) / 100;
+                const d6190 = Math.round((parseFloat(c.balance_61_90) || 0) * 100) / 100;
+                const over90 = Math.round((parseFloat(c.balance_91_plus) || 0) * 100) / 100;
+                const total = Math.round((current + d130 + d3160 + d6190 + over90) * 100) / 100;
+                const creditLimit = parseFloat(c.credit_limit) || 0;
+                const overBy = creditLimit > 0 && total > creditLimit
+                    ? Math.round((total - creditLimit) * 100) / 100
+                    : 0;
+                const avail = creditLimit > 0
+                    ? Math.max(0, Math.round((creditLimit - total) * 100) / 100)
+                    : null;
+                return {
+                    id: c.id,
+                    customer_code: c.customer_code || '',
+                    customer_name: c.customer_name,
+                    customer_type: c.customer_type,
+                    phone: c.phone || c.contact_number || '',
+                    contact_person: c.contact_person || '',
+                    email: c.email || '',
+                    credit_limit: creditLimit,
+                    current,
+                    days_1_30: d130,
+                    days_31_60: d3160,
+                    days_61_90: d6190,
+                    over_90: over90,
+                    total,
+                    past_due: Math.round((d130 + d3160 + d6190 + over90) * 100) / 100,
+                    over_limit: creditLimit > 0 && total > creditLimit,
+                    over_by: overBy,
+                    available_credit: avail
+                };
+            });
+
+            // Portfolio totals from corrected customer rows (source of truth for the page)
+            const current = transformedCustomers.reduce((s, c) => s + c.current, 0);
+            const days_1_30 = transformedCustomers.reduce((s, c) => s + c.days_1_30, 0);
+            const days_31_60 = transformedCustomers.reduce((s, c) => s + c.days_31_60, 0);
+            const days_61_90 = transformedCustomers.reduce((s, c) => s + c.days_61_90, 0);
+            const over_90 = transformedCustomers.reduce((s, c) => s + c.over_90, 0);
+            const total = Math.round((current + days_1_30 + days_31_60 + days_61_90 + over_90) * 100) / 100;
+            const pastDue = days_1_30 + days_31_60 + days_61_90 + over_90;
+            const overLimitCount = transformedCustomers.filter(c => c.over_limit).length;
+            const pastDueCount = transformedCustomers.filter(c => c.past_due > 0).length;
+            const over90Count = transformedCustomers.filter(c => c.over_90 > 0).length;
+
+            // Approximate DSO from portfolio: weighted avg days if we only have buckets
+            // Prefer API total; fall back to bucket midpoints
+            let dso = null;
+            if (total > 0) {
+                const weighted =
+                    (days_1_30 * 15) +
+                    (days_31_60 * 45) +
+                    (days_61_90 * 75) +
+                    (over_90 * 105);
+                dso = Math.round(weighted / total);
+            }
+
+            return {
+                data: {
+                    // For dashboard
+                    bucket_0_30: current + days_1_30,
+                    bucket_0_30_count: (buckets.current?.count || 0) + (buckets.days_1_30?.count || 0),
+                    bucket_31_60: days_31_60,
+                    bucket_31_60_count: buckets.days_31_60?.count || 0,
+                    bucket_61_90: days_61_90,
+                    bucket_61_90_count: buckets.days_61_90?.count || 0,
+                    bucket_91_plus: over_90,
+                    bucket_91_plus_count: buckets.days_91_plus?.count || 0,
+                    total_outstanding: total,
+                    by_customer_type: summaryRes.data?.by_customer_type || [],
+                    // For aging report page
+                    customers: transformedCustomers,
+                    summary: {
+                        total,
+                        current,
+                        days_1_30,
+                        days_31_60,
+                        days_61_90,
+                        over_90,
+                        past_due: pastDue,
+                        pct_overdue: total > 0 ? Math.round((pastDue / total) * 1000) / 10 : 0,
+                        pct_over_90: total > 0 ? Math.round((over_90 / total) * 1000) / 10 : 0,
+                        customers_with_balance: transformedCustomers.length,
+                        customers_past_due: pastDueCount,
+                        customers_over_90: over90Count,
+                        customers_over_limit: overLimitCount,
+                        dso
+                    }
+                }
+            };
+        } catch (error) {
+            console.error('Error fetching aging summary:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Open unpaid Delivery Receipts for a customer's selected payment-timing group.
+     */
+    async getAgingOpenItems(customerId, bucket = '') {
+        try {
+            const res = await api.get(`${this.baseUrl}/customers.php`, {
+                params: {
+                    action: 'open_items',
+                    customer_id: customerId,
+                    bucket: bucket || undefined
+                }
+            });
+            // api interceptor already returns body { success, data, message }
+            if (res && res.success === false) {
+                throw new Error(res.message || 'Failed to load open items');
+            }
+            return res;
+        } catch (error) {
+            console.error('Error fetching aging open items:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get detailed aging report
+     */
+    async getAgingReport(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/dashboard.php`, {
+                params: { action: 'aging_summary', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching aging report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get top customers by revenue
+     * @param {Object} params - Parameters (limit, period)
+     */
+    async getTopCustomers(params = {}) {
+        try {
+            const limit = params.limit || 10;
+            const period = params.period || 'month';
+            const response = await api.get(`${this.baseUrl}/dashboard.php`, {
+                params: { action: 'top_customers', limit, period }
+            });
+            // API returns {data: {period, date_range, customers: [...]}} - extract customers array
+            if (response.data && response.data.customers) {
+                return { data: response.data.customers };
+            }
+            return { data: [] };
+        } catch (error) {
+            console.error('Error fetching top customers:', error);
+            return { data: [] };
+        }
+    },
+
+    /**
+     * Get top customers by outstanding balance
+     * @param {number} limit - Number of customers to return
+     */
+    async getTopCustomersByBalance(limit = 5) {
+        try {
+            const response = await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'aging', min_balance: 0 }
+            });
+            // Return top N by outstanding balance
+            if (response.data && Array.isArray(response.data)) {
+                const customers = response.data.slice(0, limit).map(c => ({
+                    id: c.id,
+                    name: c.customer_name,
+                    customer_type: c.customer_type,
+                    outstanding_balance: c.total_outstanding || 0,
+                    days_overdue: (c.balance_91_plus > 0) ? 91 :
+                        (c.balance_61_90 > 0) ? 61 :
+                            (c.balance_31_60 > 0) ? 31 : 0
+                }));
+                return { data: customers };
+            }
+            return { data: [] };
+        } catch (error) {
+            console.error('Error fetching top customers by balance:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get recent orders for dashboard
+     * @param {number} limit - Number of orders to return
+     */
+    async getRecentOrders(limit = 10) {
+        try {
+            const response = await api.get(`${this.baseUrl}/dashboard.php`, {
+                params: { action: 'recent_orders', limit }
+            });
+            // Map to expected format
+            if (response.data && response.data.orders) {
+                return { data: response.data.orders };
+            }
+            return response;
+        } catch (error) {
+            console.error('Error fetching recent orders:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get daily collection report
+     * @param {string} date - Date in YYYY-MM-DD format
+     */
+    async getDailyCollection(date = null) {
+        try {
+            const params = { action: 'daily_collection' };
+            if (date) params.date = date;
+            return await api.get(`${this.baseUrl}/dashboard.php`, { params });
+        } catch (error) {
+            console.error('Error fetching daily collection:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get sales trend
+     * @param {Object} params - Parameters (days, start_date, end_date)
+     */
+    async getSalesTrend(params = {}) {
+        try {
+            // Prefer reports.php when a date range is supplied (Sales Report page)
+            if (params.start_date || params.end_date || params.from_date || params.to_date) {
+                const response = await api.get(`${this.baseUrl}/reports.php`, {
+                    params: {
+                        action: 'trend',
+                        start_date: params.start_date || params.from_date,
+                        end_date: params.end_date || params.to_date
+                    }
+                });
+                // Normalize: API returns array in data
+                const rows = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+                return { data: rows };
+            }
+            const days = params.days || 30;
+            const response = await api.get(`${this.baseUrl}/dashboard.php`, {
+                params: { action: 'sales_trend', days }
+            });
+            // API returns {data: {period_days, data: [...]}} - extract the data array
+            if (response.data && response.data.data) {
+                return { data: response.data.data };
+            }
+            return { data: [] };
+        } catch (error) {
+            console.error('Error fetching sales trend:', error);
+            return { data: [] };
+        }
+    },
+
+    // ========================================
+    // Customer Management
+    // ========================================
+
+    /**
+     * Get customers list
+     * @param {Object} params - Filter parameters (status, credit_status, search, page, limit)
+     */
+    async getCustomers(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'list', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching customers:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get single customer details
+     * @param {number} id - Customer ID
+     */
+    async getCustomer(id) {
+        try {
+            return await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'detail', id }
+            });
+        } catch (error) {
+            console.error('Error fetching customer:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Search customers by name, code, or contact
+     * @param {string} query - Search query
+     */
+    async searchCustomers(query) {
+        try {
+            return await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'search', q: query }
+            });
+        } catch (error) {
+            console.error('Error searching customers:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Create new customer
+     * @param {Object} data - Customer data (name, contact_person, phone, email, address, credit_limit, payment_terms)
+     */
+    async createCustomer(data) {
+        try {
+            return await api.post(`${this.baseUrl}/customers.php`, {
+                action: 'create',
+                ...data
+            });
+        } catch (error) {
+            console.error('Error creating customer:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Update customer details
+     * @param {number} id - Customer ID
+     * @param {Object} data - Updated customer data
+     */
+    async updateCustomer(id, data) {
+        try {
+            return await api.put(`${this.baseUrl}/customers.php`, {
+                action: 'update',
+                id,
+                ...data
+            });
+        } catch (error) {
+            console.error('Error updating customer:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get customer aging report (receivables breakdown by age)
+     * @param {number} customerId - Customer ID
+     */
+    async getCustomerAging(customerId) {
+        try {
+            return await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'aging', customer_id: customerId }
+            });
+        } catch (error) {
+            console.error('Error fetching customer aging:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get customer transaction history
+     * @param {number} customerId - Customer ID
+     * @param {Object} params - Filter parameters (from_date, to_date, type)
+     */
+    async getCustomerTransactions(customerId, params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'transactions', customer_id: customerId, ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching customer transactions:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get customer credit status
+     * @param {number} customerId - Customer ID
+     */
+    async getCustomerCreditStatus(customerId) {
+        try {
+            return await api.get(`${this.baseUrl}/customers.php`, {
+                params: { action: 'credit_status', customer_id: customerId }
+            });
+        } catch (error) {
+            console.error('Error fetching customer credit status:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // Sales Orders
+    // ========================================
+
+    /**
+     * Get sales orders list
+     * @param {Object} params - Filter parameters (status, customer_id, from_date, to_date, page, limit)
+     */
+    async getOrders(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/orders.php`, {
+                params: { action: 'list', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching orders:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get single order details with items
+     * @param {number} id - Order ID
+     */
+    async getOrder(id) {
+        try {
+            return await api.get(`${this.baseUrl}/orders.php`, {
+                params: { action: 'detail', id }
+            });
+        } catch (error) {
+            console.error('Error fetching order:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get pending orders awaiting processing
+     */
+    async getPendingOrders() {
+        try {
+            return await api.get(`${this.baseUrl}/orders.php`, {
+                params: { action: 'pending' }
+            });
+        } catch (error) {
+            console.error('Error fetching pending orders:', error);
+            throw error;
+        }
+    },
+
+    /** Active SKUs with their current Finished Goods availability. */
+    async getDirectOrderProducts() {
+        return await api.get('/warehouse/fg/products.php', {
+            params: { action: 'for_sale', include_unavailable: 1 }
+        });
+    },
+
+    /** Record a phone or message order for any active customer. */
+    async createCustomerOrder(data) {
+        return await api.post(`${this.baseUrl}/orders.php`, {
+            action: 'create_customer',
+            ...data
+        });
+    },
+
+    /** Backward-compatible alias for older screens/bookmarks. */
+    async createDirectOrder(data) {
+        return this.createCustomerOrder(data);
+    },
+
+    /**
+     * Get customer POs received through the company order mailbox.
+     */
+    async getOrderInbox(params = {}) {
+        return await api.get(`${this.baseUrl}/order_inbox.php`, {
+            params: { action: 'list', ...params }
+        });
+    },
+
+    async getOrderInboxSummary() {
+        return await api.get(`${this.baseUrl}/order_inbox.php`, {
+            params: { action: 'summary' }
+        });
+    },
+
+    async getOrderImport(id) {
+        return await api.get(`${this.baseUrl}/order_inbox.php`, {
+            params: { action: 'detail', id }
+        });
+    },
+
+    async getOrderAttachmentPreview(id) {
+        return await api.get(`${this.baseUrl}/order_inbox.php`, {
+            params: { action: 'preview', id }
+        });
+    },
+
+    async getOrderInboxConfig() {
+        return await api.get(`${this.baseUrl}/order_inbox.php`, {
+            params: { action: 'config' }
+        });
+    },
+
+    async getApprovedCustomerOrderProducts() {
+        // Use the same active finished-goods list as direct sales. It includes
+        // products with zero stock so an incoming request can still be checked
+        // and recorded as unavailable when necessary.
+        return await api.get('/warehouse/fg/products.php', {
+            params: { action: 'for_sale', include_unavailable: 1 }
+        });
+    },
+
+    async syncOrderMailbox() {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'sync'
+        });
+    },
+
+    async confirmOrderImport(id, acceptWarnings = false, creditOverrideReason = '') {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'confirm',
+            id,
+            accept_warnings: acceptWarnings,
+            credit_override_reason: creditOverrideReason
+        });
+    },
+
+    async adjustCustomerOrderImport(importId, lineId, data) {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'adjust',
+            id: importId,
+            line_id: lineId,
+            ...data
+        });
+    },
+
+    async saveCustomerOrderDetails(importId, data) {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'save_details',
+            id: importId,
+            ...data
+        });
+    },
+
+    async recordCustomerOrderCall(importId, data) {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'record_call',
+            id: importId,
+            ...data
+        });
+    },
+
+    async correctCustomerOrderEncoding(importId, reason) {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'correct_encoding',
+            id: importId,
+            reason
+        });
+    },
+
+    async rejectCustomerOrderEmail(importId, reason) {
+        return await api.post(`${this.baseUrl}/order_inbox.php`, {
+            action: 'reject',
+            id: importId,
+            reason
+        });
+    },
+
+    /**
+     * Update order status
+     * @param {number} id - Order ID
+     * @param {string} status - New status (draft, pending, approved, processing, fulfilled, cancelled)
+     */
+    async updateOrderStatus(id, status) {
+        try {
+            return await api.put(`${this.baseUrl}/orders.php`, {
+                action: 'update_status',
+                id,
+                status
+            });
+        } catch (error) {
+            console.error('Error updating order status:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Cancel sales order
+     * @param {number} id - Order ID
+     * @param {string} reason - Cancellation reason
+     */
+    async cancelOrder(id, reason) {
+        try {
+            return await api.put(`${this.baseUrl}/orders.php`, {
+                action: 'cancel',
+                id,
+                reason
+            });
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get printable order data
+     * @param {number} id - Order ID
+     */
+    async printOrder(id) {
+        try {
+            return await api.get(`${this.baseUrl}/orders.php`, {
+                params: { action: 'print', id }
+            });
+        } catch (error) {
+            console.error('Error fetching printable order:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // Invoices (CSI - Charge Sales Invoice)
+    // ========================================
+
+    /**
+     * Get invoices list
+     * @param {Object} params - Filter parameters (status, customer_id, from_date, to_date, page, limit)
+     */
+    async getInvoices(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/invoices.php`, {
+                params: { action: 'list', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching invoices:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get single invoice details
+     * @param {number} id - Invoice ID
+     */
+    async getInvoice(id) {
+        try {
+            return await api.get(`${this.baseUrl}/invoices.php`, {
+                params: { action: 'detail', id }
+            });
+        } catch (error) {
+            console.error('Error fetching invoice:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get unpaid invoices
+     * @param {Object} params - Filter parameters (customer_id, overdue_only)
+     */
+    async getUnpaidInvoices(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/invoices.php`, {
+                params: { action: 'unpaid', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching unpaid invoices:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get aging report for all receivables
+     * @param {Object} params - Filter parameters (customer_id, as_of_date)
+     */
+    async getAgingReport(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/invoices.php`, {
+                params: { action: 'aging_report', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching aging report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Create Charge Sales Invoice from Delivery Receipt
+     * @param {number} drId - Delivery Receipt ID
+     * @param {Object} data - Invoice data (due_date, discount, notes)
+     */
+    async createCSI(drId, data = {}) {
+        try {
+            return await api.post(`${this.baseUrl}/invoices.php`, {
+                action: 'create_csi',
+                dr_id: drId,
+                ...data
+            });
+        } catch (error) {
+            console.error('Error creating CSI:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get payment history for an invoice
+     * @param {number} invoiceId - Invoice ID
+     */
+    async getInvoicePayments(invoiceId) {
+        try {
+            return await api.get(`${this.baseUrl}/invoices.php`, {
+                params: { action: 'payments', invoice_id: invoiceId }
+            });
+        } catch (error) {
+            console.error('Error fetching invoice payments:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Void an invoice
+     * @param {number} id - Invoice ID
+     * @param {string} reason - Void reason
+     */
+    async voidInvoice(id, reason) {
+        try {
+            return await api.put(`${this.baseUrl}/invoices.php`, {
+                action: 'void',
+                id,
+                reason
+            });
+        } catch (error) {
+            console.error('Error voiding invoice:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get printable invoice data
+     * @param {number} id - Invoice ID
+     */
+    async printInvoice(id) {
+        try {
+            return await api.get(`${this.baseUrl}/invoices.php`, {
+                params: { action: 'print', id }
+            });
+        } catch (error) {
+            console.error('Error fetching printable invoice:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // Delivery Receipts (View Only for Sales)
+    // ========================================
+
+    /**
+     * Get delivery receipts for invoicing
+     * @param {Object} params - Filter parameters (status, customer_id, uninvoiced)
+     */
+    async getDeliveryReceipts(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/delivery_receipts.php`, {
+                params: { action: 'list', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching delivery receipts:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get uninvoiced delivery receipts
+     */
+    async getUninvoicedDRs() {
+        try {
+            return await api.get(`${this.baseUrl}/delivery_receipts.php`, {
+                params: { action: 'uninvoiced' }
+            });
+        } catch (error) {
+            console.error('Error fetching uninvoiced DRs:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get delivery receipt details
+     * @param {number} id - DR ID
+     */
+    async getDeliveryReceipt(id) {
+        try {
+            return await api.get(`${this.baseUrl}/delivery_receipts.php`, {
+                params: { action: 'detail', id }
+            });
+        } catch (error) {
+            console.error('Error fetching delivery receipt:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // Reports
+    // ========================================
+
+    /**
+     * Get sales summary report
+     * @param {Object} params - Report parameters (from_date, to_date, group_by)
+     */
+    async getSalesSummaryReport(params = {}) {
+        try {
+            // reports.php action is "summary"; accept start_date/end_date or from_date/to_date
+            const start = params.start_date || params.from_date;
+            const end = params.end_date || params.to_date;
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: {
+                    action: 'summary',
+                    start_date: start,
+                    end_date: end,
+                    ...params
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching sales summary report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Sales by product (top sellers) for date range
+     */
+    async getSalesByProduct(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: {
+                    action: 'by_product',
+                    start_date: params.start_date || params.from_date,
+                    end_date: params.end_date || params.to_date,
+                    limit: params.limit || 10
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching sales by product:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Sales by customer for date range
+     */
+    async getSalesByCustomerReport(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: {
+                    action: 'by_customer',
+                    start_date: params.start_date || params.from_date,
+                    end_date: params.end_date || params.to_date,
+                    limit: params.limit || 10
+                }
+            });
+        } catch (error) {
+            console.error('Error fetching sales by customer:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Customer performance report (orders, sales, outstanding, payment score)
+     */
+    async getCustomerPerformance(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: { action: 'customer_performance', period: 'all', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching customer performance:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get customer sales report
+     * @param {Object} params - Report parameters (customer_id, from_date, to_date)
+     */
+    async getCustomerSalesReport(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: { action: 'customer_sales', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching customer sales report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get product sales report
+     * @param {Object} params - Report parameters (product_id, from_date, to_date)
+     */
+    async getProductSalesReport(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: { action: 'product_sales', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching product sales report:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get collections report
+     * @param {Object} params - Report parameters (from_date, to_date, payment_method)
+     */
+    async getCollectionsReport(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: { action: 'collections', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching collections report:', error);
+            throw error;
+        }
+    },
+
+    // ========================================
+    // Additional Methods
+    // ========================================
+
+    /**
+     * Get daily collection target and due collections
+     * @param {string} date - Optional date in YYYY-MM-DD format
+     */
+    async getDailyCollectionTarget(date = null) {
+        try {
+            // Use collections_due action which returns due invoices and amounts
+            const params = { action: 'collections_due' };
+            if (date) params.date = date;
+            const response = await api.get(`${this.baseUrl}/dashboard.php`, { params });
+
+            // Return the response directly as it already has the correct format
+            if (response.data) {
+                return {
+                    data: {
+                        due_today: response.data.due_today || 0,
+                        due_this_week: response.data.due_this_week || 0,
+                        overdue: response.data.overdue || 0,
+                        collected_mtd: response.data.collected_mtd || 0,
+                        invoices: response.data.invoices || []
+                    }
+                };
+            }
+            return response;
+        } catch (error) {
+            console.error('Error fetching daily collection target:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get orders for a specific customer
+     * @param {number} customerId - Customer ID
+     * @param {number} limit - Maximum number of orders to return
+     */
+    async getCustomerOrders(customerId, limit = 20) {
+        try {
+            return await api.get(`${this.baseUrl}/orders.php`, {
+                params: { action: 'by_customer', customer_id: customerId, limit }
+            });
+        } catch (error) {
+            console.error('Error fetching customer orders:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get sales trend data
+     * @param {Object} params - Parameters (start_date, end_date, group_by)
+     */
+    async getSalesTrendData(params = {}) {
+        try {
+            return await api.get(`${this.baseUrl}/reports.php`, {
+                params: { action: 'trend', ...params }
+            });
+        } catch (error) {
+            console.error('Error fetching sales trend data:', error);
+            throw error;
+        }
+    },
+
+};
+
+// Make service available globally
+window.SalesService = SalesService;

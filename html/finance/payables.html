@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Payables - Finance | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --payables-ink: #0f172a;
+            --payables-muted: #5b6476;
+            --payables-accent: #0f766e;
+            --payables-accent-soft: #ccfbf1;
+            --payables-warn: #c2410c;
+            --payables-danger: #b91c1c;
+            --payables-border: #e2e8f0;
+            --payables-card: #ffffff;
+        }
+
+        body {
+            font-family: 'Source Sans 3', sans-serif;
+            color: var(--payables-ink);
+            background: #f1f5f9;
+        }
+
+        .font-display {
+            font-family: 'Space Grotesk', 'Source Sans 3', sans-serif;
+            letter-spacing: -0.01em;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .muted-hint {
+            color: oklch(var(--bc) / 0.6);
+        }
+
+        .summary-card {
+            background: var(--payables-card);
+            border: 1px solid var(--payables-border);
+            border-radius: 8px;
+            padding: 14px;
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            min-height: 88px;
+        }
+
+        .summary-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .summary-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--payables-muted);
+        }
+
+        .summary-value {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .summary-sub {
+            font-size: 12px;
+            color: var(--payables-muted);
+        }
+
+        .payables-table {
+            border-collapse: collapse;
+            border-spacing: 0;
+            min-width: 980px;
+        }
+
+        .payables-table thead th {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--payables-muted);
+            border-bottom: 1px solid var(--payables-border);
+            padding: 10px 12px;
+        }
+
+        .payables-table tbody td {
+            background: var(--payables-card);
+            border-bottom: 1px solid var(--payables-border);
+            padding: 12px;
+            vertical-align: top;
+        }
+
+        .payables-table tbody td:first-child {
+            padding-left: 16px;
+        }
+
+        .payable-row:hover td {
+            background: #f8fafc;
+        }
+
+        .row-overdue td:first-child {
+            box-shadow: inset 4px 0 0 var(--payables-danger);
+        }
+
+        .po-number {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .po-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--payables-muted);
+        }
+
+        .supplier-name {
+            font-weight: 600;
+        }
+
+        .item-summary {
+            font-size: 12px;
+            color: var(--payables-muted);
+            max-width: 330px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .amount-total {
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .amount-meta {
+            font-size: 12px;
+            color: var(--payables-muted);
+        }
+
+        .readiness-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .readiness-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .document-line {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--payables-muted);
+        }
+
+        .document-line.is-ready {
+            color: #047857;
+        }
+
+        .document-line.is-present {
+            color: #475569;
+        }
+
+        .document-line.is-missing {
+            color: #b45309;
+        }
+
+        .queue-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .queue-tab.is-active {
+            background: #0f766e;
+            border-color: #0f766e;
+            color: #fff;
+        }
+
+        .queue-toolbar {
+            display: grid;
+            grid-template-columns: minmax(260px, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .blocked-action {
+            max-width: 150px;
+            color: var(--payables-muted);
+            font-size: 12px;
+            line-height: 1.25;
+        }
+
+        @media (max-width: 767px) {
+            .queue-toolbar {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../../images/logo.jpg" alt="Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Finance Department</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">
+                    Disbursements</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="payables.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-file-invoice-dollar w-5 text-center"></i>
+                            <span class="flex-1">Supplier Payables</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="farmer_payments.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-tractor w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Farmer Payments</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Collections
+                    <span class="badge badge-ghost badge-xs ml-1">View Only</span>
+                </h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="collections.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-hand-holding-usd w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Collections</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">FO</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Finance Officer</p>
+                    <p class="text-xs text-base-content/60 truncate">Finance</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content font-display">Supplier Payables</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Summary Bar -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div class="summary-card">
+                    <div class="summary-icon bg-emerald-100 text-emerald-700"><i class="fas fa-circle-check"></i></div>
+                    <div>
+                        <p class="summary-label">Ready to Pay</p>
+                        <p class="summary-value text-emerald-700 font-display" id="summaryReadyAmount">PHP 0.00</p>
+                        <p class="summary-sub"><span id="summaryReadyCount">0</span> complete purchase orders</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon bg-amber-100 text-amber-700"><i class="fas fa-file-circle-exclamation"></i></div>
+                    <div>
+                        <p class="summary-label">Waiting for Completion</p>
+                        <p class="summary-value text-amber-700 font-display" id="summaryWaitingAmount">PHP 0.00</p>
+                        <p class="summary-sub"><span id="summaryWaitingCount">0</span> need documents or Purchaser verification</p>
+                    </div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-icon bg-rose-100 text-rose-700"><i class="fas fa-clock"></i></div>
+                    <div>
+                        <p class="summary-label">Overdue Balance</p>
+                        <p class="summary-value text-rose-700 font-display" id="summaryOverdue">PHP 0.00</p>
+                        <p class="summary-sub"><span id="summaryCountOverdue">0</span> past the due date</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payables Table -->
+            <div class="bg-base-100 border border-base-300 rounded-lg">
+                <div class="p-4 lg:p-5">
+                    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="card-title text-lg font-display">
+                                <i class="fas fa-file-invoice-dollar text-primary mr-2"></i>
+                                Purchase Orders
+                            </h3>
+                            <p class="text-sm muted-hint">Pay complete records first. Missing documents remain visible in their own queue.</p>
+                        </div>
+                        <div class="text-sm text-base-content/60" id="tableInfo">Showing 0 records</div>
+                    </div>
+
+                    <div class="queue-toolbar mb-3">
+                        <label class="input input-bordered input-sm flex items-center gap-2">
+                            <i class="fas fa-search text-base-content/40"></i>
+                            <input type="text" placeholder="Search PO, supplier, or item..." id="searchInput" class="grow"
+                                onkeyup="debounceSearch()" />
+                        </label>
+                        <button class="btn btn-ghost btn-sm" onclick="refreshPayables()" title="Refresh payables">
+                            <i class="fas fa-rotate"></i><span>Refresh</span>
+                        </button>
+                    </div>
+
+                    <div class="queue-tabs mb-4" aria-label="Payables queues">
+                        <button class="btn btn-sm btn-outline queue-tab is-active" data-queue="ready" onclick="setPayablesQueue('ready')">
+                            <i class="fas fa-circle-check"></i> Ready to Pay
+                        </button>
+                        <button class="btn btn-sm btn-outline queue-tab" data-queue="waiting_documents" onclick="setPayablesQueue('waiting_documents')">
+                            <i class="fas fa-file-circle-exclamation"></i> Waiting to Complete
+                        </button>
+                        <button class="btn btn-sm btn-outline queue-tab" data-queue="overdue" onclick="setPayablesQueue('overdue')">
+                            <i class="fas fa-clock"></i> Overdue
+                        </button>
+                        <button class="btn btn-sm btn-outline queue-tab" data-queue="all" onclick="setPayablesQueue('all')">All Open</button>
+                        <button class="btn btn-sm btn-outline queue-tab" data-queue="paid" onclick="setPayablesQueue('paid')">Paid</button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm payables-table" id="payablesTable">
+                            <thead>
+                                <tr>
+                                    <th>PO and Supplier</th>
+                                    <th>Received Items</th>
+                                    <th>Balance and Due Date</th>
+                                    <th>Payment Check</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payablesBody">
+                                <tr>
+                                    <td colspan="5" class="text-center py-12 text-base-content/60">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                        <p class="mt-2">Loading payables...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="flex items-center justify-between mt-4">
+                        <div class="text-sm text-base-content/60" id="paginationInfo">Page 1</div>
+                        <div class="join" id="paginationControls"></div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-sm text-base-content/60">&copy; 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- Payment Modal -->
+    <dialog id="paymentModal" class="modal">
+        <div class="modal-box max-w-4xl">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fas fa-money-bill-wave text-primary mr-2"></i>
+                Record Payment
+            </h3>
+            <form id="paymentForm">
+                <input type="hidden" id="payPoId">
+
+                <div class="bg-base-200 rounded-xl p-4 mb-4">
+                    <div class="text-sm text-base-content/60 mb-1">PO Number</div>
+                    <div class="font-bold text-lg" id="payPoNumber">-</div>
+                    <div class="text-sm mt-1">Supplier: <span class="font-semibold" id="paySupplier">-</span></div>
+                    <div class="text-sm">Terms: <span class="font-semibold" id="payTerms">-</span></div>
+                    <div class="text-sm">Due Date: <span class="font-semibold" id="payDueDate">-</span></div>
+                    <div class="text-sm">Balance: <span class="font-bold text-error" id="payAmount">PHP 0.00</span></div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Payment Date</span></label>
+                        <input type="date" id="payDate" class="input input-bordered w-full" onchange="updatePaymentDateGuidance()">
+                        <div id="payDateHint" class="text-xs text-base-content/60 mt-1">Date the funds were actually released.</div>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Amount to Pay</span></label>
+                        <input type="number" id="payAmountInput" class="input input-bordered w-full" min="0.01" max="9999999999.99" step="0.01" placeholder="0.00" oninput="updatePaymentPreview()" onkeydown="return !['e','E','+','-'].includes(event.key)">
+                    </div>
+                </div>
+
+                <div class="bg-base-200 rounded-xl p-3 mb-3 text-xs">
+                    <div class="flex items-center justify-between"><span class="muted-hint">Total Payable</span><strong id="payTotal">PHP 0.00</strong></div>
+                    <div class="flex items-center justify-between"><span class="muted-hint">Already Paid</span><strong id="payPaid">PHP 0.00</strong></div>
+                    <div class="flex items-center justify-between"><span class="muted-hint">Remaining Balance</span><strong id="payRemaining">PHP 0.00</strong></div>
+                </div>
+
+                <div class="border border-base-300 rounded-xl mb-4 overflow-hidden">
+                    <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 bg-base-200">
+                        <div>
+                            <div class="font-semibold">PO and receiving comparison</div>
+                            <div class="text-xs text-base-content/60">Review what was ordered, what arrived, and what Finance will pay.</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="openPaymentSource('po')"><i class="fas fa-file-lines"></i> Open PO</button>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="openPaymentSource('rr')"><i class="fas fa-truck-ramp-box"></i> Open RR</button>
+                        </div>
+                    </div>
+                    <div id="paymentDocumentReview" class="p-4 text-sm">
+                        <span class="loading loading-spinner loading-sm"></span> Loading comparison...
+                    </div>
+                </div>
+
+                <div class="border border-base-300 rounded-xl p-4 mb-4">
+                    <div class="font-semibold mb-1" id="payInvoiceSectionTitle">Supplier invoice</div>
+                    <div class="text-xs text-base-content/60 mb-3" id="payInvoiceSectionHint">The invoice number comes from receiving. Finance supplies the date, total, and actual invoice file.</div>
+                    <div class="grid md:grid-cols-3 gap-3">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Invoice Number</span></label>
+                            <input type="text" id="payInvoiceNumber" class="input input-bordered w-full" readonly>
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Invoice Date</span></label>
+                            <input type="date" id="payInvoiceDate" class="input input-bordered w-full" required>
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Invoice Total</span></label>
+                            <input type="number" id="payInvoiceTotal" class="input input-bordered w-full" min="0.01" max="9999999999.99" step="0.01" required onkeydown="return !['e','E','+','-'].includes(event.key)">
+                        </div>
+                    </div>
+                    <div class="form-control mt-3">
+                        <label class="label"><span class="label-text" id="payInvoiceFileLabel">Supplier Invoice File</span></label>
+                        <input type="file" id="payInvoiceFile" class="file-input file-input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+                        <div id="payInvoiceFileHint" class="text-xs text-base-content/60 mt-1">PDF, JPG, or PNG; maximum 5 MB.</div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-3 mb-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Payment Method</span></label>
+                        <select id="payMethod" class="select select-bordered w-full" onchange="updatePaymentMethodFields()">
+                            <option value="cash">Cash</option>
+                            <option value="check">Check</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text" id="payReferenceLabel">Official Receipt Number (optional)</span></label>
+                        <input type="text" id="payReference" class="input input-bordered w-full" maxlength="100">
+                        <div id="payReferenceHint" class="text-xs text-base-content/60 mt-1">The system generates the Cash Payment Voucher number after saving.</div>
+                    </div>
+                </div>
+
+                <div class="form-control mb-3">
+                    <label class="label"><span class="label-text" id="payProofLabel">Signed Cash Acknowledgment</span></label>
+                    <input type="file" id="payProofFile" class="file-input file-input-bordered w-full" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+                    <div class="text-xs text-base-content/60 mt-1">PDF, JPG, or PNG; maximum 5 MB. This is evidence that funds were actually released.</div>
+                </div>
+
+                <label class="flex items-start gap-3 bg-base-200 rounded-xl p-3 mb-3 cursor-pointer">
+                    <input type="checkbox" id="confirmRelease" class="checkbox checkbox-sm checkbox-primary mt-0.5">
+                    <span class="text-sm"><strong>I released the funds using the selected method.</strong><br><span class="text-xs text-base-content/60" id="payReleaseEvidenceText">The signed acknowledgment belongs to this exact cash payment.</span></span>
+                </label>
+
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text">Notes</span></label>
+                    <textarea id="payNotes" class="textarea textarea-bordered w-full" rows="2"
+                        placeholder="Optional notes..."></textarea>
+                </div>
+
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('paymentModal').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="paySubmitBtn">
+                        <i class="fas fa-check mr-1"></i> Confirm Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Missing supplier invoice recovery -->
+    <dialog id="invoiceRecoveryModal" class="modal">
+        <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg"><i class="fas fa-file-circle-plus text-primary mr-2"></i>Complete Supplier Invoice</h3>
+            <p class="text-sm text-base-content/70 mt-1 mb-4">Use this only when the supplier invoice arrived after Warehouse recorded the delivery. The original Receiving Report remains unchanged except for its previously blank invoice number.</p>
+            <form id="invoiceRecoveryForm">
+                <input type="hidden" id="invoiceRecoveryPoId">
+                <div class="form-control mb-3">
+                    <label class="label"><span class="label-text">Verified Receiving Report</span></label>
+                    <select id="invoiceRecoveryRrId" class="select select-bordered w-full" required></select>
+                </div>
+                <div class="form-control mb-3">
+                    <label class="label"><span class="label-text">Supplier Invoice Number</span></label>
+                    <input id="invoiceRecoveryNumber" class="input input-bordered w-full" minlength="2" maxlength="100" required placeholder="Exactly as printed on the invoice">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Why was it added after receiving?</span></label>
+                    <textarea id="invoiceRecoveryExplanation" class="textarea textarea-bordered w-full" minlength="5" maxlength="500" required placeholder="Example: Supplier delivered the invoice after the goods were received."></textarea>
+                    <span class="text-xs text-base-content/60 mt-1">The invoice number, reason, user, date, PO, and RR are written to the audit trail.</span>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('invoiceRecoveryModal').close()">Cancel</button>
+                    <button type="submit" id="invoiceRecoverySubmit" class="btn btn-primary"><i class="fas fa-floppy-disk"></i> Save invoice number</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Detail Modal -->
+    <dialog id="detailModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fas fa-file-alt text-primary mr-2"></i>
+                Purchase Order Details
+            </h3>
+            <div id="detailContent">
+                <div class="text-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button class="btn" onclick="document.getElementById('detailModal').close()">Close</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="finance_officer,general_manager"></script>
+    <script src="../../js/finance/finance.service.js"></script>
+
+    <script>
+        let currentPage = 1;
+        let searchTimeout;
+        let payablesIndex = {};
+        let currentPayable = null;
+        let currentQueue = 'ready';
+        let currentPaymentStatus = '';
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => { currentPage = 1; loadPayables(); }, 300);
+        }
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                document.getElementById('sidebarUserName').textContent =
+                    `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Finance Officer';
+                document.getElementById('userInitials').textContent =
+                    (user.first_name?.[0] || '') + (user.last_name?.[0] || '') || 'FO';
+            }
+            await Promise.all([loadPayablesOverview(), loadPayables()]);
+        });
+
+        async function loadPayablesOverview() {
+            try {
+                const response = await FinanceService.getPayablesOverview();
+                const overview = response?.data || {};
+                document.getElementById('summaryReadyAmount').textContent = formatCurrency(overview.ready_amount);
+                document.getElementById('summaryReadyCount').textContent = parseInt(overview.ready_count || 0, 10);
+                document.getElementById('summaryWaitingAmount').textContent = formatCurrency(overview.waiting_amount);
+                document.getElementById('summaryWaitingCount').textContent = parseInt(overview.waiting_count || 0, 10);
+                document.getElementById('summaryOverdue').textContent = formatCurrency(overview.overdue_amount);
+                document.getElementById('summaryCountOverdue').textContent = parseInt(overview.overdue_count || 0, 10);
+            } catch (error) {
+                console.error('Error loading payables overview:', error);
+                showToast('Could not update the payable totals', 'error');
+            }
+        }
+
+        function setPayablesQueue(queue) {
+            currentQueue = queue === 'paid' ? 'all' : queue;
+            currentPaymentStatus = queue === 'paid' ? 'paid' : '';
+            currentPage = 1;
+            document.querySelectorAll('.queue-tab').forEach(button => {
+                button.classList.toggle('is-active', button.dataset.queue === queue);
+            });
+            loadPayables();
+        }
+
+        async function refreshPayables() {
+            await Promise.all([loadPayablesOverview(), loadPayables()]);
+        }
+
+        async function loadPayables() {
+            const search = document.getElementById('searchInput')?.value || '';
+
+            try {
+                const response = await FinanceService.getPayables({
+                    search,
+                    payment_status: currentPaymentStatus,
+                    queue: currentQueue,
+                    page: currentPage,
+                    limit: 10
+                });
+                const payables = response?.data || [];
+                const meta = response?.pagination || response?.meta || {};
+                const tbody = document.getElementById('payablesBody');
+
+                payablesIndex = {};
+                payables.forEach(po => {
+                    const payableTotal = parseFloat(po.payable_total ?? po.total_amount ?? 0);
+                    const amountPaid = parseFloat(po.amount_paid ?? 0);
+                    const balanceDue = Math.max(payableTotal - amountPaid, 0);
+                    po.payable_total = payableTotal;
+                    po.amount_paid = amountPaid;
+                    po.balance_due = balanceDue;
+                    po.rr_missing_invoice_count = parseInt(po.rr_missing_invoice_count || 0, 10);
+                    payablesIndex[po.id] = po;
+                });
+
+                const total = parseInt(meta.total || payables.length, 10);
+                const start = total ? ((currentPage - 1) * 10) + 1 : 0;
+                const end = Math.min(currentPage * 10, total);
+                document.getElementById('tableInfo').textContent = `${start}-${end} of ${total}`;
+
+                if (payables.length === 0) {
+                    const message = currentPaymentStatus === 'paid'
+                        ? 'No paid purchase orders found.'
+                        : currentQueue === 'ready'
+                            ? 'No purchase orders are ready for payment.'
+                            : currentQueue === 'waiting_documents'
+                                ? 'No purchase orders are waiting for documents or Purchaser verification.'
+                                : currentQueue === 'overdue'
+                                    ? 'No overdue supplier balances found.'
+                                    : 'No open supplier balances found.';
+                    const emptyCell = document.createElement('td');
+                    emptyCell.colSpan = 5;
+                    emptyCell.className = 'text-center py-12 text-base-content/60';
+                    HighlandSecurity.renderToastContent(emptyCell, message, 'fas fa-inbox text-3xl mb-2');
+                    const emptyRow = document.createElement('tr');
+                    emptyRow.appendChild(emptyCell);
+                    tbody.replaceChildren(emptyRow);
+                    renderPagination(meta);
+                    return;
+                }
+
+                tbody.innerHTML = payables.map(po => {
+                    const overdueClass = po.is_overdue == 1 ? 'row-overdue' : '';
+                    const rrCount = parseInt(po.rr_count || 0, 10);
+                    const rrReadyCount = parseInt(po.rr_ready_count || 0, 10);
+                    const rrVerifiedCount = parseInt(po.rr_verified_count || 0, 10);
+                    const rrInvoiceCount = parseInt(po.rr_invoice_count || 0, 10);
+                    const allReceiptsReady = rrCount > 0 && rrReadyCount === rrCount;
+                    const allReceiptsVerified = rrCount > 0 && rrVerifiedCount === rrCount;
+                    const allInvoicesRecorded = rrCount > 0 && rrInvoiceCount === rrCount;
+                    const canPay = po.balance_due > 0 && po.payment_status !== 'cancelled' && allReceiptsReady;
+                    const isPaid = po.payment_status === 'paid' || po.balance_due <= 0;
+                    let readinessTitle = 'Ready to pay';
+                    let readinessIcon = 'circle-check';
+                    let readinessColor = 'text-emerald-700';
+                    let blockedText = '';
+                    if (isPaid) {
+                        readinessTitle = 'Payment complete';
+                    } else if (rrCount === 0 || !po.rr_number) {
+                        readinessTitle = 'Waiting for Receiving Report';
+                        readinessIcon = 'clock';
+                        readinessColor = 'text-amber-700';
+                        blockedText = 'Warehouse Raw must complete receiving first.';
+                    } else if (!allInvoicesRecorded) {
+                        readinessTitle = 'Waiting for supplier invoice';
+                        readinessIcon = 'file-circle-exclamation';
+                        readinessColor = 'text-amber-700';
+                        blockedText = `${rrInvoiceCount} of ${rrCount} Receiving Report invoice numbers recorded.`;
+                    } else if (!allReceiptsVerified) {
+                        readinessTitle = 'Waiting for Purchaser to verify RR';
+                        readinessIcon = 'user-check';
+                        readinessColor = 'text-amber-700';
+                        blockedText = `${rrVerifiedCount} of ${rrCount} Receiving Reports verified by Purchasing.`;
+                    }
+                    return `
+                        <tr class="payable-row ${overdueClass}">
+                            <td>
+                                <div class="po-cell">
+                                    <button class="po-number font-display text-primary font-semibold" onclick="viewDetail(${po.id})">PO ${escapeHtml(po.po_number)}</button>
+                                    <div class="supplier-name mt-1">${escapeHtml(po.supplier_name)}</div>
+                                    <div class="po-meta">
+                                        <span>${escapeHtml(po.supplier_code || '-')}</span>
+                                        <span>Ordered ${formatDate(po.order_date)}</span>
+                                        ${po.is_overdue == 1 ? '<span class="badge badge-error badge-xs">Overdue</span>' : ''}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="font-medium">${po.item_count} item${parseInt(po.item_count || 0, 10) === 1 ? '' : 's'}</div>
+                                <div class="item-summary" title="${escapeHtml(po.item_summary || '')}">${escapeHtml(po.item_summary || '-')}</div>
+                                <div class="po-meta mt-1">${FinanceService.formatStatus(po.status)}</div>
+                            </td>
+                            <td>
+                                <div class="amount-total">${formatCurrency(po.balance_due)}</div>
+                                ${po.amount_paid > 0 ? `<div class="amount-meta">Paid ${formatCurrency(po.amount_paid)}</div>` : ''}
+                                <div class="amount-meta">Due ${formatDate(po.payment_due_date || po.due_date)}</div>
+                                <div class="amount-meta">${formatPaymentTerms(po.payment_terms || po.supplier_terms)}</div>
+                            </td>
+                            <td>
+                                <div class="readiness-stack">
+                                    <span class="readiness-title ${readinessColor}"><i class="fas fa-${readinessIcon}"></i>${readinessTitle}</span>
+                                    <span class="document-line ${po.rr_number ? 'is-present' : 'is-missing'}">
+                                        <i class="fas fa-${po.rr_number ? 'file-lines' : 'minus'}"></i> RR recorded: ${escapeHtml(po.rr_number || 'Missing')}${rrCount > 1 ? ` (+${rrCount - 1} more)` : ''}
+                                    </span>
+                                    <span class="document-line ${allReceiptsVerified ? 'is-ready' : 'is-missing'}">
+                                        <i class="fas fa-${allReceiptsVerified ? 'circle-check' : 'clock'}"></i> Purchaser verification: ${allReceiptsVerified ? 'Verified' : `${rrVerifiedCount}/${rrCount} verified`}
+                                    </span>
+                                    <span class="document-line ${allInvoicesRecorded ? 'is-ready' : 'is-missing'}">
+                                        <i class="fas fa-${allInvoicesRecorded ? 'file-circle-check' : 'file-circle-exclamation'}"></i> Invoice recorded: ${escapeHtml(po.invoice_number || 'Missing')}${rrCount > 1 ? ` (${rrInvoiceCount}/${rrCount})` : ''}
+                                    </span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="flex flex-col items-start gap-2">
+                                    <button class="btn btn-ghost btn-xs" onclick="viewDetail(${po.id})" title="View purchase order details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    ${canPay ? `<button class="btn btn-primary btn-sm" onclick="openPaymentModal(${po.id})">
+                                        <i class="fas fa-money-bill-wave"></i> Pay
+                                    </button>` : blockedText ? `<span class="blocked-action">${blockedText}</span>` : ''}
+                                    ${po.rr_missing_invoice_count > 0 ? `<button class="btn btn-outline btn-xs" onclick="openInvoiceRecovery(${po.id})">
+                                        <i class="fas fa-file-circle-plus"></i> Add missing invoice
+                                    </button>` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                // Pagination
+                renderPagination(meta);
+
+            } catch (error) {
+                console.error('Error loading payables:', error);
+                document.getElementById('payablesBody').innerHTML = `<tr><td colspan="5" class="text-center py-8 text-error">
+                    <i class="fas fa-exclamation-circle mr-2"></i> Error loading payables</td></tr>`;
+            }
+        }
+
+        function renderPagination(meta) {
+            const totalPages = meta.total_pages || 1;
+            const controls = document.getElementById('paginationControls');
+            document.getElementById('paginationInfo').textContent = `Page ${currentPage} of ${totalPages}`;
+
+            if (totalPages <= 1) { controls.innerHTML = ''; return; }
+
+            let html = `<button class="join-item btn btn-sm" onclick="goToPage(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} title="Previous page"><i class="fas fa-chevron-left"></i></button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                    html += `<button class="join-item btn btn-sm ${i === currentPage ? 'btn-primary' : ''}" onclick="goToPage(${i})">${i}</button>`;
+                } else if (i === currentPage - 2 || i === currentPage + 2) {
+                    html += `<button class="join-item btn btn-sm btn-disabled">...</button>`;
+                }
+            }
+            html += `<button class="join-item btn btn-sm" onclick="goToPage(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} title="Next page"><i class="fas fa-chevron-right"></i></button>`;
+            controls.innerHTML = html;
+        }
+
+        function goToPage(page) { currentPage = page; loadPayables(); }
+
+        // ========================================
+        // PAYMENT
+        // ========================================
+
+        async function openPaymentModal(id) {
+            const po = payablesIndex[id];
+            if (!po) return;
+            currentPayable = null;
+            document.getElementById('paymentModal').showModal();
+            document.getElementById('paymentDocumentReview').innerHTML = '<span class="loading loading-spinner loading-sm"></span> Loading comparison...';
+            document.getElementById('payPoId').value = id;
+            document.getElementById('payPoNumber').textContent = po.po_number;
+            document.getElementById('paySupplier').textContent = po.supplier_name;
+            document.getElementById('payMethod').value = 'cash';
+            document.getElementById('payReference').value = '';
+            document.getElementById('payNotes').value = '';
+            document.getElementById('confirmRelease').checked = false;
+            document.getElementById('payInvoiceFile').value = '';
+            document.getElementById('payProofFile').value = '';
+            updatePaymentMethodFields();
+
+            try {
+                const response = await FinanceService.getPayableDetail(id);
+                const detail = response?.data;
+                if (!detail) throw new Error('Purchase order details were not found');
+                detail.payable_total = parseFloat(detail.payable_total || 0);
+                detail.amount_paid = parseFloat(detail.amount_paid || 0);
+                detail.balance_due = parseFloat(detail.balance_due || 0);
+                currentPayable = detail;
+
+                document.getElementById('payTerms').textContent = formatPaymentTerms(detail.payment_terms || detail.supplier_terms);
+                document.getElementById('payDueDate').textContent = formatDate(detail.due_date);
+                document.getElementById('payAmount').textContent = formatCurrency(detail.balance_due);
+                document.getElementById('payTotal').textContent = formatCurrency(detail.payable_total);
+                document.getElementById('payPaid').textContent = formatCurrency(detail.amount_paid);
+                document.getElementById('payRemaining').textContent = formatCurrency(detail.balance_due);
+
+                const today = getLocalISODate();
+                const verifiedDates = (detail.receiving_reports || [])
+                    .map(report => String(report.verified_at || report.received_at || '').slice(0, 10))
+                    .filter(Boolean)
+                    .sort();
+                detail.earliest_payment_date = verifiedDates.length ? verifiedDates[verifiedDates.length - 1] : '';
+                document.getElementById('payDate').value = today;
+                document.getElementById('payDate').max = today;
+                document.getElementById('payDate').min = detail.earliest_payment_date;
+                document.getElementById('payAmountInput').value = detail.balance_due.toFixed(2);
+                document.getElementById('payAmountInput').max = detail.balance_due.toFixed(2);
+                const invoiceNumbers = [...new Set((detail.receiving_reports || []).map(report => report.invoice_number).filter(Boolean))];
+                document.getElementById('payInvoiceNumber').value = invoiceNumbers.join(', ');
+                document.getElementById('payInvoiceTotal').value = detail.payable_total.toFixed(2);
+                const hasMultipleInvoices = invoiceNumbers.length > 1;
+                document.getElementById('payInvoiceSectionTitle').textContent = hasMultipleInvoices ? 'Supplier invoice packet' : 'Supplier invoice';
+                document.getElementById('payInvoiceSectionHint').textContent = hasMultipleInvoices
+                    ? `${invoiceNumbers.length} supplier invoice numbers cover this PO. Upload one PDF containing every invoice page, in the same order shown in the Receiving Report comparison.`
+                    : 'The invoice number comes from receiving. Finance supplies the date, total, and actual invoice file.';
+                document.getElementById('payInvoiceFileLabel').textContent = hasMultipleInvoices ? 'Combined Supplier Invoice PDF' : 'Supplier Invoice File';
+
+                const evidence = detail.invoice_evidence;
+                const invoiceFile = document.getElementById('payInvoiceFile');
+                const invoiceHint = document.getElementById('payInvoiceFileHint');
+                if (evidence) {
+                    document.getElementById('payInvoiceDate').value = evidence.invoice_date || '';
+                    invoiceFile.required = false;
+                    invoiceHint.innerHTML = `Invoice already stored: <strong>${escapeHtml(evidence.original_name || 'invoice')}</strong> <button type="button" class="link link-primary" onclick="viewSupplierPaymentFile(${evidence.payment_id}, 'invoice')">View</button>. Upload only to replace it.`;
+                } else {
+                    document.getElementById('payInvoiceDate').value = '';
+                    invoiceFile.required = true;
+                    invoiceHint.textContent = 'Required for the first payment. PDF, JPG, or PNG; maximum 5 MB.';
+                }
+                renderPaymentComparison(detail);
+                updatePaymentDateGuidance();
+            } catch (error) {
+                document.getElementById('paymentDocumentReview').innerHTML = `<div class="text-error"><i class="fas fa-circle-exclamation mr-1"></i>${escapeHtml(error.message || 'Could not load payment review')}</div>`;
+                showToast(error.message || 'Could not load payment review', 'error');
+            }
+        }
+
+        function renderPaymentComparison(po) {
+            const reports = po.receiving_reports || [];
+            const items = po.items || [];
+            const verifiedReportCount = reports.filter(report => ['verified', 'completed'].includes(String(report.status || '').toLowerCase())).length;
+            const allReportsVerified = reports.length > 0 && verifiedReportCount === reports.length;
+            const invoiceReportCount = reports.filter(report => String(report.invoice_number || '').trim()).length;
+            const allInvoicesRecorded = reports.length > 0 && invoiceReportCount === reports.length;
+            const invoiceNumbers = [...new Set(reports.map(report => String(report.invoice_number || '').trim()).filter(Boolean))];
+            document.getElementById('paymentDocumentReview').innerHTML = `
+                ${invoiceNumbers.length > 1 ? `<div class="alert alert-warning py-2 mb-3 text-xs"><i class="fas fa-layer-group"></i><span>This PO has ${invoiceNumbers.length} supplier invoices. Compare every invoice below and upload them together as one PDF packet.</span></div>` : ''}
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-3">
+                    <div class="rounded-lg bg-base-200 p-3"><span class="text-xs text-base-content/60">Approved PO</span><div class="font-semibold text-success"><i class="fas fa-check-circle mr-1"></i>${escapeHtml(po.po_number)}</div></div>
+                    <div class="rounded-lg bg-base-200 p-3"><span class="text-xs text-base-content/60">Receiving Reports</span><div class="font-semibold"><i class="fas fa-file-lines mr-1"></i>${reports.length} recorded</div></div>
+                    <div class="rounded-lg bg-base-200 p-3"><span class="text-xs text-base-content/60">Purchaser Verification</span><div class="font-semibold ${allReportsVerified ? 'text-success' : 'text-warning'}"><i class="fas fa-${allReportsVerified ? 'check-circle' : 'clock'} mr-1"></i>${verifiedReportCount}/${reports.length} verified</div></div>
+                    <div class="rounded-lg bg-base-200 p-3"><span class="text-xs text-base-content/60">Supplier Invoices</span><div class="font-semibold ${allInvoicesRecorded ? 'text-success' : 'text-warning'}"><i class="fas fa-${allInvoicesRecorded ? 'check-circle' : 'circle-exclamation'} mr-1"></i>${invoiceReportCount}/${reports.length} recorded</div></div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-2 mb-3">${reports.map(report => `
+                    <div class="border border-base-300 rounded-lg p-2 text-xs">
+                        <div class="font-semibold">${escapeHtml(report.rr_number || 'Receiving Report')}</div>
+                        <div>Invoice: ${escapeHtml(report.invoice_number || 'Missing')}</div>
+                        <div>Received: ${formatDateTime(report.received_at)}</div>
+                        <div class="${['verified', 'completed'].includes(String(report.status || '').toLowerCase()) ? 'text-success' : 'text-warning'}">Purchaser verification: ${report.verified_at ? `Verified ${formatDateTime(report.verified_at)}` : 'Pending'}</div>
+                    </div>`).join('')}</div>
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <thead><tr><th>Item</th><th>Ordered</th><th>Accepted</th><th>Unit Price</th><th>Finance Pays</th></tr></thead>
+                        <tbody>${items.map(item => `
+                            <tr>
+                                <td>${escapeHtml(item.item_description)}</td>
+                                <td>${formatQuantity(item.quantity)} ${escapeHtml(item.unit || '')}</td>
+                                <td>${formatQuantity(item.payable_quantity)} ${escapeHtml(item.unit || '')}</td>
+                                <td>${formatCurrency(item.unit_price)}</td>
+                                <td class="font-semibold">${formatCurrency(item.payable_total)}</td>
+                            </tr>`).join('')}</tbody>
+                        <tfoot><tr><td colspan="4" class="text-right font-semibold">System payable total</td><td class="font-bold text-primary">${formatCurrency(po.payable_total)}</td></tr></tfoot>
+                    </table>
+                </div>`;
+        }
+
+        function openPaymentSource(kind) {
+            if (!currentPayable) return;
+            const documentVersion = '20260824-2';
+            const path = kind === 'po'
+                ? `../purchasing/print_po.html?po_id=${encodeURIComponent(currentPayable.id)}&v=${documentVersion}`
+                : `../warehouse/raw/print_receiving_report.html?po_id=${encodeURIComponent(currentPayable.id)}&v=${documentVersion}`;
+            window.open(path, '_blank', 'noopener');
+        }
+
+        async function openInvoiceRecovery(poId) {
+            const modal = document.getElementById('invoiceRecoveryModal');
+            const select = document.getElementById('invoiceRecoveryRrId');
+            document.getElementById('invoiceRecoveryPoId').value = poId;
+            document.getElementById('invoiceRecoveryNumber').value = '';
+            document.getElementById('invoiceRecoveryExplanation').value = '';
+            select.innerHTML = '<option value="">Loading verified reports...</option>';
+            modal.showModal();
+            try {
+                const response = await FinanceService.getPayableDetail(poId);
+                const missingReports = (response?.data?.receiving_reports || []).filter(report =>
+                    ['verified', 'completed'].includes(String(report.status || '').toLowerCase())
+                    && !String(report.invoice_number || '').trim()
+                );
+                if (!missingReports.length) {
+                    modal.close();
+                    showToast('No verified Receiving Report has a missing invoice number. Refreshing the queue.', 'info');
+                    await Promise.all([loadPayablesOverview(), loadPayables()]);
+                    return;
+                }
+                select.innerHTML = missingReports.map(report =>
+                    `<option value="${Number(report.id)}">${escapeHtml(report.rr_number || `RR #${report.id}`)} — received ${formatDate(report.received_at)}</option>`
+                ).join('');
+                document.getElementById('invoiceRecoveryNumber').focus();
+            } catch (error) {
+                modal.close();
+                showToast(error.message || 'Could not load Receiving Reports', 'error');
+            }
+        }
+
+        document.getElementById('invoiceRecoveryForm').addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const button = document.getElementById('invoiceRecoverySubmit');
+            const rrId = Number(document.getElementById('invoiceRecoveryRrId').value);
+            const invoiceNumber = document.getElementById('invoiceRecoveryNumber').value.trim();
+            const explanation = document.getElementById('invoiceRecoveryExplanation').value.trim();
+            if (!rrId || invoiceNumber.length < 2 || explanation.length < 5) {
+                showToast('Choose an RR, enter the printed invoice number, and explain the late entry.', 'error');
+                return;
+            }
+            button.disabled = true;
+            button.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Saving...';
+            try {
+                const response = await FinanceService.recordReceivingInvoiceNumber(rrId, invoiceNumber, explanation);
+                document.getElementById('invoiceRecoveryModal').close();
+                showToast(response?.message || 'Supplier invoice number recorded', 'success');
+                await Promise.all([loadPayablesOverview(), loadPayables()]);
+            } catch (error) {
+                showToast(error.message || 'Could not record the supplier invoice number', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '<i class="fas fa-floppy-disk"></i> Save invoice number';
+            }
+        });
+
+        function updatePaymentMethodFields() {
+            const method = document.getElementById('payMethod').value;
+            const labels = {
+                cash: ['Official Receipt Number (optional)', 'Signed Cash Acknowledgment', 'Enter only if the supplier issued one'],
+                check: ['Check Number', 'Check Image or Deposit Slip', 'e.g., CHK-008412'],
+                bank_transfer: ['Bank Transfer Reference Number', 'Bank Transfer Receipt', 'Enter or paste the exact bank reference']
+            };
+            const selected = labels[method] || labels.cash;
+            const isCash = method === 'cash';
+            const referenceInput = document.getElementById('payReference');
+            document.getElementById('payReferenceLabel').textContent = selected[0];
+            document.getElementById('payProofLabel').textContent = selected[1];
+            referenceInput.placeholder = selected[2];
+            referenceInput.required = !isCash;
+            referenceInput.minLength = 3;
+            document.getElementById('payReferenceHint').textContent = isCash
+                ? 'The system generates the Cash Payment Voucher number after saving.'
+                : 'Enter the external reference exactly as shown on the payment evidence.';
+            document.getElementById('payReleaseEvidenceText').textContent = isCash
+                ? 'The signed acknowledgment belongs to this exact cash payment.'
+                : 'The external reference and attached proof belong to this exact payment.';
+        }
+
+        function updatePaymentDateGuidance() {
+            const input = document.getElementById('payDate');
+            const hint = document.getElementById('payDateHint');
+            const selectedDate = input.value;
+            const earliestDate = currentPayable?.earliest_payment_date || '';
+            const isTooEarly = Boolean(selectedDate && earliestDate && selectedDate < earliestDate);
+            input.setCustomValidity(isTooEarly ? `Choose ${formatDate(earliestDate)} or later` : '');
+            hint.className = `text-xs mt-1 ${isTooEarly ? 'text-error font-semibold' : 'text-base-content/60'}`;
+            hint.textContent = earliestDate
+                ? `${isTooEarly ? 'Too early. ' : ''}Funds can only be recorded from ${formatDate(earliestDate)}, after the latest Receiving Report was verified.`
+                : 'Date the funds were actually released.';
+            const invoiceDateInput = document.getElementById('payInvoiceDate');
+            if (invoiceDateInput) invoiceDateInput.max = selectedDate || '';
+        }
+
+        function updatePaymentPreview() {
+            if (!currentPayable) return;
+            const amount = parseFloat(document.getElementById('payAmountInput').value || 0);
+            const remaining = Math.max(currentPayable.balance_due - amount, 0);
+            document.getElementById('payRemaining').textContent = formatCurrency(remaining);
+        }
+
+        document.getElementById('paymentForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const btn = document.getElementById('paySubmitBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Processing...';
+
+            try {
+                if (!currentPayable) {
+                    showToast('No payable selected', 'error');
+                    return;
+                }
+
+                const paymentAmount = parseFloat(document.getElementById('payAmountInput').value || 0);
+                const paymentDate = document.getElementById('payDate').value;
+                const invoiceTotal = parseFloat(document.getElementById('payInvoiceTotal').value || 0);
+                const invoiceDate = document.getElementById('payInvoiceDate').value;
+                const paymentMethod = document.getElementById('payMethod').value;
+                const reference = document.getElementById('payReference').value.trim();
+                const invoiceFile = document.getElementById('payInvoiceFile').files[0];
+                const proofFile = document.getElementById('payProofFile').files[0];
+
+                if (!paymentDate) {
+                    showToast('Payment date is required', 'error');
+                    return;
+                }
+
+                if (!Number.isFinite(paymentAmount) || paymentAmount <= 0) {
+                    showToast('Payment amount must be greater than zero', 'error');
+                    return;
+                }
+
+                if (paymentAmount > currentPayable.balance_due) {
+                    showToast('Payment exceeds remaining balance', 'error');
+                    return;
+                }
+
+                if (!invoiceDate || !Number.isFinite(invoiceTotal) || Math.abs(invoiceTotal - currentPayable.payable_total) > 0.01) {
+                    showToast(`Invoice date is required and its total must match ${formatCurrency(currentPayable.payable_total)}`, 'error');
+                    return;
+                }
+
+                if (currentPayable.earliest_payment_date && paymentDate < currentPayable.earliest_payment_date) {
+                    showToast(`Payment date must be ${formatDate(currentPayable.earliest_payment_date)} or later because that is when receiving was verified`, 'error');
+                    document.getElementById('payDate').focus();
+                    updatePaymentDateGuidance();
+                    return;
+                }
+                const validReference = /^[A-Za-z0-9][A-Za-z0-9 ._\/-]{2,99}$/;
+                if (paymentMethod !== 'cash' && !validReference.test(reference)) {
+                    showToast('Enter a valid 3 to 100 character check or bank-transfer reference', 'error');
+                    return;
+                }
+                if (paymentMethod === 'cash' && reference && !validReference.test(reference)) {
+                    showToast('Official Receipt number must be 3 to 100 valid characters when provided', 'error');
+                    return;
+                }
+                if (!currentPayable.invoice_evidence && !invoiceFile) {
+                    showToast('Attach the supplier invoice', 'error');
+                    return;
+                }
+                const invoiceNumberCount = new Set((currentPayable.receiving_reports || [])
+                    .map(report => String(report.invoice_number || '').trim()).filter(Boolean)).size;
+                if (invoiceFile && invoiceNumberCount > 1 && (invoiceFile.name.split('.').pop() || '').toLowerCase() !== 'pdf') {
+                    showToast('Combine every supplier invoice page into one PDF for this multi-invoice PO', 'error');
+                    return;
+                }
+                if ((invoiceFile && !isAllowedPaymentFile(invoiceFile)) || !proofFile || !isAllowedPaymentFile(proofFile)) {
+                    showToast('Invoice and proof files must be PDF, JPG, or PNG and no larger than 5 MB', 'error');
+                    return;
+                }
+                if (!document.getElementById('confirmRelease').checked) {
+                    showToast('Confirm that the funds were released and the proof belongs to this payment', 'error');
+                    return;
+                }
+
+                const stepUpToken = await AuthService.promptStepUp('payment_release', 'payment release');
+                if (!stepUpToken) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('po_id', document.getElementById('payPoId').value);
+                formData.append('payment_method', paymentMethod);
+                formData.append('reference_number', paymentMethod === 'cash' ? '' : reference);
+                formData.append('external_receipt_number', paymentMethod === 'cash' ? reference : '');
+                formData.append('notes', document.getElementById('payNotes').value);
+                formData.append('payment_amount', paymentAmount.toFixed(2));
+                formData.append('payment_date', paymentDate);
+                formData.append('invoice_date', invoiceDate);
+                formData.append('invoice_total', invoiceTotal.toFixed(2));
+                formData.append('confirm_release', '1');
+                formData.append('step_up_token', stepUpToken);
+                if (invoiceFile) formData.append('invoice_file', invoiceFile);
+                formData.append('proof_file', proofFile);
+                const response = await FinanceService.recordPayment(formData);
+                document.getElementById('paymentModal').close();
+                const generatedVoucher = response?.data?.payment_reference;
+                showToast(paymentMethod === 'cash' && generatedVoucher
+                    ? `Cash payment recorded. Voucher ${generatedVoucher}`
+                    : (response?.message || 'Payment recorded successfully!'), 'success');
+                await Promise.all([loadPayablesOverview(), loadPayables()]);
+            } catch (error) {
+                showToast(error.message || 'Failed to record payment', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check mr-1"></i> Confirm Payment';
+            }
+        });
+
+        function isAllowedPaymentFile(file) {
+            if (!file || file.size <= 0 || file.size > 5 * 1024 * 1024) return false;
+            const extension = (file.name.split('.').pop() || '').toLowerCase();
+            return ['pdf', 'jpg', 'jpeg', 'png'].includes(extension);
+        }
+
+        // ========================================
+        // DETAIL MODAL
+        // ========================================
+
+        async function viewDetail(id) {
+            document.getElementById('detailModal').showModal();
+            document.getElementById('detailContent').innerHTML = '<div class="text-center py-8"><span class="loading loading-spinner loading-lg"></span></div>';
+
+            try {
+                const response = await FinanceService.getPayableDetail(id);
+                const po = response?.data;
+                if (!po) { document.getElementById('detailContent').innerHTML = '<p class="text-error">Not found</p>'; return; }
+
+                const items = po.items || [];
+                const computedSubtotal = items.reduce((sum, item) => {
+                    const payableTotal = parseFloat(item.payable_total ?? item.total_amount ?? 0);
+                    return sum + payableTotal;
+                }, 0);
+                document.getElementById('detailContent').innerHTML = `
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <p class="text-sm text-base-content/60">PO Number</p>
+                            <p class="font-bold text-lg">${escapeHtml(po.po_number)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Supplier</p>
+                            <p class="font-bold">${escapeHtml(po.supplier_name)}</p>
+                            <p class="text-xs text-base-content/50">${escapeHtml(po.supplier_code)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Order Date</p>
+                            <p class="font-medium">${formatDate(po.order_date)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Expected Delivery</p>
+                            <p class="font-medium">${formatDate(po.expected_delivery)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Status</p>
+                            <span class="badge ${FinanceService.getStatusBadgeClass(po.status)}">${FinanceService.formatStatus(po.status)}</span>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Payment</p>
+                            <span class="badge ${FinanceService.getPaymentBadgeClass(po.payment_status)}">${FinanceService.formatStatus(po.payment_status)}</span>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Payment Terms</p>
+                            <p class="font-medium">${formatPaymentTerms(po.payment_terms || po.supplier_terms)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Due Date</p>
+                            <p class="font-medium">${formatDate(po.due_date)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Amount Paid</p>
+                            <p class="font-medium">${formatCurrency(po.amount_paid)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Balance Due</p>
+                            <p class="font-semibold">${formatCurrency(po.balance_due)}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Receiving Report</p>
+                            <p class="font-medium">${escapeHtml(po.rr_number || '-')}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Invoice Number</p>
+                            <p class="font-medium">${escapeHtml(po.invoice_number || '-')}</p>
+                        </div>
+                    </div>
+
+                    <div class="divider my-2">Items</div>
+
+                    <div class="overflow-x-auto">
+                        <table class="table table-xs">
+                            <thead>
+                                <tr><th>Item</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr>
+                            </thead>
+                            <tbody>
+                                ${items.map(item => `
+                                    <tr>
+                                        <td>${escapeHtml(item.item_description)}</td>
+                                        <td>${parseFloat((item.payable_quantity ?? item.quantity) || 0).toLocaleString()}</td>
+                                        <td>${escapeHtml(item.unit)}</td>
+                                        <td>${formatCurrency(item.unit_price)}</td>
+                                        <td class="font-semibold">${formatCurrency(item.payable_total ?? item.total_amount)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot>
+                                <tr><td colspan="4" class="text-right font-semibold">Subtotal</td><td class="font-bold">${formatCurrency(computedSubtotal)}</td></tr>
+                                ${parseFloat(po.vat_amount) > 0 ? `<tr><td colspan="4" class="text-right">VAT</td><td>${formatCurrency(po.vat_amount)}</td></tr>` : ''}
+                                <tr><td colspan="4" class="text-right font-bold text-base">Total</td><td class="font-bold text-base text-primary">${formatCurrency(computedSubtotal)}</td></tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <div class="divider my-2">Payments</div>
+                    ${po.payments && po.payments.length ? `
+                        <div class="overflow-x-auto">
+                            <table class="table table-xs">
+                                <thead>
+                                    <tr><th>Date</th><th>Amount</th><th>Method</th><th>Voucher / Reference</th><th>Evidence</th><th>Recorded By</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${po.payments.map(pay => `
+                                        <tr>
+                                            <td>${formatDate(pay.payment_date)}</td>
+                                            <td class="font-semibold">${formatCurrency(pay.amount_paid)}</td>
+                                            <td>${formatPaymentMethod(pay.payment_method)}</td>
+                                            <td><div class="font-mono">${escapeHtml(pay.reference_number || '-')}</div>${pay.external_receipt_number ? `<div class="text-xs text-base-content/60">OR: ${escapeHtml(pay.external_receipt_number)}</div>` : ''}</td>
+                                            <td>
+                                                <div class="flex flex-wrap gap-1">
+                                                    ${pay.has_invoice_file ? `<button class="btn btn-ghost btn-xs" onclick="viewSupplierPaymentFile(${pay.id}, 'invoice')"><i class="fas fa-file-invoice"></i> Invoice</button>` : '<span class="text-base-content/40">No invoice file</span>'}
+                                                    ${pay.has_proof_file ? `<button class="btn btn-ghost btn-xs" onclick="viewSupplierPaymentFile(${pay.id}, 'proof')"><i class="fas fa-receipt"></i> Proof</button>` : '<span class="text-base-content/40">No proof</span>'}
+                                                </div>
+                                                ${pay.remarks ? `<div class="text-xs text-base-content/60 mt-1">${escapeHtml(pay.remarks)}</div>` : ''}
+                                            </td>
+                                            <td>${escapeHtml(pay.paid_by_name || 'Finance')}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : '<p class="text-sm text-base-content/60">No payments recorded yet.</p>'}
+
+                    ${po.notes ? `<div class="mt-3 p-3 bg-base-200 rounded-lg text-sm"><strong>Notes:</strong> ${escapeHtml(po.notes)}</div>` : ''}
+                `;
+            } catch (error) {
+                const detailContent = document.getElementById('detailContent');
+                detailContent.className = 'text-error';
+                HighlandSecurity.renderToastContent(
+                    detailContent,
+                    error.message || 'Error loading details',
+                    'fas fa-exclamation-circle mr-2'
+                );
+            }
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        function formatCurrency(amount) {
+            return 'PHP ' + parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatQuantity(value) {
+            return parseFloat(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 });
+        }
+
+        async function viewSupplierPaymentFile(paymentId, kind) {
+            try {
+                const response = await FinanceService.getSupplierPaymentFile(paymentId, kind);
+                const blob = response?.data;
+                if (!blob) throw new Error('File was not found');
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank', 'noopener');
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } catch (error) {
+                showToast(error.message || `Could not open ${kind}`, 'error');
+            }
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function getLocalISODate(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(String(dateStr).replace(' ', 'T')).toLocaleString('en-PH', {
+                month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+            });
+        }
+
+        function formatPaymentTerms(terms) {
+            if (!terms) return '-';
+            const value = String(terms);
+            if (value === 'cash') return 'Cash';
+            if (value.startsWith('credit_')) {
+                const days = value.replace('credit_', '');
+                return `Credit ${days} days`;
+            }
+            return value.replace(/_/g, ' ');
+        }
+
+        function formatPaymentMethod(method) {
+            if (!method) return '-';
+            const map = {
+                cash: 'Cash',
+                check: 'Check',
+                bank_transfer: 'Bank Transfer'
+            };
+            return map[method] || method.replace(/_/g, ' ');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info';
+            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg text-sm`;
+            HighlandSecurity.renderToastContent(toast, message, `fas fa-${icon}`);
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+    </script>
+
+</body>
+
+</html>

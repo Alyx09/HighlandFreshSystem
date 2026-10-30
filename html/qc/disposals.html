@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disposal Management - Quality Control | Highland Fresh</title>
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s ease;
+        }
+
+        /* ── Disposal Details modal ── */
+        #disposalDetailModal .modal-box {
+            max-width: 40rem;
+            padding: 0;
+            overflow: hidden;
+        }
+        .dd-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1.25rem 1.5rem 1rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.08);
+            padding-right: 3rem;
+        }
+        .dd-header h3 {
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            line-height: 1.3;
+        }
+        .dd-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem 1.5rem;
+            padding: 1.25rem 1.5rem;
+        }
+        @media (min-width: 640px) {
+            .dd-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .dd-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.875rem;
+            min-width: 0;
+        }
+        .dd-field__label {
+            display: block;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            margin-bottom: 0.2rem;
+        }
+        .dd-field__value {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: oklch(var(--bc));
+            word-break: break-word;
+        }
+        .dd-field__value--mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: oklch(var(--b2));
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.35rem;
+            display: inline-block;
+        }
+        .dd-field__value--loss {
+            color: oklch(var(--er));
+            font-weight: 800;
+            font-size: 1.05rem;
+            font-variant-numeric: tabular-nums;
+        }
+        .dd-reason {
+            margin: 0 1.5rem 1.25rem;
+            padding: 0.875rem 1rem;
+            border-radius: 0.75rem;
+            border: 1px solid oklch(var(--bc) / 0.08);
+            background: oklch(var(--b2) / 0.55);
+        }
+        .dd-reason__title {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            margin-bottom: 0.625rem;
+        }
+        .dd-reason__row {
+            display: grid;
+            grid-template-columns: 6.5rem 1fr;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            padding: 0.25rem 0;
+        }
+        .dd-reason__row dt {
+            color: oklch(var(--bc) / 0.5);
+            font-weight: 500;
+        }
+        .dd-reason__row dd {
+            margin: 0;
+            font-weight: 600;
+            color: oklch(var(--bc));
+            word-break: break-word;
+        }
+        .dd-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid oklch(var(--bc) / 0.08);
+            background: oklch(var(--b2) / 0.4);
+        }
+        .dd-footer__right {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1">
+                    <h1 class="font-bold">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60">Quality Control</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()"><i
+                        class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-th-large w-5 text-center text-base-content/60"></i><span>Dashboard</span></a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inbound Milk</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="milk_receiving.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-truck-loading w-5 text-center text-base-content/60"></i><span>Milk Receiving</span></a></li>
+                    <li><a href="milk_grading.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-flask w-5 text-center text-base-content/60"></i><span>Milk Grading</span></a></li>
+                    <li><a href="farmers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-users w-5 text-center text-base-content/60"></i><span>Farmers</span></a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Production QC</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="batch_release.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-check-double w-5 text-center text-base-content/60"></i><span>Batch Release</span></a></li>
+                    <li><a href="print-labels.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-barcode w-5 text-center text-base-content/60"></i><span>Print Labels</span></a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inventory QC</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="expiry_management.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-calendar-times w-5 text-center text-base-content/60"></i><span>Expiry Management</span></a></li>
+                    <li><a href="disposals.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content"><i class="fas fa-trash-alt w-5 text-center"></i><span>Disposals</span></a></li>
+                    <li><a href="recalls.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-exclamation-triangle w-5 text-center text-base-content/60"></i><span>Batch Recalls</span></a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="reports/daily.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-chart-bar w-5 text-center text-base-content/60"></i><span>Daily Report</span></a></li>
+                    <li><a href="reports/farmer_summary.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-user-chart w-5 text-center text-base-content/60"></i><span>Farmer Summary</span></a></li>
+                </ul>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content"><span class="text-sm font-semibold"
+                            id="userInitials">QC</span></div>
+                </div>
+                <div class="flex-1">
+                    <p class="font-semibold text-sm" id="sidebarUserName">QC Officer</p>
+                    <p class="text-xs text-base-content/60">Quality Control</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square"><i
+                            class="fas fa-ellipsis-v"></i></label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border w-44 p-2">
+                        <li><a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden"><button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i
+                        class="fas fa-bars text-lg"></i></button></div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold">Disposal Management</h1>
+                <div class="text-sm breadcrumbs py-0">
+                    <ul class="text-xs">
+                        <li><a href="dashboard.html">Dashboard</a></li>
+                        <li>Disposals</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex-none"><button class="btn btn-primary btn-sm gap-2" onclick="openNewDisposalModal()"><i
+                        class="fas fa-plus"></i><span class="hidden sm:inline">New Disposal</span></button></div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6">
+            <!-- Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center"><i
+                                    class="fas fa-clock text-warning text-xl"></i></div>
+                            <div>
+                                <p class="text-2xl font-bold" id="pendingCount">0</p>
+                                <p class="text-xs text-base-content/60">Pending Approval</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-info/10 flex items-center justify-center"><i
+                                    class="fas fa-check text-info text-xl"></i></div>
+                            <div>
+                                <p class="text-2xl font-bold" id="approvedCount">0</p>
+                                <p class="text-xs text-base-content/60">Approved</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center"><i
+                                    class="fas fa-check-circle text-success text-xl"></i></div>
+                            <div>
+                                <p class="text-2xl font-bold" id="completedCount">0</p>
+                                <p class="text-xs text-base-content/60">Completed</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center"><i
+                                    class="fas fa-times text-error text-xl"></i></div>
+                            <div>
+                                <p class="text-2xl font-bold" id="rejectedCount">0</p>
+                                <p class="text-xs text-base-content/60">Rejected</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300 border-l-4 border-l-error">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-error/10 flex items-center justify-center"><i
+                                    class="fas fa-peso-sign text-error text-xl"></i></div>
+                            <div>
+                                <p class="text-2xl font-bold" id="totalLoss">₱0</p>
+                                <p class="text-xs text-base-content/60">Total Loss Value</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card bg-base-100 border border-base-300 mb-4">
+                <div class="card-body p-4">
+                    <div class="flex flex-wrap gap-3 items-center">
+                        <select id="filterStatus" class="select select-bordered select-sm" onchange="loadDisposals()">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="completed">Completed</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                        <select id="filterCategory" class="select select-bordered select-sm" onchange="loadDisposals()">
+                            <option value="">All Categories</option>
+                            <option value="expired">Expired</option>
+                            <option value="near_expiry">Near Expiry</option>
+                            <option value="qc_failed">QC Failed</option>
+                            <option value="spoiled">Spoiled</option>
+                            <option value="contaminated">Contaminated</option>
+                            <option value="damaged">Damaged</option>
+                        </select>
+                        <input type="date" id="filterDateFrom" class="input input-bordered input-sm"
+                            onchange="loadDisposals()">
+                        <input type="date" id="filterDateTo" class="input input-bordered input-sm"
+                            onchange="loadDisposals()">
+                        <button class="btn btn-ghost btn-sm" onclick="clearFilters()"><i class="fas fa-times"></i>
+                            Clear</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disposals Table -->
+            <div class="card bg-base-100 border border-base-300">
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Product</th>
+                                    <th class="text-right">Qty</th>
+                                    <th class="text-right">Value</th>
+                                    <th>Status</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="disposalsTable">
+                                <tr>
+                                    <td colspan="8" class="text-center py-8"><i
+                                            class="fas fa-spinner fa-spin text-2xl"></i>
+                                        <p>Loading...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Disposal Modal -->
+    <dialog id="newDisposalModal" class="modal">
+        <div class="modal-box max-w-lg">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 class="font-bold text-lg flex items-center gap-2 mb-4"><i class="fas fa-trash-alt text-error"></i> New
+                Disposal Request</h3>
+            <form id="disposalForm" onsubmit="submitDisposal(event)">
+                <div class="space-y-4">
+                    <div class="form-control"><label class="label"><span class="label-text">Source Type *</span></label>
+                        <select id="sourceType" class="select select-bordered w-full" required
+                            onchange="updateSourceOptions()">
+                            <option value="">Select source...</option>
+                            <option value="finished_goods">Finished Goods</option>
+                            <option value="raw_milk">Raw Milk</option>
+                            <option value="milk_receiving">Milk Receiving (Rejected)</option>
+                            <option value="production_batch">Production Batch</option>
+                        </select>
+                    </div>
+                    <div class="form-control"><label class="label"><span class="label-text">Source Item *</span></label>
+                        <select id="sourceId" class="select select-bordered w-full" required
+                            onchange="onSourceItemSelected()">
+                            <option value="">Select source type first...</option>
+                        </select>
+                        <label class="label" id="sourceHint"><span class="label-text-alt text-base-content/60">Choose a
+                                source type above to load available items</span></label>
+                    </div>
+                    <input type="hidden" id="productName">
+                    <input type="hidden" id="productId">
+                    <input type="hidden" id="unitCost">
+                    <input type="hidden" id="costBasis">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="form-control"><label class="label"><span class="label-text">Quantity
+                                    *</span></label>
+                            <input type="number" id="quantity" class="input input-bordered w-full" required min="0.01"
+                                step="0.01">
+                        </div>
+                        <div class="form-control"><label class="label"><span class="label-text">Unit</span></label>
+                            <select id="unit" class="select select-bordered w-full">
+                                <option value="pcs">Pieces</option>
+                                <option value="liters">Liters</option>
+                                <option value="kg">Kilograms</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="lossPreview" class="rounded-lg border border-base-300 bg-base-200/60 px-4 py-3 hidden">
+                        <div class="flex items-center justify-between gap-4">
+                            <div>
+                                <p class="text-xs text-base-content/55">Estimated inventory loss</p>
+                                <p id="lossPreviewBasis" class="text-xs text-base-content/45 mt-0.5"></p>
+                            </div>
+                            <strong id="lossPreviewValue" class="text-lg text-error tabular-nums">₱0.00</strong>
+                        </div>
+                    </div>
+                    <div class="form-control"><label class="label"><span class="label-text">Category *</span></label>
+                        <select id="category" class="select select-bordered w-full" required>
+                            <option value="" disabled selected>Select category...</option>
+                            <option value="expired">Expired</option>
+                            <option value="near_expiry">Near Expiry</option>
+                            <option value="qc_failed">QC Test Failed</option>
+                            <option value="spoiled">Spoiled</option>
+                            <option value="contaminated">Contaminated</option>
+                            <option value="damaged">Damaged</option>
+                            <option value="rejected_receipt">Rejected at Receiving</option>
+                            <option value="production_waste">Production Waste</option>
+                        </select>
+                    </div>
+                    <div class="form-control"><label class="label"><span class="label-text">Disposal Method
+                                *</span></label>
+                        <select id="method" class="select select-bordered w-full" required>
+                            <option value="drain">Drain (Liquid)</option>
+                            <option value="incinerate">Incinerate</option>
+                            <option value="animal_feed">Animal Feed</option>
+                            <option value="compost">Compost</option>
+                            <option value="special_waste">Special Waste Contractor</option>
+                        </select>
+                    </div>
+                    <div class="form-control"><label class="label"><span class="label-text">Reason *</span></label>
+                        <textarea id="reason" class="textarea textarea-bordered w-full" rows="2" required
+                            placeholder="Detailed reason for disposal..."></textarea>
+                    </div>
+                    <div class="alert alert-warning"><i class="fas fa-info-circle"></i><span>This request will be sent
+                            to GM for approval before disposal.</span></div>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('newDisposalModal').close()">Cancel</button>
+                    <button type="submit" id="submitDisposalBtn" class="btn btn-error"><i class="fas fa-paper-plane"></i> Submit
+                        Request</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Approval Modal -->
+    <dialog id="approvalModal" class="modal">
+        <div class="modal-box max-w-md">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 class="font-bold text-lg mb-4" id="approvalTitle">Disposal Approval</h3>
+            <div id="approvalDetails" class="space-y-3 mb-4"></div>
+            <div class="form-control mb-4"><label class="label"><span class="label-text">Notes</span></label>
+                <textarea id="approvalNotes" class="textarea textarea-bordered w-full" rows="2"></textarea>
+            </div>
+            <div class="modal-action">
+                <button class="btn btn-error" onclick="handleApproval('reject')"><i class="fas fa-times"></i>
+                    Reject</button>
+                <button class="btn btn-success" onclick="handleApproval('approve')"><i class="fas fa-check"></i>
+                    Approve</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Execute Modal -->
+    <dialog id="executeModal" class="modal">
+        <div class="modal-box max-w-md">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <h3 class="font-bold text-lg mb-4"><i class="fas fa-check-circle text-success"></i> Execute Disposal</h3>
+            <div class="space-y-4">
+                <div class="form-control"><label class="label"><span class="label-text">Witness Name</span></label>
+                    <input type="text" id="witnessName" class="input input-bordered w-full"
+                        placeholder="Name of witness">
+                </div>
+                <div class="form-control"><label class="label"><span class="label-text">Disposal Location</span></label>
+                    <input type="text" id="disposalLocation" class="input input-bordered w-full"
+                        placeholder="Where was it disposed?">
+                </div>
+                <div class="form-control"><label class="label"><span class="label-text">Execution Notes</span></label>
+                    <textarea id="executeNotes" class="textarea textarea-bordered w-full" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button class="btn btn-ghost" onclick="document.getElementById('executeModal').close()">Cancel</button>
+                <button class="btn btn-success" onclick="executeDisposal()"><i class="fas fa-check"></i> Complete
+                    Disposal</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Disposal Details (enterprise review modal) -->
+    <dialog id="disposalDetailModal" class="modal">
+        <div class="modal-box max-w-2xl p-0 overflow-hidden">
+            <form method="dialog">
+                <button type="submit" class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" aria-label="Close">✕</button>
+            </form>
+            <header class="dd-header">
+                <div class="w-11 h-11 rounded-full bg-error/10 text-error flex items-center justify-center shrink-0 ring-4 ring-error/10">
+                    <i class="fas fa-trash-alt"></i>
+                </div>
+                <div class="min-w-0">
+                    <h3>Disposal Details</h3>
+                    <p class="text-xs text-base-content/50 mt-0.5 m-0">QC review &amp; write-off record</p>
+                </div>
+            </header>
+
+            <div id="disposalDetailBody" class="dd-grid">
+                <!-- Populated by viewDisposal() -->
+            </div>
+
+            <div id="disposalDetailReason" class="dd-reason hidden">
+                <!-- Parsed reason breakdown -->
+            </div>
+
+            <div id="disposalDetailNotes" class="px-6 pb-4 hidden">
+                <!-- Optional approval / system notes -->
+            </div>
+
+            <footer class="dd-footer" id="disposalDetailFooter">
+                <button type="button" class="btn btn-ghost btn-sm" id="btnDisposalDetailClose"
+                    onclick="document.getElementById('disposalDetailModal').close()">
+                    Close
+                </button>
+                <div class="dd-footer__right" id="disposalDetailActions">
+                    <!-- Approve / Reject injected when status = pending -->
+                </div>
+            </footer>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="qc_officer,general_manager"></script>
+    <script>
+        const API_URL = API_BASE_URL + '/qc/disposals.php';
+        let currentDisposalId = null;
+        let userRole = '';
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const cls = { success: 'alert-success', error: 'alert-error', warning: 'alert-warning', info: 'alert-info' }[type];
+            const t = document.createElement('div');
+            t.className = `alert ${cls} shadow-lg`;
+            const text = document.createElement('span');
+            text.textContent = String(msg ?? '');
+            t.appendChild(text);
+            container.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+
+        function formatCurrencyLocal(n) { return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n || 0); }
+        function formatDateLocal(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'; }
+
+        const categoryLabels = { qc_failed: 'QC Failed', expired: 'Expired', near_expiry: 'Near Expiry', spoiled: 'Spoiled', contaminated: 'Contaminated', damaged: 'Damaged', rejected_receipt: 'Rejected', production_waste: 'Waste', other: 'Other' };
+        const statusBadges = {
+            pending: '<span class="badge badge-warning"><i class="fas fa-clock mr-1"></i>Pending</span>',
+            approved: '<span class="badge badge-info"><i class="fas fa-check mr-1"></i>Approved</span>',
+            completed: '<span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Completed</span>',
+            rejected: '<span class="badge badge-error"><i class="fas fa-times mr-1"></i>Rejected</span>',
+            cancelled: '<span class="badge badge-ghost">Cancelled</span>'
+        };
+        let disposalSubmitInProgress = false;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) { window.location.href = '../login.html'; return; }
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                document.getElementById('userInitials').textContent = (user.first_name[0] + user.last_name[0]).toUpperCase();
+                userRole = user.role;
+            }
+            loadStats();
+            loadDisposals();
+            document.getElementById('quantity').addEventListener('input', updateLossPreview);
+
+            // Handle URL params from Expiry Management redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('new') === '1') {
+                openNewDisposalModal();
+
+                const sourceType = urlParams.get('source_type');
+                const sourceId = urlParams.get('source_id');
+                const category = urlParams.get('category');
+                const reason = urlParams.get('reason');
+
+                if (sourceType) {
+                    document.getElementById('sourceType').value = sourceType;
+                    // Load source items then pre-select the specific item
+                    await updateSourceOptions();
+                    if (sourceId) {
+                        const sourceSelect = document.getElementById('sourceId');
+                        sourceSelect.value = sourceId;
+                        // Only auto-fill if the item was found in the dropdown
+                        if (sourceSelect.value === sourceId) {
+                            onSourceItemSelected();
+                        } else {
+                            document.getElementById('sourceHint').innerHTML =
+                                '<span class="label-text-alt text-warning">This item already has an open request or is no longer available.</span>';
+                        }
+                    }
+                }
+                if (category) {
+                    document.getElementById('category').value = category;
+                }
+                if (reason) {
+                    document.getElementById('reason').value = decodeURIComponent(reason);
+                }
+
+                // Clean URL without reloading
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        });
+
+        async function loadStats() {
+            try {
+                const res = await api.get('/qc/disposals.php', { params: { action: 'stats' } });
+                if (res.success) {
+                    const s = res.data.summary;
+                    document.getElementById('pendingCount').textContent = s.pending || 0;
+                    document.getElementById('approvedCount').textContent = s.approved || 0;
+                    document.getElementById('completedCount').textContent = s.completed || 0;
+                    document.getElementById('rejectedCount').textContent = s.rejected || 0;
+                    document.getElementById('totalLoss').textContent = formatCurrencyLocal(s.total_loss_value);
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        async function loadDisposals() {
+            const table = document.getElementById('disposalsTable');
+            table.innerHTML = '<tr><td colspan="8" class="text-center py-8"><i class="fas fa-spinner fa-spin"></i></td></tr>';
+            try {
+                const params = {};
+                const status = document.getElementById('filterStatus').value;
+                const category = document.getElementById('filterCategory').value;
+                const dateFrom = document.getElementById('filterDateFrom').value;
+                const dateTo = document.getElementById('filterDateTo').value;
+                if (status) params.status = status;
+                if (category) params.category = category;
+                if (dateFrom) params.date_from = dateFrom;
+                if (dateTo) params.date_to = dateTo;
+
+                const res = await api.get('/qc/disposals.php', { params });
+                if (res.success) {
+                    const items = res.data || [];
+                    if (items.length === 0) {
+                        table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-base-content/60">No disposals found</td></tr>';
+                        return;
+                    }
+                    table.innerHTML = items.map(d => `
+                        <tr>
+                            <td><span class="font-mono text-xs">${escapeHtml(d.disposal_code || '-')}</span></td>
+                            <td>${formatDateLocal(d.created_at)}</td>
+                            <td><span class="badge badge-sm">${escapeHtml(categoryLabels[d.disposal_category] || d.disposal_category || '-')}</span></td>
+                            <td><div class="font-medium text-sm">${escapeHtml(d.product_name || '-')}</div><div class="text-xs text-base-content/60">${escapeHtml(d.source_reference || '')}</div></td>
+                            <td class="text-right">${parseFloat(d.quantity).toLocaleString()} ${escapeHtml(d.unit || '')}</td>
+                            <td class="text-right font-semibold text-error">${formatCurrencyLocal(d.total_value)}</td>
+                            <td>${statusBadges[d.status] || escapeHtml(d.status || '-')}</td>
+                            <td class="text-center">${getActionButtons(d)}</td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) { console.error(e); table.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-error">Failed to load</td></tr>'; }
+        }
+
+        function getActionButtons(d) {
+            let btns = `<button class="btn btn-ghost btn-xs" onclick="viewDisposal(${d.id})"><i class="fas fa-eye"></i></button>`;
+            if (d.status === 'pending' && userRole === 'general_manager') {
+                btns += `<button class="btn btn-success btn-xs" onclick="openApprovalModal(${d.id})"><i class="fas fa-check"></i></button>`;
+            }
+            if (d.status === 'approved') {
+                btns += `<button class="btn btn-info btn-xs" onclick="openExecuteModal(${d.id})"><i class="fas fa-play"></i></button>`;
+            }
+            if (d.status === 'pending') {
+                btns += `<button class="btn btn-error btn-xs" onclick="cancelDisposal(${d.id})"><i class="fas fa-ban"></i></button>`;
+            }
+            return btns;
+        }
+
+        function clearFilters() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterCategory').value = '';
+            document.getElementById('filterDateFrom').value = '';
+            document.getElementById('filterDateTo').value = '';
+            loadDisposals();
+        }
+
+        function openNewDisposalModal() {
+            document.getElementById('disposalForm').reset();
+            document.getElementById('lossPreview').classList.add('hidden');
+            document.getElementById('newDisposalModal').showModal();
+        }
+
+        function updateLossPreview() {
+            const quantity = parseFloat(document.getElementById('quantity').value || 0);
+            const unitCost = parseFloat(document.getElementById('unitCost').value || 0);
+            const basis = document.getElementById('costBasis').value;
+            const preview = document.getElementById('lossPreview');
+            if (quantity <= 0 || unitCost <= 0) {
+                preview.classList.add('hidden');
+                return;
+            }
+            document.getElementById('lossPreviewValue').textContent = formatCurrencyLocal(quantity * unitCost);
+            document.getElementById('lossPreviewBasis').textContent = basis === 'catalog_estimate'
+                ? 'Uses the current catalog value because production cost is not recorded.'
+                : 'Uses the recorded production cost.';
+            preview.classList.remove('hidden');
+        }
+
+        async function submitDisposal(e) {
+            e.preventDefault();
+            if (disposalSubmitInProgress) return;
+            const submitButton = document.getElementById('submitDisposalBtn');
+            disposalSubmitInProgress = true;
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Sending...';
+            }
+            try {
+                const data = {
+                    source_type: document.getElementById('sourceType').value,
+                    source_id: document.getElementById('sourceId').value,
+                    quantity: document.getElementById('quantity').value,
+                    unit: document.getElementById('unit').value,
+                    disposal_category: document.getElementById('category').value,
+                    disposal_method: document.getElementById('method').value,
+                    disposal_reason: document.getElementById('reason').value,
+                    product_name: document.getElementById('productName').value,
+                    product_id: document.getElementById('productId').value,
+                    unit_cost: document.getElementById('unitCost').value
+                };
+                const res = await api.post('/qc/disposals.php', data);
+                if (res.success) {
+                    showToast('Disposal request submitted', 'success');
+                    document.getElementById('newDisposalModal').close();
+                    loadStats(); loadDisposals();
+                } else { showToast(res.message || 'Error', 'error'); }
+            } catch (e) {
+                showToast(e.message || 'Error', 'error');
+            } finally {
+                disposalSubmitInProgress = false;
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Request';
+                }
+            }
+        }
+
+        function openApprovalModal(id) {
+            currentDisposalId = id;
+            document.getElementById('approvalNotes').value = '';
+            document.getElementById('approvalModal').showModal();
+        }
+
+        async function handleApproval(action) {
+            try {
+                const data = { id: currentDisposalId, action, approval_notes: document.getElementById('approvalNotes').value };
+                if (action === 'approve') {
+                    const stepUpToken = await AuthService.promptStepUp('disposal_approval', 'disposal approval');
+                    if (!stepUpToken) return;
+                    data.step_up_token = stepUpToken;
+                }
+                if (action === 'reject') data.rejection_reason = data.approval_notes || 'Rejected by GM';
+                const res = await api.put('/qc/disposals.php', data);
+                if (res.success) {
+                    showToast(`Disposal ${action}ed`, 'success');
+                    document.getElementById('approvalModal').close();
+                    loadStats(); loadDisposals();
+                } else { showToast(res.message, 'error'); }
+            } catch (e) { showToast(e.message || 'Error', 'error'); }
+        }
+
+        function openExecuteModal(id) { currentDisposalId = id; document.getElementById('executeModal').showModal(); }
+
+        async function executeDisposal() {
+            try {
+                const data = {
+                    id: currentDisposalId,
+                    action: 'complete',
+                    witness_name: document.getElementById('witnessName').value,
+                    disposal_location: document.getElementById('disposalLocation').value,
+                    notes: document.getElementById('executeNotes').value
+                };
+                const res = await api.put('/qc/disposals.php', data);
+                if (res.success) {
+                    showToast('Disposal completed', 'success');
+                    document.getElementById('executeModal').close();
+                    loadStats(); loadDisposals();
+                } else { showToast(res.message, 'error'); }
+            } catch (e) { showToast(e.message || 'Error', 'error'); }
+        }
+
+        async function cancelDisposal(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Cancel Disposal Request',
+                message: 'Cancel this pending disposal / write-off request?',
+                confirmText: 'Cancel Request',
+                tone: 'error',
+                icon: 'fa-ban'
+            });
+            if (!confirmed) return;
+            try {
+                // Prefer POST+action so nginx DELETE override never loses the payload
+                const res = await api.post('/qc/disposals.php', {
+                    action: 'cancel',
+                    id: id
+                });
+                if (res.success) {
+                    showToast('Disposal cancelled', 'success');
+                    document.getElementById('disposalDetailModal')?.close();
+                    loadStats();
+                    loadDisposals();
+                } else {
+                    showToast(res.message || 'Cancel failed', 'error');
+                }
+            } catch (e) {
+                console.error('cancelDisposal failed:', e);
+                showToast(e.message || e.response?.data?.message || 'Failed to cancel disposal (403/permission)', 'error');
+            }
+        }
+
+        /**
+         * Parse backend disposal_reason blobs into clean fields.
+         * e.g. "Delivery return: other | condition=qc_hold | Haha"
+         *   → source: Delivery Return (Other), condition: QC Hold, notes: Haha
+         */
+        function parseDisposalReason(raw) {
+            const result = {
+                source: null,
+                condition: null,
+                notes: null,
+                raw: (raw || '').toString().trim()
+            };
+            if (!result.raw) return result;
+
+            const parts = result.raw.split('|').map(p => p.trim()).filter(Boolean);
+            const leftover = [];
+
+            parts.forEach(part => {
+                // "condition=qc_hold" or "condition: qc_hold"
+                const condMatch = part.match(/^condition\s*[=:]\s*(.+)$/i);
+                if (condMatch) {
+                    result.condition = humanizeToken(condMatch[1]);
+                    return;
+                }
+                // "Delivery return: other" / "Delivery return: customer_rejection"
+                const srcMatch = part.match(/^(delivery\s*return|auto-created from delivery return)[:\s]+(.+)$/i);
+                if (srcMatch) {
+                    const reasonToken = humanizeToken(srcMatch[2].replace(/^Delivery return:\s*/i, ''));
+                    result.source = `Delivery Return (${reasonToken})`;
+                    return;
+                }
+                if (/^delivery return/i.test(part)) {
+                    result.source = 'Delivery Return';
+                    const after = part.replace(/^delivery\s*return[:\s]*/i, '').trim();
+                    if (after) leftover.push(humanizeToken(after));
+                    return;
+                }
+                leftover.push(part);
+            });
+
+            if (!result.source && /^delivery return/i.test(result.raw)) {
+                result.source = 'Delivery Return';
+            }
+            if (leftover.length) {
+                result.notes = leftover.join(' · ');
+            }
+            // Fallback: whole string as notes if nothing structured
+            if (!result.source && !result.condition && !result.notes) {
+                result.notes = result.raw;
+            }
+            return result;
+        }
+
+        function humanizeToken(token) {
+            return String(token || '')
+                .replace(/[_-]+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .replace(/\b\w/g, c => c.toUpperCase()) || '—';
+        }
+
+        function disposalStatusBadgeHtml(status) {
+            const map = {
+                pending: 'badge-warning',
+                approved: 'badge-info',
+                completed: 'badge-success',
+                rejected: 'badge-error',
+                cancelled: 'badge-ghost'
+            };
+            const cls = map[status] || 'badge-ghost';
+            const label = humanizeToken(status || 'unknown');
+            return `<span class="badge ${cls} badge-sm font-semibold capitalize">${label}</span>`;
+        }
+
+        async function viewDisposal(id) {
+            try {
+                const res = await api.get('/qc/disposals.php', { params: { id } });
+                if (!res.success || !res.data) {
+                    showToast(res.message || 'Failed to load disposal', 'error');
+                    return;
+                }
+                const d = res.data;
+                currentDisposalId = d.id;
+
+                const parsed = parseDisposalReason(d.disposal_reason);
+                const qty = parseFloat(d.quantity);
+                const qtyLabel = `${Number.isFinite(qty) ? qty.toLocaleString() : d.quantity} ${d.unit || ''}`.trim();
+                const dateStr = formatDateLocal(d.created_at || d.initiated_at);
+
+                document.getElementById('disposalDetailBody').innerHTML = `
+                    <div class="dd-col">
+                        <div>
+                            <span class="dd-field__label">Disposal ID</span>
+                            <span class="dd-field__value dd-field__value--mono">${escapeHtml(d.disposal_code || ('#' + d.id))}</span>
+                        </div>
+                        <div>
+                            <span class="dd-field__label">Date</span>
+                            <span class="dd-field__value">${escapeHtml(dateStr)}</span>
+                        </div>
+                        <div>
+                            <span class="dd-field__label">Status</span>
+                            <div class="mt-0.5">${disposalStatusBadgeHtml(d.status)}</div>
+                        </div>
+                        ${d.disposal_category ? `
+                        <div>
+                            <span class="dd-field__label">Category</span>
+                            <span class="dd-field__value">${escapeHtml(categoryLabels[d.disposal_category] || humanizeToken(d.disposal_category))}</span>
+                        </div>` : ''}
+                    </div>
+                    <div class="dd-col">
+                        <div>
+                            <span class="dd-field__label">Product</span>
+                            <span class="dd-field__value">${escapeHtml(d.product_name || '—')}</span>
+                            ${d.source_reference ? `<div class="text-xs text-base-content/50 mt-0.5 font-mono">${escapeHtml(d.source_reference)}</div>` : ''}
+                        </div>
+                        <div>
+                            <span class="dd-field__label">Quantity</span>
+                            <span class="dd-field__value">${escapeHtml(qtyLabel)}</span>
+                        </div>
+                        <div>
+                            <span class="dd-field__label">Total Value (Loss)</span>
+                            <span class="dd-field__value dd-field__value--loss">${formatCurrencyLocal(d.total_value)}</span>
+                        </div>
+                        ${d.disposal_method ? `
+                        <div>
+                            <span class="dd-field__label">Method</span>
+                            <span class="dd-field__value">${escapeHtml(humanizeToken(d.disposal_method))}</span>
+                        </div>` : ''}
+                    </div>
+                `;
+
+                const reasonBox = document.getElementById('disposalDetailReason');
+                if (parsed.source || parsed.condition || parsed.notes || parsed.raw) {
+                    reasonBox.classList.remove('hidden');
+                    reasonBox.innerHTML = `
+                        <div class="dd-reason__title">Reason breakdown</div>
+                        <dl class="m-0">
+                            ${parsed.source ? `<div class="dd-reason__row"><dt>Source</dt><dd>${escapeHtml(parsed.source)}</dd></div>` : ''}
+                            ${parsed.condition ? `<div class="dd-reason__row"><dt>Condition</dt><dd>${escapeHtml(parsed.condition)}</dd></div>` : ''}
+                            ${parsed.notes ? `<div class="dd-reason__row"><dt>Notes</dt><dd>${escapeHtml(parsed.notes)}</dd></div>` : ''}
+                            ${!parsed.source && !parsed.condition && parsed.raw ? `<div class="dd-reason__row"><dt>Reason</dt><dd>${escapeHtml(parsed.raw)}</dd></div>` : ''}
+                        </dl>
+                    `;
+                } else {
+                    reasonBox.classList.add('hidden');
+                    reasonBox.innerHTML = '';
+                }
+
+                const notesBox = document.getElementById('disposalDetailNotes');
+                const extraBits = [];
+                if (d.approved_by_name) {
+                    extraBits.push(`<div class="text-sm"><span class="text-base-content/50">Reviewed by:</span> <strong>${escapeHtml(d.approved_by_name)}</strong></div>`);
+                }
+                if (d.approval_notes) {
+                    extraBits.push(`<div class="text-sm"><span class="text-base-content/50">Approval notes:</span> ${escapeHtml(d.approval_notes)}</div>`);
+                }
+                if (d.notes && d.notes !== d.disposal_reason) {
+                    extraBits.push(`<div class="text-sm text-base-content/70">${escapeHtml(d.notes)}</div>`);
+                }
+                if (extraBits.length) {
+                    notesBox.classList.remove('hidden');
+                    notesBox.innerHTML = extraBits.join('');
+                } else {
+                    notesBox.classList.add('hidden');
+                    notesBox.innerHTML = '';
+                }
+
+                // Footer: review actions only while Pending
+                const actions = document.getElementById('disposalDetailActions');
+                const closeBtn = document.getElementById('btnDisposalDetailClose');
+                const canReview = userRole === 'general_manager';
+                const isPending = d.status === 'pending';
+                const isTerminal = ['completed', 'rejected', 'cancelled'].includes(d.status);
+
+                closeBtn.textContent = isPending ? 'Cancel' : 'Close';
+                closeBtn.className = isPending
+                    ? 'btn btn-ghost btn-sm'
+                    : 'btn btn-ghost btn-sm border border-base-300';
+
+                if (isPending && canReview) {
+                    actions.innerHTML = `
+                        <button type="button" class="btn btn-error btn-sm gap-2" id="btnRejectDisposal"
+                            onclick="rejectDisposalFromDetail()">
+                            <i class="fas fa-times"></i> Reject Disposal
+                        </button>
+                        <button type="button" class="btn btn-success btn-sm gap-2" id="btnApproveDisposal"
+                            onclick="approveDisposalFromDetail()">
+                            <i class="fas fa-check"></i> Approve Disposal
+                        </button>
+                    `;
+                } else if (isPending && !canReview) {
+                    actions.innerHTML = `
+                        <span class="text-xs text-base-content/50 self-center">Awaiting GM approval</span>
+                        <button type="button" class="btn btn-outline btn-error btn-sm gap-2"
+                            onclick="document.getElementById('disposalDetailModal').close(); cancelDisposal(${d.id});">
+                            <i class="fas fa-ban"></i> Cancel Request
+                        </button>
+                    `;
+                } else if (d.status === 'approved') {
+                    actions.innerHTML = `
+                        <button type="button" class="btn btn-info btn-sm gap-2"
+                            onclick="document.getElementById('disposalDetailModal').close(); openExecuteModal(${d.id});">
+                            <i class="fas fa-play"></i> Execute Disposal
+                        </button>
+                    `;
+                } else {
+                    // Completed / Rejected / Cancelled — no primary actions
+                    actions.innerHTML = '';
+                }
+
+                document.getElementById('disposalDetailModal').showModal();
+            } catch (e) {
+                console.error(e);
+                showToast('Error loading details', 'error');
+            }
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /** Approve from detail → notes + step-up via existing approval modal */
+        function approveDisposalFromDetail() {
+            if (!currentDisposalId) return;
+            document.getElementById('disposalDetailModal').close();
+            openApprovalModal(currentDisposalId);
+        }
+
+        async function rejectDisposalFromDetail() {
+            if (!currentDisposalId) return;
+            const notes = await AuthService.promptText({
+                title: 'Reject Disposal',
+                message: 'Provide a brief rejection reason for this write-off request.',
+                label: 'Rejection reason',
+                confirmText: 'Reject Disposal',
+                tone: 'error',
+                icon: 'fa-times',
+                required: true
+            });
+            if (notes === null) return;
+            try {
+                const res = await api.put('/qc/disposals.php', {
+                    id: currentDisposalId,
+                    action: 'reject',
+                    rejection_reason: notes,
+                    approval_notes: notes
+                });
+                if (res.success) {
+                    showToast('Disposal rejected', 'success');
+                    document.getElementById('disposalDetailModal').close();
+                    loadStats();
+                    loadDisposals();
+                } else {
+                    showToast(res.message || 'Reject failed', 'error');
+                }
+            } catch (e) {
+                showToast(e.message || 'Error rejecting disposal', 'error');
+            }
+        }
+
+        let availableSources = [];
+
+        async function updateSourceOptions() {
+            const type = document.getElementById('sourceType').value;
+            const sourceSelect = document.getElementById('sourceId');
+            const hintLabel = document.getElementById('sourceHint');
+
+            // Update unit based on type
+            document.getElementById('unit').value = type === 'raw_milk' || type === 'milk_receiving' ? 'liters' : 'pcs';
+
+            if (!type) {
+                sourceSelect.innerHTML = '<option value="">Select source type first...</option>';
+                hintLabel.innerHTML = '<span class="label-text-alt text-base-content/60">Choose a source type above to load available items</span>';
+                return;
+            }
+
+            // Show loading
+            sourceSelect.innerHTML = '<option value="">Loading available items...</option>';
+            hintLabel.innerHTML = '<span class="label-text-alt"><i class="fas fa-spinner fa-spin"></i> Loading...</span>';
+
+            try {
+                const res = await api.get('/qc/disposals.php', { params: { action: 'sources', type: type } });
+                if (res.success) {
+                    availableSources = res.data || [];
+
+                    if (availableSources.length === 0) {
+                        sourceSelect.innerHTML = '<option value="">No items available for disposal</option>';
+                        hintLabel.innerHTML = '<span class="label-text-alt text-warning">No items found in this category</span>';
+                        return;
+                    }
+
+                    sourceSelect.replaceChildren(new Option('Select an item to dispose...', ''));
+                    availableSources.forEach((s, index) => {
+                        const expiryInfo = s.expiry_date ? ` (Exp: ${formatDateLocal(s.expiry_date)})` : '';
+                        const statusInfo = s.status === 'Expired' ? ' ⚠️ EXPIRED' : (s.status === 'Expiring Soon' ? ' ⚠️ EXPIRING SOON' : '');
+                        const option = new Option(
+                            `${s.display_name || 'Item'} - ${Number(s.available_quantity || 0).toLocaleString()} ${s.unit || ''} available${expiryInfo}${statusInfo}`,
+                            String(Number(s.source_id) || '')
+                        );
+                        option.dataset.index = String(index);
+                        sourceSelect.add(option);
+                    });
+
+                    hintLabel.innerHTML = `<span class="label-text-alt text-success">${availableSources.length} items available</span>`;
+                } else {
+                    sourceSelect.innerHTML = '<option value="">Error loading items</option>';
+                    hintLabel.innerHTML = '<span class="label-text-alt text-error">Failed to load</span>';
+                }
+            } catch (e) {
+                console.error('Error loading sources:', e);
+                sourceSelect.innerHTML = '<option value="">Error loading items</option>';
+                hintLabel.innerHTML = '<span class="label-text-alt text-error">Failed to load sources</span>';
+            }
+        }
+
+        function onSourceItemSelected() {
+            const sourceSelect = document.getElementById('sourceId');
+            const selectedOption = sourceSelect.options[sourceSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.dataset) return;
+            const index = selectedOption.dataset.index;
+
+            if (index !== undefined && availableSources[index]) {
+                const source = availableSources[index];
+                // Auto-fill product info
+                document.getElementById('productName').value = source.product_name || '';
+                document.getElementById('productId').value = source.product_id || '';
+                document.getElementById('unitCost').value = source.unit_cost || 0;
+                document.getElementById('costBasis').value = source.cost_basis || '';
+                document.getElementById('unit').value = source.unit || 'pcs';
+
+                // Start with the server-verified on-hand balance; QC may lower it after the physical check.
+                const qtyField = document.getElementById('quantity');
+                qtyField.max = source.available_quantity;
+                qtyField.value = source.available_quantity;
+                qtyField.placeholder = `Max: ${parseFloat(source.available_quantity).toLocaleString()}`;
+
+                // Auto-select category for expired items
+                if (source.status === 'Expired') {
+                    document.getElementById('category').value = 'expired';
+                } else if (source.status === 'Expiring Soon') {
+                    document.getElementById('category').value = 'near_expiry';
+                }
+                updateLossPreview();
+            }
+        }
+    </script>
+</body>
+
+</html>

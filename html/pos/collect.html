@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collect Payment - Cashier POS | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stat-value { font-variant-numeric: tabular-nums; }
+
+        /* ── Collect Payment table (enterprise POS density) ── */
+        .collect-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 0.75rem;
+            border: 1px solid oklch(var(--b3));
+            max-width: 100%;
+        }
+        .collect-table {
+            width: 100%;
+            min-width: 720px; /* prevent column crush next to side panel */
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .collect-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: oklch(var(--b2));
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #6B7280;
+            text-align: left;
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid oklch(var(--b3));
+            white-space: nowrap;
+        }
+        .collect-table thead th.col-actions {
+            text-align: right;
+            width: 3.5rem;
+        }
+        .collect-table tbody td {
+            padding: 0.95rem 1rem;
+            vertical-align: middle;
+            border-bottom: 1px solid oklch(var(--b3) / 0.65);
+            font-size: 0.875rem;
+        }
+        .collect-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .collect-table tbody tr {
+            transition: background-color 0.12s ease;
+        }
+        .collect-table tbody tr:hover td {
+            background: oklch(var(--b2) / 0.55);
+        }
+        .collect-table tbody tr.is-overdue td {
+            background: oklch(var(--er) / 0.04);
+        }
+        .collect-table tbody tr.is-overdue:hover td {
+            background: oklch(var(--er) / 0.08);
+        }
+
+        /* DR number: never break on hyphens */
+        .dr-number {
+            display: inline-block;
+            white-space: nowrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+            color: oklch(var(--bc));
+        }
+
+        .cell-customer-name {
+            font-weight: 600;
+            color: oklch(var(--bc));
+            line-height: 1.3;
+        }
+        .cell-customer-meta {
+            margin-top: 0.15rem;
+            font-size: 0.75rem;
+            color: #6B7280;
+            line-height: 1.3;
+        }
+        .cell-money {
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .cell-money--balance {
+            color: oklch(var(--wa));
+        }
+        .cell-money--balance.is-overdue {
+            color: oklch(var(--er));
+        }
+        .cell-date {
+            white-space: nowrap;
+            color: #6B7280;
+            font-size: 0.8125rem;
+        }
+
+        /* Status pills — never squish text out of the pill */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+            padding: 0.28rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1.25;
+            letter-spacing: 0.01em;
+            max-width: none;
+        }
+        .status-pill--overdue {
+            background: #FEE2E2;
+            color: #B91C1C;
+        }
+        .status-pill--today {
+            background: #FEF3C7;
+            color: #B45309;
+        }
+        .status-pill--upcoming {
+            background: oklch(var(--b2));
+            color: #6B7280;
+        }
+        [data-theme="dark"] .status-pill--overdue {
+            background: rgba(239, 68, 68, 0.18);
+            color: #FCA5A5;
+        }
+        [data-theme="dark"] .status-pill--today {
+            background: rgba(245, 158, 11, 0.18);
+            color: #FCD34D;
+        }
+
+        .collect-action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.25rem;
+            height: 2.25rem;
+            min-height: 2.25rem;
+            padding: 0;
+            border-radius: 0.5rem;
+            border: none;
+            background: oklch(var(--in) / 0.12);
+            color: oklch(var(--in));
+            cursor: pointer;
+            transition: background 0.12s, transform 0.12s;
+        }
+        .collect-action-btn:hover {
+            background: oklch(var(--in) / 0.22);
+            transform: scale(1.04);
+        }
+        .collect-table td.col-actions {
+            text-align: right;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Cashier / POS</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Sales</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="sale.html?mode=retail" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-bolt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Retail Sale</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="sale.html?mode=wholesale" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-boxes-stacked w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Wholesale Sale</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="history.html?type=sales" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-receipt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Transaction History</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Collections</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="collect.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-hand-holding-dollar w-5 text-center"></i>
+                            <span class="flex-1">Collect Payment</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="history.html?type=collections" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clock-rotate-left w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Collection History</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="reports/daily_summary.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-chart-pie w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Daily Summary</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="reports/cash_position.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-wallet w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Cash Position</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">CA</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Cashier</p>
+                    <p class="text-xs text-base-content/60 truncate">Point of Sale</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-hand-holding-dollar text-info"></i>
+                    <span class="font-semibold">Collect Payment</span>
+                </div>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-base-200 rounded-lg">
+                    <i class="fas fa-clock text-base-content/60"></i>
+                    <span id="currentTime" class="font-mono text-sm">--:--:--</span>
+                </div>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Search Section -->
+            <div class="card bg-base-100 border border-base-300 mb-6">
+                <div class="card-body p-4">
+                    <h3 class="font-bold">
+                        <i class="fas fa-search text-primary mr-2"></i>
+                        Find a customer payment
+                    </h3>
+                    <p class="text-sm text-base-content/60 mb-3 ml-5">
+                        Paper DR missing? Search the saved delivery by customer, customer code, Sales Order, PO, or DR number.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="flex-1">
+                            <label class="input input-bordered flex items-center gap-2">
+                                <i class="fas fa-file-invoice text-base-content/40"></i>
+                                <input type="text" id="drSearch" placeholder="e.g., Metro Gaisano, GAISANO-CDO-001, SO-..., or DR-..."
+                                    class="grow" onkeyup="handleDRSearch(event)">
+                                <button class="btn btn-ghost btn-sm" onclick="searchDR()">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </label>
+                        </div>
+                        <button class="btn btn-primary" onclick="searchDR()">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                        <button id="clearReceivableSearch" class="btn btn-ghost hidden" onclick="clearReceivableSearch()">
+                            Clear
+                        </button>
+                    </div>
+                    <div id="receivableSearchStatus" class="alert alert-info py-2 px-3 mt-3 hidden"></div>
+                </div>
+            </div>
+
+            <!-- Stats Summary -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase">Recorded AR Balance</p>
+                        <p class="text-2xl font-bold text-error stat-value" id="totalOutstanding">₱0.00</p>
+                        <p class="text-xs text-base-content/50">Includes checks waiting for bank clearing</p>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase">Overdue</p>
+                        <p class="text-2xl font-bold text-warning stat-value" id="overdueCount">0 DRs</p>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase">Today's Collections</p>
+                        <p class="text-2xl font-bold text-success stat-value" id="todayCollections">₱0.00</p>
+                    </div>
+                </div>
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <p class="text-xs text-base-content/60 uppercase">Ready to Collect</p>
+                        <p class="text-2xl font-bold text-info stat-value" id="pendingDRs">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                <!-- Outstanding Receivables List -->
+                <div class="lg:col-span-2">
+                    <div class="card bg-base-100 border border-base-300">
+                        <div class="card-body">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="card-title text-lg">
+                                    <i class="fas fa-list text-primary mr-2"></i>
+                                    Outstanding Receivables
+                                </h3>
+                                <div class="flex gap-2">
+                                    <select id="filterCustomerType" class="select select-bordered select-sm" onchange="filterOutstanding()">
+                                        <option value="">All Types</option>
+                                        <option value="supermarket">Supermarket</option>
+                                        <option value="institutional">Institutional</option>
+                                        <option value="feeding_program">Feeding Program</option>
+                                        <option value="walk_in">Walk-in</option>
+                                    </select>
+                                    <select id="filterStatus" class="select select-bordered select-sm" onchange="filterOutstanding()">
+                                        <option value="">All Status</option>
+                                        <option value="ready_to_collect">Ready to Collect</option>
+                                        <option value="pending_check">Checks Pending</option>
+                                        <option value="overdue">Overdue Only</option>
+                                        <option value="due_today">Due Today</option>
+                                        <option value="upcoming">Upcoming</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="collect-table-wrap">
+                                <table class="collect-table">
+                                    <thead>
+                                        <tr>
+                                            <th>DR Number</th>
+                                            <th>Customer</th>
+                                            <th>Total</th>
+                                            <th>Balance</th>
+                                            <th>Due Date</th>
+                                            <th>Status</th>
+                                            <th class="col-actions"> </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="outstandingTable">
+                                        <tr>
+                                            <td colspan="7" class="text-center py-10">
+                                                <span class="loading loading-spinner loading-md text-primary"></span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collection Form -->
+                <div>
+                    <div class="card bg-base-100 border border-base-300" id="collectionFormContainer">
+                        <div class="card-body">
+                            <h3 class="card-title text-lg mb-4">
+                                <i class="fas fa-hand-holding-dollar text-info mr-2"></i>
+                                Record Collection
+                            </h3>
+
+                            <div id="noDRSelected" class="text-center py-8 text-base-content/60">
+                                <i class="fas fa-file-invoice text-4xl mb-3 opacity-30"></i>
+                                <p>Select a Delivery Receipt to collect payment</p>
+                            </div>
+
+                            <form id="collectionForm" class="hidden space-y-4">
+                                <!-- DR Info -->
+                                <div class="bg-base-200 rounded-lg p-3">
+                                    <p class="font-mono font-bold text-lg" id="selectedDR">--</p>
+                                    <p class="text-sm text-base-content/60" id="selectedCustomer">--</p>
+                                    <p class="text-xs text-base-content/60 mt-1" id="selectedDeliveryReference">--</p>
+                                </div>
+
+                                <!-- Balance Info -->
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="bg-base-200 rounded-lg p-3">
+                                        <p class="text-xs text-base-content/60">Total Amount</p>
+                                        <p class="font-bold" id="drTotalAmount">₱0.00</p>
+                                    </div>
+                                    <div class="bg-error/10 rounded-lg p-3">
+                                        <p class="text-xs text-error">Balance Due</p>
+                                        <p class="font-bold text-error" id="drBalance">₱0.00</p>
+                                    </div>
+                                </div>
+                                <div id="pendingCheckNotice" class="alert alert-warning py-3 hidden">
+                                    <i class="fas fa-clock"></i>
+                                    <span>A check already covers part or all of this balance and is still pending for clearing.</span>
+                                </div>
+                                <div id="returnAdjustmentNotice" class="alert alert-success py-3 hidden">
+                                    <i class="fas fa-rotate-left"></i>
+                                    <span id="returnAdjustmentText"></span>
+                                </div>
+
+                                <!-- Payment Amount -->
+                                <div class="form-control">
+                                    <label class="label"><span class="label-text">Payment Amount *</span></label>
+                                    <input type="number" id="paymentAmount" class="input input-bordered text-right text-xl font-semibold" 
+                                        step="0.01" min="0.01" required oninput="validatePayment()">
+                                    <label class="label">
+                                        <span class="label-text-alt">
+                                            <button type="button" class="btn btn-ghost btn-xs" onclick="setFullPayment()">
+                                                Pay Full Balance
+                                            </button>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <!-- Payment Method -->
+                                <div class="form-control">
+                                    <label class="label"><span class="label-text">Payment Method *</span></label>
+                                    <select id="paymentMethod" class="select select-bordered" required onchange="togglePaymentFields()">
+                                        <option value="cash">Cash</option>
+                                        <option value="gcash">GCash</option>
+                                        <option value="bank_transfer">Bank Transfer</option>
+                                        <option value="check">Check</option>
+                                    </select>
+                                </div>
+
+                                <!-- Cash Fields -->
+                                <div id="cashFields" class="space-y-3">
+                                    <!-- No additional fields needed for cash -->
+                                </div>
+
+                                <!-- GCash Fields -->
+                                <div id="gcashFields" class="hidden space-y-3">
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Reference Number *</span></label>
+                                        <input type="text" id="gcashReference" class="input input-bordered" placeholder="GCash reference number">
+                                    </div>
+                                </div>
+
+                                <!-- Bank Transfer Fields -->
+                                <div id="bankFields" class="hidden space-y-3">
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Bank *</span></label>
+                                        <select id="bankName" class="select select-bordered">
+                                            <option value="">Select bank</option>
+                                            <option value="BDO">BDO</option>
+                                            <option value="BPI">BPI</option>
+                                            <option value="Metrobank">Metrobank</option>
+                                            <option value="Landbank">Landbank</option>
+                                            <option value="PNB">PNB</option>
+                                            <option value="UnionBank">UnionBank</option>
+                                            <option value="RCBC">RCBC</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Reference Number *</span></label>
+                                        <input type="text" id="bankReference" class="input input-bordered" placeholder="Bank reference number">
+                                    </div>
+                                </div>
+
+                                <!-- Check Fields -->
+                                <div id="checkFields" class="hidden space-y-3">
+                                    <div class="alert alert-warning py-3 text-sm">
+                                        <i class="fas fa-clock"></i>
+                                        <span>This check will stay Pending for Clearing. It will not reduce AR or appear in sales totals until the bank clears it.</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="form-control">
+                                            <label class="label"><span class="label-text">Bank *</span></label>
+                                            <select id="checkBank" class="select select-bordered select-sm">
+                                                <option value="">Select</option>
+                                                <option value="BDO">BDO</option>
+                                                <option value="BPI">BPI</option>
+                                                <option value="Metrobank">Metrobank</option>
+                                                <option value="Landbank">Landbank</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-control">
+                                            <label class="label"><span class="label-text">Check # *</span></label>
+                                            <input type="text" id="checkNumber" class="input input-bordered input-sm">
+                                        </div>
+                                    </div>
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Check Date *</span></label>
+                                        <input type="date" id="checkDate" class="input input-bordered" onchange="updateCheckDateNotice()" oninput="updateCheckDateNotice()">
+                                        <div id="checkDateNotice" class="alert alert-info py-2 px-3 text-sm mt-2 hidden"></div>
+                                    </div>
+                                    <div class="form-control">
+                                        <label class="label"><span class="label-text">Account Owner</span></label>
+                                        <input type="text" id="checkAccountOwner" class="input input-bordered" maxlength="150" placeholder="Name printed on the check">
+                                    </div>
+                                </div>
+
+                                <!-- Notes -->
+                                <div class="form-control">
+                                    <label class="label"><span class="label-text">Notes (Optional)</span></label>
+                                    <textarea id="paymentNotes" class="textarea textarea-bordered" rows="2" placeholder="Any additional notes..."></textarea>
+                                </div>
+
+                                <!-- Submit -->
+                                <button type="submit" class="btn btn-info btn-block" id="btnRecordCollection">
+                                    <i class="fas fa-check-circle"></i>
+                                    Record Collection
+                                </button>
+
+                                <button type="button" class="btn btn-ghost btn-block" onclick="cancelCollection()">
+                                    Cancel
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <div>
+                <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Success Modal -->
+    <dialog id="successModal" class="modal">
+        <div class="modal-box text-center">
+            <div class="py-4">
+                <div class="w-20 h-20 mx-auto bg-success/20 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-check text-success text-4xl"></i>
+                </div>
+                <h3 class="font-bold text-2xl text-success mb-2" id="successTitle">Collection Recorded!</h3>
+                <p class="text-sm text-base-content/60 mb-2" id="successMessage"></p>
+                <p class="text-lg" id="successORNumber">OR-2026-0000</p>
+                <div class="divider"></div>
+                <div class="text-left bg-base-200 rounded-lg p-4 space-y-2">
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">DR Number</span>
+                        <span class="font-bold" id="successDRNumber">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Amount Collected</span>
+                        <span class="font-bold text-success" id="successAmount">₱0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Payment Method</span>
+                        <span id="successMethod">--</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-base-content/60">Remaining Balance</span>
+                        <span id="successRemaining">₱0.00</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-action justify-center gap-3">
+                <button class="btn btn-outline" id="printORButton" onclick="printOR()">
+                    <i class="fas fa-print"></i> Print OR
+                </button>
+                <button class="btn btn-primary" onclick="closeSuccessModal()">
+                    <i class="fas fa-check"></i> Done
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="cashier,general_manager"></script>
+    <script src="../../js/pos/pos.service.js"></script>
+
+    <script>
+        // State
+        let outstandingList = [];
+        let selectedDRData = null;
+        let lastCollectionData = null;
+        let activeReceivableSearch = '';
+
+        // Sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        // Update time
+        function updateTime() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Format currency
+        function formatCurrency(amount) {
+            return '₱' + parseFloat(amount || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function getInitials(firstName, lastName) {
+            const f = firstName ? firstName.charAt(0).toUpperCase() : '';
+            const l = lastName ? lastName.charAt(0).toUpperCase() : '';
+            return f + l || 'CA';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (typeof AuthService !== 'undefined') {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Cashier';
+                    document.getElementById('userInitials').textContent = getInitials(user.first_name, user.last_name);
+                }
+            }
+
+            await loadOutstanding();
+            document.getElementById('drSearch').focus();
+
+            // Form submission
+            document.getElementById('collectionForm').addEventListener('submit', handleCollectionSubmit);
+        });
+
+        // Search DR on Enter
+        function handleDRSearch(event) {
+            if (event.key === 'Enter') {
+                searchDR();
+            }
+        }
+
+        // Find an unpaid delivered DR even when the paper copy is unavailable.
+        async function searchDR() {
+            const query = document.getElementById('drSearch').value.trim();
+            if (!query) {
+                showToast('Enter a customer, order, PO, or DR reference', 'warning');
+                return;
+            }
+
+            try {
+                activeReceivableSearch = query;
+                await loadOutstanding(query);
+            } catch (error) {
+                console.error('Search error:', error);
+                showToast(error?.message || 'Failed to search receivables', 'error');
+            }
+        }
+
+        async function clearReceivableSearch() {
+            document.getElementById('drSearch').value = '';
+            activeReceivableSearch = '';
+            await loadOutstanding();
+            document.getElementById('drSearch').focus();
+        }
+
+        function mapReceivable(dr) {
+            return {
+                id: dr.id,
+                dr_number: dr.dr_number,
+                order_number: dr.order_number || '',
+                customer_po_number: dr.customer_po_number || '',
+                customer_name: dr.customer_name,
+                customer_code: dr.customer_code || '',
+                customer_type: dr.customer_type,
+                total_amount: parseFloat(dr.total_amount) || 0,
+                gross_shipped_amount: parseFloat(dr.gross_shipped_amount) || parseFloat(dr.total_amount) || 0,
+                returned_quantity: parseFloat(dr.returned_quantity) || 0,
+                return_adjustment: parseFloat(dr.return_adjustment) || 0,
+                pending_disposal_quantity: parseFloat(dr.pending_disposal_quantity) || 0,
+                amount_paid: parseFloat(dr.amount_paid) || 0,
+                actual_balance: parseFloat(dr.amount_due) || (parseFloat(dr.total_amount) - parseFloat(dr.amount_paid || 0)),
+                pending_check_amount: parseFloat(dr.pending_check_amount) || 0,
+                pending_collection_id: Number(dr.pending_collection_id || 0),
+                balance: Math.max(0, parseFloat(dr.collectible_balance ?? dr.amount_due) || 0),
+                due_date: dr.due_date || dr.delivered_at || dr.created_at,
+                delivered_at: dr.delivered_at || '',
+                days_overdue: parseInt(dr.days_outstanding) || 0
+            };
+        }
+
+        // Load outstanding receivables
+        async function loadOutstanding(searchQuery = '') {
+            try {
+                const response = searchQuery
+                    ? await POSService.searchReceivables(searchQuery)
+                    : await POSService.getOutstandingReceivables();
+                
+                if (response && response.data) {
+                    // Map API response to expected format
+                    const receivables = response.data.receivables || [];
+                    outstandingList = receivables.map(mapReceivable);
+                    
+                    // Calculate summary from data
+                    const totalOutstanding = outstandingList.reduce((sum, dr) => sum + dr.balance, 0);
+                    const overdueCount = outstandingList.filter(dr => dr.balance > 0 && dr.days_overdue > 7).length;
+                    const pendingCount = outstandingList.filter(dr => dr.balance > 0).length;
+                    
+                    // Update stats
+                    if (!searchQuery) {
+                        document.getElementById('totalOutstanding').textContent = formatCurrency(response.data.total_outstanding || totalOutstanding);
+                        document.getElementById('overdueCount').textContent = `${overdueCount} DRs`;
+                        document.getElementById('todayCollections').textContent = formatCurrency(response.data.today_collections || 0);
+                        document.getElementById('pendingDRs').textContent = pendingCount;
+                    }
+
+                    const searchStatus = document.getElementById('receivableSearchStatus');
+                    const clearButton = document.getElementById('clearReceivableSearch');
+                    clearButton.classList.toggle('hidden', !searchQuery);
+                    searchStatus.classList.toggle('hidden', !searchQuery);
+                    if (searchQuery) {
+                        searchStatus.innerHTML = `<i class="fas fa-database"></i><span><strong>${outstandingList.length}</strong> unpaid delivered record(s) found for “${escapeHtml(searchQuery)}”. Select the matching delivery below; no paper DR is required.</span>`;
+                    }
+                    
+                    renderOutstandingTable();
+                } else {
+                    // No data returned
+                    outstandingList = [];
+                    if (!searchQuery) {
+                        document.getElementById('totalOutstanding').textContent = formatCurrency(0);
+                        document.getElementById('overdueCount').textContent = '0 DRs';
+                        document.getElementById('todayCollections').textContent = formatCurrency(0);
+                        document.getElementById('pendingDRs').textContent = '0';
+                    }
+                    renderOutstandingTable();
+                }
+            } catch (error) {
+                console.error('Error loading outstanding:', error);
+                showToast('Failed to load outstanding receivables: ' + (error.response?.data?.message || error.message), 'error');
+                outstandingList = [];
+                document.getElementById('totalOutstanding').textContent = formatCurrency(0);
+                document.getElementById('overdueCount').textContent = '0 DRs';
+                document.getElementById('todayCollections').textContent = formatCurrency(0);
+                document.getElementById('pendingDRs').textContent = '0';
+                renderOutstandingTable();
+            }
+        }
+
+        function filterOutstanding() {
+            renderOutstandingTable();
+        }
+
+        function renderOutstandingTable() {
+            const tbody = document.getElementById('outstandingTable');
+            const typeFilter = document.getElementById('filterCustomerType').value;
+            const statusFilter = document.getElementById('filterStatus').value;
+
+            let filtered = outstandingList.filter(dr => {
+                if (typeFilter && dr.customer_type !== typeFilter) return false;
+                if (statusFilter === 'ready_to_collect' && dr.balance <= 0) return false;
+                if (statusFilter === 'pending_check' && !(dr.pending_check_amount > 0 && dr.balance <= 0)) return false;
+                if (statusFilter === 'overdue' && dr.days_overdue <= 0) return false;
+                if (statusFilter === 'due_today' && dr.days_overdue !== 0) return false;
+                if (statusFilter === 'upcoming' && dr.days_overdue > 0) return false;
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-10 text-base-content/60">
+                            <i class="fas ${activeReceivableSearch ? 'fa-magnifying-glass' : 'fa-check-circle'} text-4xl mb-2 ${activeReceivableSearch ? 'text-info' : 'text-success'} opacity-30"></i>
+                            <p>${activeReceivableSearch ? `No unpaid delivered records match “${escapeHtml(activeReceivableSearch)}”` : 'No outstanding receivables'}</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(dr => {
+                const isOverdue = dr.days_overdue > 0;
+                const isToday = dr.days_overdue === 0;
+                const days = Math.abs(Number(dr.days_overdue) || 0);
+
+                const isCoveredByPendingCheck = dr.balance <= 0 && dr.pending_check_amount > 0;
+                let statusBadge;
+                if (isCoveredByPendingCheck) {
+                    statusBadge = '<span class="status-pill status-pill--today"><i class="fas fa-clock mr-1"></i>Check pending</span>';
+                } else if (isOverdue) {
+                    statusBadge = `<span class="status-pill status-pill--overdue">${days}d overdue</span>`;
+                } else if (isToday) {
+                    statusBadge = `<span class="status-pill status-pill--today">Due today</span>`;
+                } else {
+                    statusBadge = `<span class="status-pill status-pill--upcoming">Due in ${days}d</span>`;
+                }
+
+                const drPayload = JSON.stringify(dr).replace(/"/g, '&quot;');
+                const drNum = escapeHtml(dr.dr_number || '—');
+                const custName = escapeHtml(dr.customer_name || '—');
+                const custType = escapeHtml(formatCustomerType(dr.customer_type));
+
+                return `
+                    <tr class="cursor-pointer ${isOverdue && !isCoveredByPendingCheck ? 'is-overdue' : ''}" onclick="${isCoveredByPendingCheck ? `openPendingCheckReview(${dr.pending_collection_id})` : `selectDR(${drPayload})`}">
+                        <td>
+                            <span class="dr-number">${drNum}</span>
+                            <div class="cell-customer-meta">${escapeHtml(dr.order_number || 'No linked Sales Order')} · Delivered ${formatDate(dr.delivered_at)}</div>
+                        </td>
+                        <td>
+                            <div class="cell-customer-name">${custName}</div>
+                            <div class="cell-customer-meta">${escapeHtml(dr.customer_code || custType)}</div>
+                        </td>
+                        <td>
+                            <span class="cell-money">${formatCurrency(dr.total_amount)}</span>
+                            ${dr.return_adjustment > 0 ? `<div class="text-xs text-success">Returns excluded: -${formatCurrency(dr.return_adjustment)}</div>` : ''}
+                        </td>
+                        <td>
+                            <span class="cell-money cell-money--balance ${isOverdue && !isCoveredByPendingCheck ? 'is-overdue' : ''}">${formatCurrency(dr.actual_balance)}</span>
+                            ${dr.pending_check_amount > 0 ? `<div class="text-xs text-warning">Covered by ${formatCurrency(dr.pending_check_amount)} pending check</div>` : ''}
+                        </td>
+                        <td><span class="cell-date">${formatDate(dr.due_date)}</span></td>
+                        <td>${statusBadge}</td>
+                        <td class="col-actions">
+                            <button type="button" class="collect-action-btn" title="${dr.balance > 0 ? 'Collect payment' : 'Review pending check'}"
+                                onclick="event.stopPropagation(); ${dr.balance > 0 ? `selectDR(${drPayload})` : `openPendingCheckReview(${dr.pending_collection_id})`}">
+                                <i class="fas ${dr.balance > 0 ? 'fa-hand-holding-dollar' : 'fa-building-circle-check'}"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatCustomerType(type) {
+            const types = {
+                'supermarket': 'Supermarket',
+                'institutional': 'Institutional',
+                'feeding_program': 'Feeding Program',
+                'walk_in': 'Walk-in'
+            };
+            return types[type] || type;
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '--';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function selectDR(dr) {
+            if (Number(dr.balance || 0) <= 0) {
+                openPendingCheckReview(Number(dr.pending_collection_id || 0));
+                return;
+            }
+            selectedDRData = dr;
+
+            // Show form
+            document.getElementById('noDRSelected').classList.add('hidden');
+            document.getElementById('collectionForm').classList.remove('hidden');
+
+            // Populate data
+            document.getElementById('selectedDR').textContent = dr.dr_number;
+            document.getElementById('selectedCustomer').textContent = dr.customer_name;
+            document.getElementById('selectedDeliveryReference').textContent = `${dr.order_number || 'No linked Sales Order'} · Delivered ${formatDate(dr.delivered_at)}`;
+            document.getElementById('drTotalAmount').textContent = formatCurrency(dr.total_amount);
+            document.getElementById('drBalance').textContent = formatCurrency(dr.actual_balance);
+            document.getElementById('pendingCheckNotice').classList.toggle('hidden', Number(dr.pending_check_amount || 0) <= 0);
+            const returnNotice = document.getElementById('returnAdjustmentNotice');
+            const returnAdjustment = Number(dr.return_adjustment || 0);
+            const pendingDisposal = Number(dr.pending_disposal_quantity || 0);
+            returnNotice.classList.toggle('hidden', returnAdjustment <= 0);
+            if (returnAdjustment > 0) {
+                const disposalText = pendingDisposal > 0
+                    ? ` ${pendingDisposal} unit(s) still await physical-disposal completion, but that internal approval will not charge the customer again.`
+                    : ' The internal return/disposal workflow will not change the customer balance again.';
+                document.getElementById('returnAdjustmentText').textContent =
+                    `${dr.returned_quantity} returned unit(s) (${formatCurrency(returnAdjustment)}) are already excluded. Collect ${formatCurrency(dr.total_amount)}, not ${formatCurrency(dr.gross_shipped_amount)}.${disposalText}`;
+            }
+
+            // Set default payment amount to full balance
+            document.getElementById('paymentAmount').value = parseFloat(dr.balance).toFixed(2);
+            document.getElementById('paymentAmount').max = dr.balance;
+
+            // Reset form fields
+            document.getElementById('paymentMethod').value = 'cash';
+            document.getElementById('paymentNotes').value = '';
+            togglePaymentFields();
+
+            // Focus on amount
+            document.getElementById('paymentAmount').focus();
+            document.getElementById('paymentAmount').select();
+        }
+
+        function openPendingCheckReview(collectionId) {
+            const target = Number(collectionId) > 0
+                ? `history.html?type=collections&collection_id=${Number(collectionId)}`
+                : 'history.html?type=collections';
+            window.location.href = target;
+        }
+
+        function cancelCollection() {
+            selectedDRData = null;
+            document.getElementById('collectionForm').classList.add('hidden');
+            document.getElementById('noDRSelected').classList.remove('hidden');
+            document.getElementById('collectionForm').reset();
+        }
+
+        function setFullPayment() {
+            if (selectedDRData) {
+                document.getElementById('paymentAmount').value = parseFloat(selectedDRData.balance).toFixed(2);
+            }
+        }
+
+        function validatePayment() {
+            const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+            const balance = selectedDRData ? parseFloat(selectedDRData.balance) : 0;
+            const btn = document.getElementById('btnRecordCollection');
+            
+            if (amount <= 0 || amount > balance) {
+                btn.disabled = true;
+            } else {
+                btn.disabled = false;
+            }
+        }
+
+        function togglePaymentFields() {
+            const method = document.getElementById('paymentMethod').value;
+            
+            document.getElementById('cashFields').classList.toggle('hidden', method !== 'cash');
+            document.getElementById('gcashFields').classList.toggle('hidden', method !== 'gcash');
+            document.getElementById('bankFields').classList.toggle('hidden', method !== 'bank_transfer');
+            document.getElementById('checkFields').classList.toggle('hidden', method !== 'check');
+            document.getElementById('btnRecordCollection').innerHTML = method === 'check'
+                ? '<i class="fas fa-clock"></i> Log Check - Pending Clearing'
+                : '<i class="fas fa-check-circle"></i> Record Collection';
+            if (method === 'check') updateCheckDateNotice();
+        }
+
+        function localDateValue() {
+            const now = new Date();
+            const pad = value => String(value).padStart(2, '0');
+            return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        }
+
+        function updateCheckDateNotice() {
+            const input = document.getElementById('checkDate');
+            const notice = document.getElementById('checkDateNotice');
+            const button = document.getElementById('btnRecordCollection');
+            if (!input?.value || document.getElementById('paymentMethod').value !== 'check') {
+                notice.classList.add('hidden');
+                button.innerHTML = '<i class="fas fa-clock"></i> Log Check - Pending Clearing';
+                return;
+            }
+            const displayDate = new Date(`${input.value}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+            const postDated = input.value > localDateValue();
+            notice.className = `alert ${postDated ? 'alert-warning' : 'alert-info'} py-2 px-3 text-sm mt-2`;
+            notice.innerHTML = postDated
+                ? `<i class="fas fa-calendar-clock"></i><span><strong>Post-dated check.</strong> Log it now, but it cannot be cleared before ${escapeHtml(displayDate)}.</span>`
+                : '<i class="fas fa-building-circle-check"></i><span>Keep this pending until the bank confirms that the check cleared.</span>';
+            button.innerHTML = postDated
+                ? '<i class="fas fa-calendar-clock"></i> Log Post-dated Check'
+                : '<i class="fas fa-clock"></i> Log Check - Pending Clearing';
+        }
+
+        async function handleCollectionSubmit(event) {
+            event.preventDefault();
+
+            if (!selectedDRData) {
+                showToast('Please select a DR', 'warning');
+                return;
+            }
+
+            const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+            const method = document.getElementById('paymentMethod').value;
+
+            // Validate amount
+            if (amount <= 0 || amount > selectedDRData.balance) {
+                showToast('Invalid payment amount', 'error');
+                return;
+            }
+
+            // Validate method-specific fields
+            if (method === 'gcash' && !document.getElementById('gcashReference').value.trim()) {
+                showToast('Please enter GCash reference number', 'error');
+                return;
+            }
+            if (method === 'bank_transfer' && (!document.getElementById('bankName').value || !document.getElementById('bankReference').value.trim())) {
+                showToast('Please complete bank transfer details', 'error');
+                return;
+            }
+            if (method === 'check') {
+                const checkBank = document.getElementById('checkBank').value;
+                const checkNumber = document.getElementById('checkNumber').value.trim();
+                const checkDate = document.getElementById('checkDate').value;
+                if (!checkBank || !checkNumber || !checkDate) {
+                    showToast('Please complete check details', 'error');
+                    return;
+                }
+            }
+
+            // Prepare collection data
+            const collectionData = {
+                dr_id: selectedDRData.id,
+                dr_number: selectedDRData.dr_number,
+                amount_collected: amount,
+                payment_method: method,
+                notes: document.getElementById('paymentNotes').value.trim()
+            };
+
+            // Add method-specific details
+            if (method === 'gcash') {
+                collectionData.gcash_ref = document.getElementById('gcashReference').value.trim();
+            } else if (method === 'bank_transfer') {
+                collectionData.bank_name = document.getElementById('bankName').value;
+                collectionData.bank_ref = document.getElementById('bankReference').value.trim();
+            } else if (method === 'check') {
+                collectionData.check_bank = document.getElementById('checkBank').value;
+                collectionData.check_number = document.getElementById('checkNumber').value.trim();
+                collectionData.check_date = document.getElementById('checkDate').value;
+                collectionData.check_account_owner = document.getElementById('checkAccountOwner').value.trim();
+            }
+
+            try {
+                const response = await POSService.recordCollection(collectionData);
+                
+                if (response && response.success) {
+                    const result = response.data || {};
+                    lastCollectionData = {
+                        or_number: result.or_number || 'OR-UNKNOWN',
+                        dr_number: selectedDRData.dr_number,
+                        amount: amount,
+                        method: method,
+                        remaining: result.balance_after ?? selectedDRData.actual_balance,
+                        status: result.collection_status || 'confirmed',
+                        checkDate: result.check_date || collectionData.check_date || null,
+                        postDated: Boolean(result.is_post_dated)
+                    };
+                    showSuccessModal();
+                    // Reload outstanding DRs after successful collection
+                    activeReceivableSearch = '';
+                    document.getElementById('drSearch').value = '';
+                    loadOutstanding();
+                } else {
+                    // Show actual error
+                    showToast(response?.message || 'Collection failed - unknown error', 'error');
+                    console.error('Collection failed:', response);
+                }
+            } catch (error) {
+                console.error('Collection error:', error);
+                showToast(error?.message || 'Failed to record collection. Check console for details.', 'error');
+            }
+        }
+
+        function showSuccessModal() {
+            if (!lastCollectionData) return;
+            const pending = lastCollectionData.status === 'pending_clearing';
+
+            document.getElementById('successORNumber').textContent = lastCollectionData.or_number;
+            document.getElementById('successDRNumber').textContent = lastCollectionData.dr_number;
+            document.getElementById('successAmount').textContent = formatCurrency(lastCollectionData.amount);
+            document.getElementById('successMethod').textContent = formatPaymentMethod(lastCollectionData.method);
+            document.getElementById('successRemaining').textContent = formatCurrency(lastCollectionData.remaining);
+            document.getElementById('successTitle').textContent = pending ? 'Check Logged' : 'Collection Recorded!';
+            document.getElementById('successMessage').textContent = pending
+                ? (lastCollectionData.postDated
+                    ? `Post-dated check. Pending for Clearing until at least ${formatDate(lastCollectionData.checkDate)}. The customer balance and reports have not been updated.`
+                    : 'Pending for Clearing. The customer balance and reports have not been updated yet.')
+                : 'The payment has been applied to Accounts Receivable.';
+            document.getElementById('printORButton').classList.toggle('hidden', pending);
+
+            document.getElementById('successModal').showModal();
+        }
+
+        function formatPaymentMethod(method) {
+            const methods = {
+                'cash': 'Cash',
+                'gcash': 'GCash',
+                'bank_transfer': 'Bank Transfer',
+                'check': 'Check'
+            };
+            return methods[method] || method;
+        }
+
+        function printOR() {
+            if (!lastCollectionData) return;
+            showToast('Printing Official Receipt...', 'info');
+            window.print();
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').close();
+            cancelCollection();
+            loadOutstanding();
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collections Due - Sales Custodian | Highland Fresh</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <!-- Canonical Sales navigation is mounted by js/sales/sidebar.js. -->
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-money-check-alt text-primary"></i>
+                    <span class="font-semibold">Collections Due</span>
+                </div>
+            </div>
+            <div class="flex-none gap-2">
+                <span class="badge badge-outline gap-2 py-3 px-4">
+                    <i class="fas fa-cash-register"></i> Cashier records payments in POS
+                </span>
+            </div>
+        </header>
+        
+        <main class="flex-1 p-4 lg:p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-base-content">Collections Due</h1>
+                    <p class="text-base-content/60">Monitor customer balances. Payments are recorded by the Cashier.</p>
+                </div>
+            </div>
+            
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-warning"><i class="fas fa-calendar-day text-2xl"></i></div>
+                    <div class="stat-title text-xs">Due Today</div>
+                    <div class="stat-value text-lg text-warning" id="dueToday">₱0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-info"><i class="fas fa-calendar-week text-2xl"></i></div>
+                    <div class="stat-title text-xs">Due This Week</div>
+                    <div class="stat-value text-lg" id="dueWeek">₱0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-error"><i class="fas fa-exclamation-circle text-2xl"></i></div>
+                    <div class="stat-title text-xs">Overdue</div>
+                    <div class="stat-value text-lg text-error" id="overdue">₱0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-success"><i class="fas fa-check-double text-2xl"></i></div>
+                    <div class="stat-title text-xs">Collected (MTD)</div>
+                    <div class="stat-value text-lg text-success" id="collectedMTD">₱0</div>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="form-control w-full md:w-64">
+                            <label class="label"><span class="label-text text-xs">Search</span></label>
+                            <input type="text" id="searchInput" placeholder="Customer, invoice #..." 
+                                   class="input input-bordered input-sm" onkeyup="filterCollections()">
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Due Period</span></label>
+                            <select id="periodFilter" class="select select-bordered select-sm" onchange="filterCollections()">
+                                <option value="">All</option>
+                                <option value="today">Due Today</option>
+                                <option value="week">Due This Week</option>
+                                <option value="overdue">Overdue</option>
+                                <option value="upcoming">Upcoming (7 days)</option>
+                            </select>
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Customer Type</span></label>
+                            <select id="typeFilter" class="select select-bordered select-sm" onchange="filterCollections()">
+                                <option value="">All Types</option>
+                                <option value="supermarket">Supermarket</option>
+                                <option value="institutional">Institutional</option>
+                                <option value="school">School</option>
+                                <option value="feeding_program">Feeding Program</option>
+                                <option value="distributor">Wholesaler</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Collections Table -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Customer</th>
+                                    <th>Invoice #</th>
+                                    <th>Invoice Date</th>
+                                    <th>Due Date</th>
+                                    <th class="text-right">Amount</th>
+                                    <th class="text-right">Paid</th>
+                                    <th class="text-right">Balance</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="collectionsTable">
+                                <tr>
+                                    <td colspan="9" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+    
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="sales_custodian,general_manager"></script>
+    <script src="../../js/sales/sidebar.js?v=20260828-salesnav1"></script>
+    <script src="../../js/sales/sales.service.js?v=20260720-dr"></script>
+    
+    <script>
+        let collections = [];
+        
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0);
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                    document.getElementById('userInitials').textContent = `${user.first_name[0]}${user.last_name[0]}`;
+                }
+                
+                await loadCollectionsDue();
+                
+                // Check URL params
+                const params = new URLSearchParams(window.location.search);
+                const customerId = params.get('customer_id');
+                if (customerId) {
+                    document.getElementById('searchInput').value = customerId;
+                    filterCollections();
+                }
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+        
+        async function loadCollectionsDue() {
+            try {
+                const response = await SalesService.getDailyCollectionTarget();
+                const data = response.data || {};
+                
+                // Update stats
+                document.getElementById('dueToday').textContent = formatCurrency(data.due_today || 0);
+                document.getElementById('dueWeek').textContent = formatCurrency(data.due_this_week || 0);
+                document.getElementById('overdue').textContent = formatCurrency(data.overdue || 0);
+                document.getElementById('collectedMTD').textContent = formatCurrency(data.collected_mtd || 0);
+                
+                collections = data.invoices || [];
+                renderCollections(collections);
+                
+            } catch (error) {
+                console.error('Error loading collections:', error);
+                document.getElementById('collectionsTable').innerHTML = `
+                    <tr><td colspan="9" class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                        <p>Failed to load collections data</p>
+                        <button class="btn btn-sm btn-ghost mt-2" onclick="loadCollectionsDue()">Retry</button>
+                    </td></tr>`;
+            }
+        }
+        
+        function formatCustomerType(type) {
+            const labels = {
+                supermarket: 'Supermarket',
+                institutional: 'Institutional',
+                school: 'School',
+                feeding_program: 'Feeding Program',
+                wholesaler: 'Wholesaler',
+                distributor: 'Wholesaler',
+                walk_in: 'Small Business / Retailer'
+            };
+            if (!type) return '';
+            return labels[type] || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function formatDateOnly(value) {
+            if (!value) return '-';
+            // Prefer Y-m-d string parsing to avoid timezone shifts from Date()
+            const s = String(value).slice(0, 10);
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (m) return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}/${m[1]}`;
+            return new Date(value).toLocaleDateString();
+        }
+
+        function typeBadgeClass(type) {
+            switch (type) {
+                case 'supermarket': return 'badge-info';
+                case 'institutional': return 'badge-secondary';
+                case 'school': return 'badge-accent';
+                case 'feeding_program': return 'badge-primary';
+                case 'wholesaler':
+                case 'distributor': return 'badge-neutral';
+                default: return 'badge-ghost';
+            }
+        }
+
+        function renderCollections(data) {
+            const tbody = document.getElementById('collectionsTable');
+            const today = new Date().toISOString().split('T')[0];
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-base-content/60">
+                    <i class="fas fa-check-circle text-4xl mb-2 text-success opacity-40"></i>
+                    <p>No collections due</p>
+                </td></tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = data.map(inv => {
+                const dueStr = inv.due_date ? String(inv.due_date).slice(0, 10) : '';
+                const isOverdue = inv.due_status === 'overdue' || (dueStr && dueStr < today);
+                const isDueToday = inv.due_status === 'due_today' || dueStr === today;
+                const isDueWeek = inv.due_status === 'due_this_week' || (
+                    dueStr && dueStr > today && dueStr <= (() => {
+                        const d = new Date(today + 'T00:00:00');
+                        d.setDate(d.getDate() + 7);
+                        return d.toISOString().split('T')[0];
+                    })()
+                );
+                const balance = inv.balance_due != null
+                    ? Number(inv.balance_due)
+                    : ((inv.total_amount || 0) - (inv.paid_amount || 0));
+                
+                let statusBadge = 'badge-ghost';
+                let statusText = 'Pending';
+                let rowClass = 'hover';
+                if (balance <= 0) {
+                    statusBadge = 'badge-success';
+                    statusText = 'Paid';
+                } else if (isOverdue) {
+                    statusBadge = 'badge-error';
+                    statusText = 'Overdue';
+                } else if (isDueToday) {
+                    statusBadge = 'badge-warning';
+                    statusText = 'Due Today';
+                    rowClass = 'hover bg-warning/10';
+                } else if (isDueWeek) {
+                    statusBadge = 'badge-info';
+                    statusText = 'Due This Week';
+                }
+                
+                const code = escapeHtml(inv.customer_code || '');
+                const typeLabel = formatCustomerType(inv.customer_type);
+                return `
+                <tr class="${rowClass}">
+                    <td>
+                        <div class="font-medium">${escapeHtml(inv.customer_name || '-')}</div>
+                        <div class="text-xs font-mono text-base-content/60">${code}</div>
+                        ${typeLabel ? `<span class="badge ${typeBadgeClass(inv.customer_type)} badge-xs mt-1">${escapeHtml(typeLabel)}</span>` : ''}
+                    </td>
+                    <td class="font-mono text-sm">${escapeHtml(inv.invoice_number || inv.order_number || '-')}</td>
+                    <td class="text-sm">${formatDateOnly(inv.invoice_date)}</td>
+                    <td class="text-sm ${isOverdue ? 'text-error font-semibold' : isDueToday ? 'text-warning font-semibold' : ''}">${formatDateOnly(inv.due_date)}</td>
+                    <td class="text-right font-mono">${formatCurrency(inv.total_amount)}</td>
+                    <td class="text-right font-mono text-success">${formatCurrency(inv.paid_amount)}</td>
+                    <td class="text-right font-mono font-semibold ${balance > 0 ? 'text-warning' : ''}">${formatCurrency(balance)}</td>
+                    <td><span class="badge ${statusBadge} badge-sm">${statusText}</span></td>
+                    <td>
+                        ${balance > 0 ? `
+                            <span class="badge badge-outline badge-sm gap-1" title="Cashier records payment in POS Collections">
+                                <i class="fas fa-cash-register"></i> Cashier
+                            </span>
+                        ` : '-'}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+        
+        function filterCollections() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const period = document.getElementById('periodFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const today = new Date().toISOString().split('T')[0];
+            
+            const nextWeek = new Date();
+            nextWeek.setDate(nextWeek.getDate() + 7);
+            const nextWeekStr = nextWeek.toISOString().split('T')[0];
+            
+            const filtered = collections.filter(inv => {
+                const name = inv.customer_name || '';
+                const code = inv.customer_code || '';
+                const invNum = inv.invoice_number || inv.order_number || '';
+                const dueStr = inv.due_date ? String(inv.due_date).slice(0, 10) : '';
+                const balance = inv.balance_due != null
+                    ? Number(inv.balance_due)
+                    : ((inv.total_amount || 0) - (inv.paid_amount || 0));
+                const matchSearch = !search || 
+                    name.toLowerCase().includes(search) ||
+                    code.toLowerCase().includes(search) ||
+                    invNum.toLowerCase().includes(search);
+                const matchType = !type || inv.customer_type === type;
+                
+                let matchPeriod = true;
+                if (period === 'today') {
+                    matchPeriod = inv.due_status === 'due_today' || dueStr === today;
+                } else if (period === 'week') {
+                    matchPeriod = inv.due_status === 'due_this_week' || inv.due_status === 'due_today'
+                        || (dueStr && dueStr <= nextWeekStr && dueStr >= today);
+                } else if (period === 'overdue') {
+                    matchPeriod = (inv.due_status === 'overdue' || (dueStr && dueStr < today)) && balance > 0;
+                } else if (period === 'upcoming') {
+                    // Next 7 days, excluding today (due this week remaining)
+                    matchPeriod = dueStr && dueStr > today && dueStr <= nextWeekStr;
+                }
+                
+                return matchSearch && matchType && matchPeriod;
+            });
+            
+            renderCollections(filtered);
+        }
+    </script>
+</body>
+</html>

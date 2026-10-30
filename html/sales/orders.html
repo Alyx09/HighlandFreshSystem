@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders - Sales Custodian | Highland Fresh</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    <link rel="stylesheet" href="../../css/searchable-product-picker.css?v=20260909-1">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .direct-item-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 7.5rem 7.5rem 7rem;
+            gap: 0.75rem;
+            align-items: end;
+        }
+        @media (max-width: 767px) {
+            .direct-item-grid { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        /* ── Order Detail Modal (enterprise layout) ── */
+        #orderDetailModal .modal-box {
+            max-width: 48rem;
+            padding: 0;
+        }
+        .od-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding-right: 2.5rem; /* clear the absolute close (X) */
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .od-header__title {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.625rem;
+            margin: 0;
+            font-size: 1.125rem;
+            font-weight: 700;
+            line-height: 1.3;
+            color: oklch(var(--bc));
+        }
+        .od-header__title i {
+            color: oklch(var(--p));
+            font-size: 1rem;
+        }
+        .od-header__badge {
+            text-transform: capitalize;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .od-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.125rem;
+            background: oklch(var(--b2) / 0.6);
+            border: 1px solid oklch(var(--bc) / 0.06);
+            border-radius: 0.75rem;
+        }
+        @media (min-width: 640px) {
+            .od-meta {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+        .od-meta__item {
+            min-width: 0;
+        }
+        .od-meta__label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            line-height: 1.2;
+        }
+        .od-meta__value {
+            display: block;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: oklch(var(--bc));
+            line-height: 1.35;
+            word-break: break-word;
+        }
+        .od-section-title {
+            margin: 0 0 0.625rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+        }
+        .od-table-wrap {
+            overflow-x: auto;
+            margin-bottom: 1rem;
+            border: 1px solid oklch(var(--bc) / 0.08);
+            border-radius: 0.75rem;
+        }
+        .od-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .od-table thead {
+            background: oklch(var(--b2));
+        }
+        .od-table th {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+            border-bottom: 1px solid oklch(var(--bc) / 0.08);
+            white-space: nowrap;
+        }
+        .od-table th.od-num,
+        .od-table td.od-num {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .od-table td {
+            padding: 0.75rem 0.875rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.06);
+            color: oklch(var(--bc));
+            vertical-align: middle;
+        }
+        .od-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .od-table tbody tr:hover {
+            background: oklch(var(--b2) / 0.5);
+        }
+        .od-table .od-product {
+            font-weight: 500;
+        }
+        .od-table tfoot tr {
+            background: oklch(var(--su) / 0.08);
+            border-top: 1px solid oklch(var(--su) / 0.2);
+        }
+        .od-table tfoot td {
+            padding: 0.75rem 0.875rem;
+            border-bottom: none;
+            font-weight: 700;
+            color: oklch(var(--bc));
+        }
+        .od-table tfoot .od-total-label {
+            text-align: right;
+            font-size: 0.8125rem;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.7);
+        }
+        .od-table tfoot .od-total-value {
+            font-size: 1rem;
+            color: oklch(var(--su));
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .od-notes {
+            margin-bottom: 1rem;
+            padding: 0.875rem 1rem;
+            background: oklch(var(--b2) / 0.7);
+            border: 1px solid oklch(var(--bc) / 0.06);
+            border-radius: 0.75rem;
+        }
+        .od-notes__label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+        }
+        .od-notes__body {
+            font-size: 0.875rem;
+            color: oklch(var(--bc) / 0.85);
+            line-height: 1.45;
+        }
+        .od-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-top: 0.25rem;
+            padding-top: 1rem;
+            border-top: 1px solid oklch(var(--bc) / 0.08);
+        }
+        .od-footer__left {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .od-footer__right {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+        .od-status-banner {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            border-radius: 0.5rem;
+            background: oklch(var(--wa) / 0.12);
+            color: oklch(var(--wa));
+            border: 1px solid oklch(var(--wa) / 0.25);
+        }
+        .od-table tr.od-row-return {
+            background: oklch(var(--wa) / 0.1);
+        }
+        .od-table tr.od-row-return td {
+            border-bottom-color: oklch(var(--wa) / 0.15);
+        }
+        .od-credit {
+            color: oklch(var(--er));
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+        .od-billing-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 0.75rem 0 0;
+            padding: 0.75rem 1rem;
+            background: oklch(var(--b2) / 0.55);
+            border-radius: 0.65rem;
+            border: 1px solid oklch(var(--bc) / 0.08);
+            font-size: 0.8125rem;
+        }
+        .od-billing-strip strong {
+            display: block;
+            font-size: 0.95rem;
+            margin-top: 0.15rem;
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <!-- Canonical Sales navigation is mounted by js/sales/sidebar.js. -->
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-shopping-cart text-primary"></i>
+                    <span class="font-semibold" id="pageTitle">Orders</span>
+                </div>
+            </div>
+            <div class="flex-none gap-2">
+                <button class="btn btn-outline btn-sm" onclick="openDirectOrderFromNavigation()">
+                    <i class="fas fa-phone"></i> Record Phone / Message Order
+                </button>
+                <a class="btn btn-primary btn-sm" href="order_inbox.html">
+                    <i class="fas fa-inbox"></i> Customer PO Inbox
+                </a>
+            </div>
+        </header>
+        
+        <main class="flex-1 p-4 lg:p-6">
+            <!-- Stats -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="stat bg-base-100 rounded-box shadow-sm">
+                    <div class="stat-figure text-warning"><i class="fas fa-clock text-2xl"></i></div>
+                    <div class="stat-title text-xs">Pending</div>
+                    <div class="stat-value text-xl" id="pendingCount">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm">
+                    <div class="stat-figure text-info"><i class="fas fa-check text-2xl"></i></div>
+                    <div class="stat-title text-xs">Approved</div>
+                    <div class="stat-value text-xl" id="approvedCount">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm">
+                    <div class="stat-figure text-success"><i class="fas fa-truck text-2xl"></i></div>
+                    <div class="stat-title text-xs">Delivered</div>
+                    <div class="stat-value text-xl" id="deliveredCount">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm">
+                    <div class="stat-figure text-primary"><i class="fas fa-peso-sign text-2xl"></i></div>
+                    <div class="stat-title text-xs">Today's Value</div>
+                    <div class="stat-value text-lg" id="todayValue">₱0</div>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="form-control w-full md:w-64">
+                            <label class="label"><span class="label-text text-xs">Search</span></label>
+                            <input type="text" id="searchInput" placeholder="Order #, customer..." 
+                                   class="input input-bordered input-sm" onkeyup="debounceSearch()">
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Status</span></label>
+                            <select id="statusFilter" class="select select-bordered select-sm" onchange="handleOrderStatusChange()">
+                                <option value="">All Status</option>
+                                <option value="draft">Draft</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="preparing">Preparing</option>
+                                <option value="dispatched">Dispatched</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Date From</span></label>
+                            <input type="date" id="dateFrom" class="input input-bordered input-sm" onchange="loadOrders()">
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Date To</span></label>
+                            <input type="date" id="dateTo" class="input input-bordered input-sm" onchange="loadOrders()">
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="clearFilters()">
+                            <i class="fas fa-times"></i> Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orders Table -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Order #</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Delivery Date</th>
+                                    <th>Items</th>
+                                    <th class="text-right">Amount</th>
+                                    <th>Payment</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTable">
+                                <tr>
+                                    <td colspan="9" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <div class="flex items-center justify-between p-4 border-t border-base-300">
+                        <div class="text-sm text-base-content/60">
+                            Showing <span id="showingStart">0</span>-<span id="showingEnd">0</span> of <span id="totalRecords">0</span>
+                        </div>
+                        <div class="join" id="paginationContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <dialog id="directOrderModal" class="modal">
+        <div class="modal-box max-w-4xl max-h-[92vh] p-0 overflow-hidden flex flex-col">
+            <div class="px-6 py-4 border-b border-base-300 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <i class="fas fa-phone"></i>
+                </div>
+                <div>
+                    <p class="text-xs font-semibold uppercase text-base-content/45">Phone · Message</p>
+                    <h3 class="font-bold text-lg">Record Phone / Message Order</h3>
+                </div>
+                <button class="btn btn-sm btn-circle btn-ghost ml-auto" onclick="closeDirectOrderModal()" aria-label="Close">x</button>
+            </div>
+
+            <div class="p-6 space-y-5 flex-1 min-h-0 overflow-y-auto">
+                <div class="flex items-start gap-3 border border-info/30 bg-info/10 px-4 py-3 rounded-lg">
+                    <i class="fas fa-route text-info mt-0.5"></i>
+                    <div class="min-w-0">
+                        <p class="font-semibold text-sm">Sales releases normal orders directly to Warehouse FG.</p>
+                        <p class="text-xs text-base-content/65 mt-1">The General Manager is involved only when a credit order exceeds the customer’s approved limit. Immediate walk-in purchases belong in Cashier Retail or Wholesale Sale.</p>
+                    </div>
+                </div>
+                <div id="directCustomerNotice" class="alert alert-warning hidden"></div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <label class="form-control md:col-span-2">
+                        <span class="label-text mb-2">Customer *</span>
+                        <select id="directCustomer" class="select select-bordered w-full"></select>
+                    </label>
+                    <label class="form-control">
+                        <span class="label-text mb-2">Delivery Date *</span>
+                        <input id="directDeliveryDate" type="date" class="input input-bordered w-full">
+                    </label>
+                    <label class="form-control">
+                        <span class="label-text mb-2">Order Source *</span>
+                        <select id="directOrderSource" class="select select-bordered w-full">
+                            <option value="manual_phone">Phone</option>
+                            <option value="manual_message">Message / Chat</option>
+                        </select>
+                    </label>
+                    <label class="form-control">
+                        <span class="label-text mb-2">Payment *</span>
+                        <select id="directPayment" class="select select-bordered w-full" disabled>
+                            <option value="credit">Credit</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                        <span class="label-text-alt mt-1">Uses the customer’s approved account setting.</span>
+                    </label>
+                    <label class="form-control">
+                        <span class="label-text mb-2">Delivery Location</span>
+                        <select id="directLocation" class="select select-bordered w-full"><option value="">Main address</option></select>
+                    </label>
+                    <label class="form-control md:col-span-3">
+                        <span class="label-text mb-2">Delivery Address</span>
+                        <input id="directAddress" class="input input-bordered w-full" maxlength="500">
+                    </label>
+                </div>
+
+                <div id="directCustomerSummary" class="hidden border-y border-base-300 py-3">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div><span class="block text-xs text-base-content/50">Customer type</span><strong id="directCustomerType">-</strong></div>
+                        <div><span class="block text-xs text-base-content/50">Payment terms</span><strong id="directCustomerTerms">-</strong></div>
+                        <div><span class="block text-xs text-base-content/50">Unpaid balance</span><strong id="directCustomerBalance">-</strong></div>
+                        <div><span class="block text-xs text-base-content/50">Credit available</span><strong id="directCustomerCredit">-</strong></div>
+                    </div>
+                    <p id="directCreditNotice" class="text-xs mt-3 hidden"></p>
+                    <label id="directCreditReasonField" class="form-control mt-3 hidden">
+                        <span class="label-text mb-2">Why should the GM approve this credit exception? *</span>
+                        <textarea id="directCreditReason" class="textarea textarea-bordered" maxlength="500" placeholder="State the business reason for exceeding the approved limit."></textarea>
+                    </label>
+                </div>
+
+                <div class="border-t border-base-300 pt-5">
+                    <div class="direct-item-grid">
+                        <label class="form-control min-w-0">
+                            <span class="label-text mb-2">Product / SKU</span>
+                            <select id="directProduct" class="select select-bordered w-full" data-searchable-product data-search-placeholder="Search product name, SKU, or size..." aria-label="Product or SKU" onchange="updateDirectProductHint()"></select>
+                            <span id="directProductHint" class="text-xs text-base-content/50 mt-1 min-h-4"></span>
+                        </label>
+                        <label class="form-control">
+                            <span class="label-text mb-2" id="directBoxLabel">Boxes</span>
+                            <input id="directBoxes" type="number" class="input input-bordered" min="0" step="1" value="0" disabled>
+                        </label>
+                        <label class="form-control">
+                            <span class="label-text mb-2" id="directPieceLabel">Extra Units</span>
+                            <input id="directPieces" type="number" class="input input-bordered" min="0" step="1" value="0">
+                        </label>
+                        <button class="btn btn-primary" type="button" onclick="addDirectOrderItem()"><i class="fas fa-plus"></i>Add</button>
+                    </div>
+                    <div id="directProductNotice" class="alert alert-warning mt-3 hidden" role="status"></div>
+                </div>
+
+                <div class="border border-base-300 rounded-lg overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead><tr><th>Product</th><th>Order</th><th>Available</th><th class="text-right">Amount</th><th></th></tr></thead>
+                        <tbody id="directItemsTable">
+                            <tr><td colspan="5" class="text-center py-8 text-base-content/45">No products added</td></tr>
+                        </tbody>
+                        <tfoot><tr><th colspan="3" class="text-right">Total</th><th class="text-right" id="directOrderTotal">PHP 0.00</th><th></th></tr></tfoot>
+                    </table>
+                </div>
+
+                <label class="form-control">
+                    <span class="label-text mb-2">Notes</span>
+                    <textarea id="directNotes" class="textarea textarea-bordered" rows="2" maxlength="500"></textarea>
+                </label>
+            </div>
+
+            <div class="px-6 py-4 border-t border-base-300 flex justify-end gap-2">
+                <button class="btn btn-ghost" onclick="closeDirectOrderModal()">Cancel</button>
+                <button id="submitDirectOrder" class="btn btn-primary" onclick="submitDirectOrder()">
+                    <i class="fas fa-truck-fast"></i>Release Order
+                </button>
+            </div>
+        </div>
+    </dialog>
+    
+    <!-- Order Detail Modal -->
+    <dialog id="orderDetailModal" class="modal">
+        <div class="modal-box max-w-3xl p-0 overflow-hidden">
+            <form method="dialog">
+                <button type="submit" class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" aria-label="Close">✕</button>
+            </form>
+            <div id="orderDetailContent" class="p-6 pt-5">
+                <div class="flex justify-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            </div>
+        </div>
+    </dialog>
+    
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+    
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="sales_custodian,general_manager"></script>
+    <script src="../../js/utils/product-display.js?v=20260909-sizefix1"></script>
+    <script src="../../js/ui/searchable-product-picker.js?v=20260909-1"></script>
+    <script src="../../js/sales/sidebar.js?v=20260828-salesnav1"></script>
+    <script src="../../js/sales/sales.service.js?v=20261007"></script>
+    
+    <script>
+        let orders = [];
+        let currentPage = 1;
+        let searchTimeout = null;
+        let currentUserRole = null;
+        let directCustomers = [];
+        let directProducts = [];
+        let directItems = [];
+        const directOrderModal = document.getElementById('directOrderModal');
+        
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            }[character]));
+        }
+
+        /** Y-m-d / datetime → M/D/YYYY without timezone off-by-one. */
+        function formatOrderDate(value) {
+            if (!value) return '—';
+            const s = String(value).slice(0, 10);
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (m) return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}/${m[1]}`;
+            const d = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(d.getTime())) return '—';
+            return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+        }
+
+        /**
+         * Delivery date display: never earlier than order date.
+         * Falls back to order date when missing or time-traveling.
+         */
+        function formatDeliveryDate(deliveryValue, orderValue) {
+            const orderStr = orderValue ? String(orderValue).slice(0, 10) : '';
+            let delStr = deliveryValue ? String(deliveryValue).slice(0, 10) : '';
+            if (delStr && orderStr && delStr < orderStr) {
+                delStr = orderStr; // same-day floor
+            }
+            if (!delStr) return '—';
+            return formatOrderDate(delStr);
+        }
+
+        function formatCustomerType(type) {
+            const labels = {
+                supermarket: 'Supermarket',
+                institutional: 'Institutional',
+                school: 'School',
+                feeding_program: 'Feeding Program',
+                wholesaler: 'Wholesaler',
+                distributor: 'Wholesaler',
+                walk_in: 'Small Business / Retailer',
+                restaurant: 'Restaurant',
+                other: 'Other'
+            };
+            if (!type) return '';
+            return labels[type] || String(type).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+        
+        function debounceSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                loadOrders();
+            }, 300);
+        }
+        
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            currentPage = 1;
+            updateOrdersUrl({});
+            updateOrdersHeading('');
+            SalesSidebar.refresh();
+            loadOrders();
+        }
+
+        function getLocalDateISO() {
+            const now = new Date();
+            return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+        }
+
+        function updateOrdersHeading(status) {
+            document.getElementById('pageTitle').textContent = status
+                ? `${status.charAt(0).toUpperCase()}${status.slice(1)} Orders`
+                : 'Orders';
+        }
+
+        function updateOrdersUrl(params, mode = 'replace') {
+            const url = new URL(window.location.href);
+            url.search = '';
+            Object.entries(params || {}).forEach(([key, value]) => {
+                if (value !== '' && value !== null && value !== undefined) {
+                    url.searchParams.set(key, String(value));
+                }
+            });
+            window.history[mode === 'push' ? 'pushState' : 'replaceState']({}, '', url);
+        }
+
+        function handleOrderStatusChange() {
+            const status = document.getElementById('statusFilter').value;
+            currentPage = 1;
+            updateOrdersUrl(status ? { status } : {});
+            updateOrdersHeading(status);
+            SalesSidebar.refresh();
+            loadOrders();
+        }
+
+        async function openDirectOrderFromNavigation() {
+            const params = new URLSearchParams(window.location.search);
+            if (!['record', 'direct'].includes(params.get('action'))) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('id');
+                url.searchParams.set('action', 'record');
+                window.history.pushState({}, '', url);
+            }
+            SalesSidebar.refresh();
+            await openDirectOrderModal();
+        }
+
+        window.openDirectOrderFromNavigation = openDirectOrderFromNavigation;
+
+        function closeDirectOrderModal() {
+            if (directOrderModal.open) directOrderModal.close();
+        }
+
+        async function openDirectOrderModal() {
+            if (directOrderModal.open) return;
+            directItems = [];
+            renderDirectItems();
+            document.getElementById('directAddress').value = '';
+            document.getElementById('directNotes').value = '';
+            document.getElementById('directCreditReason').value = '';
+            document.getElementById('directPayment').value = 'credit';
+            document.getElementById('directOrderSource').value = 'manual_phone';
+            document.getElementById('directDeliveryDate').min = getLocalDateISO();
+            document.getElementById('directDeliveryDate').value = getLocalDateISO();
+            document.getElementById('directCustomer').innerHTML = '<option>Loading customers...</option>';
+            document.getElementById('directProduct').innerHTML = '<option>Loading products...</option>';
+            directOrderModal.showModal();
+
+            try {
+                const [customerResponse, productResponse] = await Promise.all([
+                    SalesService.getCustomers({ status: 'active', limit: 100 }),
+                    SalesService.getDirectOrderProducts()
+                ]);
+                directCustomers = customerResponse.data || [];
+                // Show the catalog as context, but only allow QC-released,
+                // unreserved Finished Goods stock to be selected for an order.
+                directProducts = productResponse.data || [];
+                renderDirectCustomerOptions();
+                renderDirectProductOptions();
+            } catch (error) {
+                showToast(error.message || 'Could not load customer order information.', 'error');
+            }
+        }
+
+        function renderDirectCustomerOptions() {
+            const select = document.getElementById('directCustomer');
+            const notice = document.getElementById('directCustomerNotice');
+            if (!directCustomers.length) {
+                select.innerHTML = '<option value="">No active registered customer found</option>';
+                notice.classList.remove('hidden');
+                notice.innerHTML = '<i class="fas fa-triangle-exclamation"></i><span>Add and activate the customer before recording an order.</span><a class="btn btn-sm ml-auto" href="customers.html">Open Customer List</a>';
+                document.getElementById('submitDirectOrder').disabled = true;
+                return;
+            }
+            notice.classList.add('hidden');
+            document.getElementById('submitDirectOrder').disabled = false;
+            select.innerHTML = '<option value="">Select customer...</option>' + directCustomers.map(customer =>
+                `<option value="${Number(customer.id)}">${escapeHtml(customer.name || customer.customer_name)}</option>`
+            ).join('');
+            select.onchange = async () => {
+                const customer = directCustomers.find(item => Number(item.id) === Number(select.value));
+                document.getElementById('directAddress').value = customer?.address || '';
+                document.getElementById('directPayment').value = customer?.default_payment_type || 'credit';
+                if (customer) {
+                    try {
+                        const detail = await SalesService.getCustomer(customer.id);
+                        Object.assign(customer, detail?.data || {});
+                    } catch (error) {
+                        console.warn('Saved delivery locations could not be loaded.', error);
+                    }
+                }
+                renderDirectLocations(customer);
+                updateDirectCustomerSummary();
+            };
+            document.getElementById('directPayment').onchange = updateDirectCustomerSummary;
+            updateDirectCustomerSummary();
+        }
+
+        function renderDirectLocations(customer) {
+            const select = document.getElementById('directLocation');
+            const locations = (customer?.locations || []).filter(location => (location.status || 'active') === 'active');
+            select.innerHTML = '<option value="">Main address</option>' + locations.map(location =>
+                `<option value="${Number(location.id)}">${escapeHtml(location.sub_name)}</option>`
+            ).join('');
+            select.onchange = () => {
+                const selected = locations.find(location => Number(location.id) === Number(select.value));
+                document.getElementById('directAddress').value = selected?.address || customer?.address || '';
+            };
+        }
+
+        function updateDirectCustomerSummary() {
+            const customer = directCustomers.find(item => Number(item.id) === Number(document.getElementById('directCustomer').value));
+            const summary = document.getElementById('directCustomerSummary');
+            if (!customer) {
+                summary.classList.add('hidden');
+                return;
+            }
+
+            const payment = document.getElementById('directPayment').value;
+            const limit = Math.max(0, Number(customer.credit_limit || 0));
+            const balance = Math.max(0, Number(customer.outstanding_balance || 0));
+            const orderTotal = directItems.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+            const projected = balance + orderTotal;
+            const available = Math.max(0, limit - balance);
+            const needsOverride = payment === 'credit' && projected > limit;
+
+            document.getElementById('directCustomerType').textContent = formatCustomerType(customer.customer_type);
+            document.getElementById('directCustomerTerms').textContent = payment === 'credit'
+                ? `${Number(customer.payment_terms_days || customer.payment_terms || 0)} days`
+                : 'Cash';
+            document.getElementById('directCustomerBalance').textContent = formatCurrency(balance);
+            document.getElementById('directCustomerCredit').textContent = payment === 'credit'
+                ? formatCurrency(available)
+                : 'Not used';
+
+            const notice = document.getElementById('directCreditNotice');
+            notice.classList.toggle('hidden', !needsOverride);
+            notice.className = `text-xs mt-3 ${needsOverride ? 'text-warning font-semibold' : 'hidden'}`;
+            notice.innerHTML = needsOverride
+                ? '<i class="fas fa-triangle-exclamation mr-1"></i>This order exceeds the available credit. Enter a reason, then the GM must approve the credit exception.'
+                : '';
+            document.getElementById('directCreditReasonField').classList.toggle('hidden', !needsOverride);
+            document.getElementById('directCreditReason').required = needsOverride;
+            const submitButton = document.getElementById('submitDirectOrder');
+            submitButton.innerHTML = needsOverride
+                ? '<i class="fas fa-paper-plane"></i>Send Credit Exception to GM'
+                : '<i class="fas fa-truck-fast"></i>Release Order';
+            summary.classList.remove('hidden');
+        }
+
+        function renderDirectProductOptions() {
+            const select = document.getElementById('directProduct');
+            const notice = document.getElementById('directProductNotice');
+            const readyCount = directProducts.filter(product => Number(product.available_qty || 0) > 0).length;
+            if (!directProducts.length) {
+                notice.textContent = 'No active product SKUs are configured. Ask the General Manager to check the Product Catalog.';
+                notice.classList.remove('hidden');
+            } else if (!readyCount) {
+                notice.textContent = 'No products have sellable Finished Goods stock. Products below are unavailable until QC-released stock with more than seven days before expiry is received and unreserved.';
+                notice.classList.remove('hidden');
+            } else {
+                notice.classList.add('hidden');
+                notice.textContent = '';
+            }
+            select.innerHTML = '<option value="">Select product...</option>' + directProducts.map(product => {
+                const available = Number(product.available_qty || 0);
+                const stockLabel = available > 0
+                    ? `${available} ${product.base_unit || 'unit'}${available === 1 ? '' : 's'} ready`
+                    : 'Waiting for QC / Finished Goods stock';
+                return `<option value="${Number(product.id)}"${available > 0 ? '' : ' disabled'}>${escapeHtml(ProductDisplay.name(product, { includeCode: true }))} (${escapeHtml(stockLabel)})</option>`;
+            }).join('');
+            SearchableProductPicker.enhance(select);
+            updateDirectProductHint();
+        }
+
+        function updateDirectProductHint() {
+            const product = directProducts.find(item => Number(item.id) === Number(document.getElementById('directProduct').value));
+            const hint = document.getElementById('directProductHint');
+            const boxInput = document.getElementById('directBoxes');
+            if (!product) {
+                hint.textContent = '';
+                boxInput.disabled = true;
+                boxInput.value = 0;
+                return;
+            }
+            const box = product.box_unit || 'box';
+            const base = product.base_unit || 'piece';
+            const unitsPerBox = Math.max(1, Number(product.pieces_per_box) || 1);
+            const retailPrice = Number(product.selling_price || 0);
+            const wholesalePrice = Number(product.wholesale_box_price || 0);
+            const hasWholesalePrice = unitsPerBox > 1
+                && wholesalePrice > 0
+                && wholesalePrice < retailPrice * unitsPerBox;
+            boxInput.disabled = !hasWholesalePrice;
+            if (!hasWholesalePrice) boxInput.value = 0;
+            hint.textContent = hasWholesalePrice
+                ? `${product.available_qty} ${base}(s) available; ${unitsPerBox} per ${box}; ${formatCurrency(wholesalePrice)} per ${box}, ${formatCurrency(retailPrice)} per ${base}.`
+                : `${product.available_qty} ${base}(s) available; individual ${base}s only.`;
+            const boxesLabel = box.endsWith('x') ? `${box}es` : (box.endsWith('s') ? box : `${box}s`);
+            document.getElementById('directBoxLabel').textContent = hasWholesalePrice
+                ? boxesLabel.charAt(0).toUpperCase() + boxesLabel.slice(1)
+                : 'Full packs (not set up)';
+            document.getElementById('directPieceLabel').textContent = `Extra ${base}s`;
+        }
+
+        function addDirectOrderItem() {
+            const product = directProducts.find(item => Number(item.id) === Number(document.getElementById('directProduct').value));
+            const boxes = Math.max(0, Number(document.getElementById('directBoxes').value) || 0);
+            const pieces = Math.max(0, Number(document.getElementById('directPieces').value) || 0);
+            if (!product || (!boxes && !pieces)) {
+                showToast('Choose a product and enter a quantity.', 'warning');
+                return;
+            }
+            const unitsPerBox = Math.max(1, Number(product.pieces_per_box) || 1);
+            const retailPrice = Number(product.selling_price || 0);
+            const wholesalePrice = Number(product.wholesale_box_price || 0);
+            if (boxes > 0 && (unitsPerBox < 2 || wholesalePrice <= 0 || wholesalePrice >= retailPrice * unitsPerBox)) {
+                showToast('This product needs a valid discounted wholesale price in General Manager Product Setup.', 'error');
+                return;
+            }
+            const quantity = (boxes * unitsPerBox) + pieces;
+            if (quantity > Number(product.available_qty || 0)) {
+                showToast(`Only ${product.available_qty} units are available.`, 'error');
+                return;
+            }
+            const line = {
+                product_id: Number(product.id),
+                product,
+                quantity_boxes: boxes,
+                quantity_pieces: pieces,
+                quantity,
+                line_total: (boxes * wholesalePrice) + (pieces * retailPrice)
+            };
+            const existing = directItems.findIndex(item => item.product_id === line.product_id);
+            if (existing >= 0) directItems[existing] = line;
+            else directItems.push(line);
+            document.getElementById('directBoxes').value = 0;
+            document.getElementById('directPieces').value = 0;
+            renderDirectItems();
+        }
+
+        function removeDirectOrderItem(index) {
+            directItems.splice(index, 1);
+            renderDirectItems();
+        }
+
+        function renderDirectItems() {
+            const tbody = document.getElementById('directItemsTable');
+            if (!directItems.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-base-content/45">No products added</td></tr>';
+                document.getElementById('directOrderTotal').textContent = 'PHP 0.00';
+                return;
+            }
+            tbody.innerHTML = directItems.map((item, index) => {
+                const product = item.product;
+                const orderParts = [];
+                if (item.quantity_boxes) orderParts.push(`${item.quantity_boxes} ${product.box_unit || 'box'} @ ${formatCurrency(product.wholesale_box_price)}`);
+                if (item.quantity_pieces) orderParts.push(`${item.quantity_pieces} ${product.base_unit || 'piece'} @ ${formatCurrency(product.selling_price)}`);
+                return `<tr>
+                    <td><p class="font-semibold">${escapeHtml(ProductDisplay.name(product))}</p><p class="text-xs text-base-content/45">${escapeHtml(product.product_code || '')}</p></td>
+                    <td>${escapeHtml(orderParts.join(' + '))}<p class="text-xs text-base-content/45">${item.quantity} total units</p></td>
+                    <td>${Number(product.available_qty)} ${escapeHtml(product.base_unit || 'units')}</td>
+                    <td class="text-right font-mono">${formatCurrency(item.line_total)}</td>
+                    <td><button class="btn btn-ghost btn-xs btn-square text-error" onclick="removeDirectOrderItem(${index})" title="Remove"><i class="fas fa-trash"></i></button></td>
+                </tr>`;
+            }).join('');
+            document.getElementById('directOrderTotal').textContent = formatCurrency(
+                directItems.reduce((sum, item) => sum + item.line_total, 0)
+            );
+            updateDirectCustomerSummary();
+        }
+
+        async function submitDirectOrder() {
+            const customerId = Number(document.getElementById('directCustomer').value || 0);
+            if (!customerId || !directItems.length) {
+                showToast('Choose a customer and add at least one product.', 'warning');
+                return;
+            }
+            const deliveryDate = document.getElementById('directDeliveryDate').value;
+            if (!deliveryDate) {
+                showToast('Choose the requested delivery date.', 'warning');
+                return;
+            }
+            const customer = directCustomers.find(item => Number(item.id) === customerId);
+            const total = directItems.reduce((sum, item) => sum + Number(item.line_total || 0), 0);
+            const paymentType = document.getElementById('directPayment').value;
+            const projected = Number(customer?.outstanding_balance || 0) + total;
+            const needsOverride = paymentType === 'credit' && projected > Number(customer?.credit_limit || 0);
+            const overrideReason = document.getElementById('directCreditReason').value.trim();
+            if (needsOverride && overrideReason.length < 10) {
+                showToast('Explain the credit exception in at least 10 characters.', 'warning');
+                return;
+            }
+            const confirmed = await AuthService.confirmAction({
+                title: needsOverride ? 'Send Credit Exception to GM' : 'Release Customer Order',
+                message: needsOverride
+                    ? 'The order will stay pending until the General Manager approves the credit exception.'
+                    : 'The order will be released directly to Warehouse Finished Goods for preparation.',
+                highlightLabel: 'Customer and order total',
+                highlight: `${customer?.name || customer?.customer_name || 'Customer'} - ${formatCurrency(total)}`,
+                confirmText: needsOverride ? 'Send to GM' : 'Release Order',
+                tone: 'primary',
+                icon: 'fa-paper-plane'
+            });
+            if (!confirmed) return;
+            const button = document.getElementById('submitDirectOrder');
+            button.disabled = true;
+            button.classList.add('loading');
+            try {
+                const response = await SalesService.createCustomerOrder({
+                    customer_id: customerId,
+                    source_type: document.getElementById('directOrderSource').value,
+                    delivery_date: deliveryDate,
+                    delivery_address: document.getElementById('directAddress').value.trim(),
+                    sub_account_id: Number(document.getElementById('directLocation').value) || null,
+                    payment_type: paymentType,
+                    credit_override_reason: overrideReason,
+                    notes: document.getElementById('directNotes').value.trim(),
+                    items: directItems.map(item => ({
+                        product_id: item.product_id,
+                        quantity_boxes: item.quantity_boxes,
+                        quantity_pieces: item.quantity_pieces
+                    }))
+                });
+                const savedStatus = response.data.status || (needsOverride ? 'pending' : 'approved');
+                updateOrdersUrl({ status: savedStatus });
+                document.getElementById('statusFilter').value = savedStatus;
+                updateOrdersHeading(savedStatus);
+                currentPage = 1;
+                directOrderModal.close();
+                SalesSidebar.refresh();
+                SalesSidebar.refreshBadges(true);
+                showToast(needsOverride
+                    ? `${response.data.order_number} sent for GM credit-exception approval.`
+                    : `${response.data.order_number} released to Warehouse Finished Goods.`, 'success');
+                await loadOrders();
+            } catch (error) {
+                showToast(error.message || 'Could not record the customer order.', 'error');
+            } finally {
+                button.disabled = false;
+                button.classList.remove('loading');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    currentUserRole = user.role;
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                    document.getElementById('userInitials').textContent = `${user.first_name[0]}${user.last_name[0]}`;
+                }
+                
+                // Check URL params
+                const params = new URLSearchParams(window.location.search);
+                const status = params.get('status');
+                const orderId = Number(params.get('id') || 0);
+                const action = params.get('action');
+                
+                document.getElementById('statusFilter').value = status || '';
+                updateOrdersHeading(status || '');
+                
+                await loadOrders();
+
+                if (action === 'direct') {
+                    await openDirectOrderModal();
+                }
+
+                if (orderId > 0) {
+                    viewOrder(orderId);
+                }
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+
+        directOrderModal.addEventListener('close', () => {
+            const params = new URLSearchParams(window.location.search);
+            if (['record', 'direct'].includes(params.get('action'))) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('action');
+                window.history.replaceState({}, '', url);
+            }
+            SalesSidebar.refresh();
+        });
+
+        window.addEventListener('popstate', async () => {
+            const params = new URLSearchParams(window.location.search);
+            const status = params.get('status') || '';
+            const action = params.get('action');
+            const orderId = Number(params.get('id') || 0);
+
+            document.getElementById('statusFilter').value = status;
+            updateOrdersHeading(status);
+
+            if (['record', 'direct'].includes(action)) {
+                await openDirectOrderModal();
+            } else if (directOrderModal.open) {
+                directOrderModal.close();
+            }
+
+            SalesSidebar.refresh();
+            await loadOrders();
+            if (orderId > 0) viewOrder(orderId);
+        });
+        
+        async function loadOrders() {
+            const tbody = document.getElementById('ordersTable');
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8"><span class="loading loading-spinner loading-md"></span></td></tr>`;
+            
+            try {
+                const params = {
+                    page: currentPage,
+                    limit: 15,
+                    search: document.getElementById('searchInput').value,
+                    status: document.getElementById('statusFilter').value,
+                    date_from: document.getElementById('dateFrom').value,
+                    date_to: document.getElementById('dateTo').value
+                };
+                
+                const response = await SalesService.getOrders(params);
+                orders = response.data || [];
+                const pagination = response.pagination || { total: 0, page: 1, limit: 15 };
+                
+                // Update stats
+                document.getElementById('pendingCount').textContent = orders.filter(o => o.status === 'pending').length;
+                document.getElementById('approvedCount').textContent = orders.filter(o => o.status === 'approved').length;
+                document.getElementById('deliveredCount').textContent = orders.filter(o =>
+                    ['delivered', 'accepted', 'partially_accepted'].includes(o.status)
+                ).length;
+                
+                const statusBadges = {
+                    'draft': 'badge-ghost',
+                    'pending': 'badge-warning',
+                    'approved': 'badge-info',
+                    'preparing': 'badge-secondary',
+                    'picking': 'badge-secondary',
+                    'ready': 'badge-accent',
+                    'dispatched': 'badge-accent',
+                    'delivered': 'badge-success',
+                    'accepted': 'badge-success',
+                    'partially_accepted': 'badge-warning',
+                    'partially_fulfilled': 'badge-warning',
+                    'cancelled': 'badge-error',
+                    'rejected': 'badge-error'
+                };
+                const statusListLabel = (s) => {
+                    if (s === 'approved') return 'Reserved';
+                    if (s === 'picking' || s === 'preparing') return 'Reserved - Picking';
+                    if (s === 'ready') return 'Reserved - DR Ready';
+                    if (s === 'dispatched') return 'In Transit';
+                    if (s === 'partially_accepted') return 'Delivered (Returns)';
+                    if (s === 'partially_fulfilled') return 'Partial';
+                    return s || '—';
+                };
+                
+                if (orders.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-base-content/60">
+                        <i class="fas fa-shopping-cart text-4xl mb-2 opacity-20"></i>
+                        <p>No orders found</p>
+                    </td></tr>`;
+                } else {
+                    tbody.innerHTML = orders.map(o => {
+                        const orderDateStr = formatOrderDate(o.order_date || o.created_at);
+                        // Never display a delivery date that precedes the order date
+                        const deliveryDateStr = formatDeliveryDate(o.delivery_date, o.order_date || o.created_at);
+                        const typeLabel = formatCustomerType(o.customer_type);
+                        const payRaw = (o.payment_mode || o.payment_type || 'credit').toString().toLowerCase();
+                        const payLabel = payRaw === 'cash' ? 'Cash' : (payRaw === 'credit' ? 'Credit' : payRaw.charAt(0).toUpperCase() + payRaw.slice(1));
+                        const itemCount = Number(o.item_count || o.total_items || o.total_quantity || o.items?.length || 0);
+                        return `
+                        <tr class="hover cursor-pointer" onclick="viewOrder(${o.id})">
+                            <td class="font-mono text-sm font-medium">${o.order_number || 'ORD-' + o.id}</td>
+                            <td>
+                                <div class="font-medium">${escapeHtml(o.customer_name || 'Unknown')}</div>
+                                ${typeLabel ? `<span class="badge badge-ghost badge-xs mt-0.5 font-medium">${typeLabel}</span>` : ''}
+                            </td>
+                            <td class="text-sm tabular-nums">${orderDateStr}</td>
+                            <td class="text-sm tabular-nums">${deliveryDateStr}</td>
+                            <td class="text-center tabular-nums font-medium">${itemCount.toLocaleString()}</td>
+                            <td class="text-right font-mono font-semibold">${formatCurrency(o.total_amount)}</td>
+                            <td><span class="badge badge-outline badge-sm ${payRaw === 'credit' ? 'badge-info' : ''}">${payLabel}</span></td>
+                            <td><span class="badge ${statusBadges[o.status] || 'badge-ghost'} badge-sm" title="${escapeHtml(o.status)}">${escapeHtml(statusListLabel(o.status))}</span></td>
+                            <td>
+                                <div class="dropdown dropdown-end" onclick="event.stopPropagation()">
+                                    <label tabindex="0" class="btn btn-ghost btn-xs"><i class="fas fa-ellipsis-v"></i></label>
+                                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border w-40 p-2 z-50">
+                                        <li><a onclick="viewOrder(${o.id})"><i class="fas fa-eye w-4"></i> View</a></li>
+                                        ${o.status === 'draft' ? `
+                                            <li><a onclick="submitOrder(${o.id})" class="text-primary"><i class="fas fa-paper-plane w-4"></i> Submit</a></li>
+                                            <li><a onclick="cancelOrder(${o.id})" class="text-error"><i class="fas fa-times w-4"></i> Cancel</a></li>
+                                        ` : ''}
+                                        ${o.status === 'pending' ? `
+                                            <li class="disabled"><span class="text-base-content/40"><i class="fas fa-clock w-4"></i> Awaiting GM Approval</span></li>
+                                            <li><a onclick="cancelOrder(${o.id})" class="text-error"><i class="fas fa-times w-4"></i> Cancel</a></li>
+                                        ` : ''}
+                                        ${o.status === 'dispatched' && currentUserRole !== 'sales_custodian' ? `
+                                            <li><a onclick="markDelivered(${o.id})" class="text-success"><i class="fas fa-check-circle w-4"></i> Mark Delivered</a></li>
+                                        ` : ''}
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+                
+                // Pagination
+                const start = (pagination.page - 1) * pagination.limit + 1;
+                const end = Math.min(pagination.page * pagination.limit, pagination.total);
+                document.getElementById('showingStart').textContent = orders.length > 0 ? start : 0;
+                document.getElementById('showingEnd').textContent = end;
+                document.getElementById('totalRecords').textContent = pagination.total;
+                
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-error">
+                    <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                    <p>Failed to load orders</p>
+                    <button class="btn btn-sm btn-ghost mt-2" onclick="loadOrders()">Retry</button>
+                </td></tr>`;
+            }
+        }
+        
+        async function viewOrder(id) {
+            document.getElementById('orderDetailModal').showModal();
+            document.getElementById('orderDetailContent').innerHTML = `
+                <div class="flex justify-center py-8">
+                    <span class="loading loading-spinner loading-lg"></span>
+                </div>
+            `;
+            
+            try {
+                const response = await SalesService.getOrder(id);
+                const order = response.data;
+                
+                const statusBadges = {
+                    'draft': 'badge-ghost',
+                    'pending': 'badge-warning',
+                    'approved': 'badge-info',
+                    'preparing': 'badge-secondary',
+                    'picking': 'badge-secondary',
+                    'ready': 'badge-accent',
+                    'dispatched': 'badge-accent',
+                    'delivered': 'badge-success',
+                    'accepted': 'badge-success',
+                    'partially_accepted': 'badge-warning',
+                    'partially_fulfilled': 'badge-warning',
+                    'cancelled': 'badge-error',
+                    'rejected': 'badge-error'
+                };
+
+                const canCancelOrder = order.status === 'draft' || order.status === 'pending';
+                const orderNum = order.order_number || ('Order #' + order.id);
+                const orderDate = new Date(order.order_date || order.created_at).toLocaleDateString();
+                const deliveryDate = order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '—';
+                const paymentMode = order.payment_mode || order.payment_type || 'Credit';
+                const statusLabel = order.status_label || ({
+                    approved: 'Reserved',
+                    preparing: 'Reserved - Preparing',
+                    picking: 'Reserved - Picking',
+                    ready: 'Reserved - DR Ready',
+                    dispatched: 'In Transit',
+                    partially_accepted: 'Delivered (Returns)'
+                }[order.status] || order.status);
+                const hasReturns = !!order.has_returns;
+                const fulfillmentVerified = !!order.fulfillment_verified;
+                const originalTotal = order.original_total != null ? order.original_total : order.total_amount;
+                const billableTotal = order.billable_total != null ? order.billable_total : order.total_amount;
+                const returnCredit = order.return_credit_total != null ? order.return_credit_total : 0;
+                const sourceLabels = {
+                    customer_po_email: 'Email PO',
+                    manual_phone: 'Phone',
+                    manual_walk_in: 'Walk-in',
+                    manual_message: 'Message / Chat',
+                    direct_sales: 'Direct order (legacy)',
+                    manual: 'Manual entry (legacy)'
+                };
+                const orderSourceLabel = sourceLabels[order.source_type] || 'Recorded order';
+                const importedSourceHtml = order.source_type === 'customer_po_email' && order.source_import ? `
+                    <div class="alert alert-info mb-5 py-3">
+                        <i class="fas fa-envelope-open-text"></i>
+                        <div class="flex-1">
+                            <p class="font-semibold">Imported from customer email</p>
+                            <p class="text-xs">${escapeHtml(order.source_import.sender_email || '')} · ${escapeHtml(order.source_import.attachment_original_name || '')}</p>
+                        </div>
+                        <a class="btn btn-ghost btn-xs" href="order_inbox.html?open=${Number(order.source_import.id)}">Open source PO</a>
+                    </div>
+                ` : '';
+
+                const itemsHtml = (order.items || []).length
+                    ? (order.items || []).map(item => {
+                        const ordered = parseInt(item.quantity_ordered ?? item.quantity, 10) || 0;
+                        const returned = parseInt(item.quantity_returned, 10) || 0;
+                        const accepted = parseInt(
+                            item.quantity_accepted ?? item.final_billable_qty ?? item.quantity,
+                            10
+                        ) || 0;
+                        const unitPrice = parseFloat(item.unit_price) || 0;
+                        const originalSub = parseFloat(item.original_subtotal) || (ordered * unitPrice);
+                        const billableSub = parseFloat(item.billable_subtotal ?? item.subtotal) || (accepted * unitPrice);
+                        const credit = parseFloat(item.return_credit) || Math.max(0, originalSub - billableSub);
+                        const rowReturn = item.has_returns || returned > 0 || (fulfillmentVerified && accepted < ordered);
+                        return `
+                        <tr class="${rowReturn ? 'od-row-return' : ''}">
+                            <td class="od-product">
+                                ${escapeHtml(ProductDisplay.name(item))}
+                                ${rowReturn ? '<div class="text-xs text-warning mt-0.5"><i class="fas fa-undo mr-1"></i>Return applied</div>' : ''}
+                            </td>
+                            <td class="od-num">${ordered}</td>
+                            <td class="od-num ${returned > 0 ? 'od-credit' : ''}">${returned > 0 ? '−' + returned : '0'}</td>
+                            <td class="od-num font-semibold">${accepted}</td>
+                            <td class="od-num">${formatCurrency(unitPrice)}</td>
+                            <td class="od-num">
+                                ${formatCurrency(billableSub)}
+                                ${rowReturn ? `<div class="text-xs text-base-content/45 line-through">${formatCurrency(originalSub)}</div>` : ''}
+                                ${credit > 0 ? `<div class="text-xs od-credit">−${formatCurrency(credit)}</div>` : ''}
+                            </td>
+                        </tr>`;
+                    }).join('')
+                    : '<tr><td colspan="6" class="text-center py-6 text-base-content/50">No items</td></tr>';
+
+                const billingStrip = fulfillmentVerified ? `
+                    <div class="od-billing-strip">
+                        <div>
+                            <span class="text-base-content/50 text-xs uppercase tracking-wide">Original</span>
+                            <strong>${formatCurrency(originalTotal)}</strong>
+                        </div>
+                        <div>
+                            <span class="text-base-content/50 text-xs uppercase tracking-wide">Return credit</span>
+                            <strong class="${returnCredit > 0 ? 'od-credit' : ''}">${returnCredit > 0 ? '−' + formatCurrency(returnCredit) : formatCurrency(0)}</strong>
+                        </div>
+                        <div>
+                            <span class="text-base-content/50 text-xs uppercase tracking-wide">Billable total</span>
+                            <strong class="text-primary">${formatCurrency(billableTotal)}</strong>
+                        </div>
+                    </div>
+                ` : '';
+
+                document.getElementById('orderDetailContent').innerHTML = `
+                    <header class="od-header">
+                        <h3 class="od-header__title">
+                            <i class="fas fa-file-invoice"></i>
+                            <span>${orderNum}</span>
+                            <span class="badge ${statusBadges[order.status] || 'badge-ghost'} od-header__badge" title="${escapeHtml(order.status)}">${escapeHtml(statusLabel)}</span>
+                            ${hasReturns ? '<span class="badge badge-warning badge-sm">With returns</span>' : ''}
+                        </h3>
+                    </header>
+
+                    <div class="od-meta">
+                        <div class="od-meta__item">
+                            <span class="od-meta__label">Customer</span>
+                            <span class="od-meta__value">${escapeHtml(order.customer_name || '—')}</span>
+                        </div>
+                        <div class="od-meta__item">
+                            <span class="od-meta__label">Order Date</span>
+                            <span class="od-meta__value">${orderDate}</span>
+                        </div>
+                        <div class="od-meta__item">
+                            <span class="od-meta__label">Delivery Date</span>
+                            <span class="od-meta__value">${deliveryDate}</span>
+                        </div>
+                        <div class="od-meta__item">
+                            <span class="od-meta__label">Payment Mode</span>
+                            <span class="od-meta__value">${paymentMode}</span>
+                        </div>
+                        <div class="od-meta__item">
+                            <span class="od-meta__label">Order Source</span>
+                            <span class="od-meta__value">${escapeHtml(orderSourceLabel)}</span>
+                        </div>
+                    </div>
+                    ${importedSourceHtml}
+
+                    <h4 class="od-section-title">Order Items${fulfillmentVerified ? ' · Fulfillment' : ''}</h4>
+                    <div class="od-table-wrap">
+                        <table class="od-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="od-num">Ordered</th>
+                                    <th class="od-num">Returned</th>
+                                    <th class="od-num">Accepted</th>
+                                    <th class="od-num">Price</th>
+                                    <th class="od-num">Billable</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsHtml}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="5" class="od-total-label">${fulfillmentVerified && hasReturns ? 'Billable total' : 'Total'}</td>
+                                    <td class="od-num od-total-value">${formatCurrency(billableTotal)}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    ${billingStrip}
+
+                    ${order.notes ? `
+                        <div class="od-notes">
+                            <span class="od-notes__label">Notes</span>
+                            <p class="od-notes__body">${escapeHtml(order.notes)}</p>
+                        </div>
+                    ` : ''}
+
+                    <footer class="od-footer">
+                        <div class="od-footer__left">
+                            ${canCancelOrder ? `
+                                <button type="button" class="btn btn-outline btn-error btn-sm gap-2"
+                                    onclick="cancelOrder(${order.id}); document.getElementById('orderDetailModal').close();">
+                                    <i class="fas fa-ban"></i> Cancel Order
+                                </button>
+                            ` : ''}
+                            ${order.status === 'pending' ? `
+                                <span class="od-status-banner">
+                                    <i class="fas fa-clock"></i> Awaiting GM Approval
+                                </span>
+                            ` : ''}
+                        </div>
+                        <div class="od-footer__right">
+                            <button type="button" class="btn btn-ghost btn-sm"
+                                onclick="document.getElementById('orderDetailModal').close()">
+                                Close
+                            </button>
+                            ${order.status === 'draft' ? `
+                                <button type="button" class="btn btn-primary btn-sm gap-2"
+                                    onclick="submitOrder(${order.id}); document.getElementById('orderDetailModal').close();">
+                                    <i class="fas fa-paper-plane"></i> Submit for Approval
+                                </button>
+                            ` : ''}
+                            ${order.status === 'dispatched' && currentUserRole !== 'sales_custodian' ? `
+                                <button type="button" class="btn btn-success btn-sm gap-2"
+                                    onclick="markDelivered(${order.id}); document.getElementById('orderDetailModal').close();">
+                                    <i class="fas fa-check-circle"></i> Mark Delivered
+                                </button>
+                            ` : ''}
+                        </div>
+                    </footer>
+                `;
+            } catch (error) {
+                console.error('Error loading order:', error);
+                document.getElementById('orderDetailContent').innerHTML = `
+                    <div class="alert alert-error">Failed to load order details</div>
+                `;
+            }
+        }
+        
+        async function submitOrder(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Submit Order',
+                message: 'Submit this order for approval?',
+                confirmText: 'Submit',
+                tone: 'primary',
+                icon: 'fa-paper-plane'
+            });
+            if (!confirmed) return;
+            try {
+                await SalesService.updateOrderStatus(id, 'pending');
+                showToast('Order submitted for approval', 'success');
+                loadOrders();
+            } catch (error) {
+                console.error('Error submitting order:', error);
+                showToast('Failed to submit order', 'error');
+            }
+        }
+        
+        // Note: approveOrder removed - Only General Manager can approve orders via Admin panel
+        
+        async function cancelOrder(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Cancel Order',
+                message: 'Cancel this order?',
+                confirmText: 'Cancel Order',
+                tone: 'error',
+                icon: 'fa-ban'
+            });
+            if (!confirmed) return;
+            try {
+                await SalesService.updateOrderStatus(id, 'cancelled');
+                showToast('Order cancelled', 'success');
+                loadOrders();
+            } catch (error) {
+                console.error('Error cancelling order:', error);
+                showToast('Failed to cancel order', 'error');
+            }
+        }
+        
+        async function markDelivered(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Confirm Delivery',
+                message: 'Confirm this order has been delivered to the customer?',
+                confirmText: 'Mark Delivered',
+                tone: 'success',
+                icon: 'fa-truck'
+            });
+            if (!confirmed) return;
+            try {
+                await SalesService.updateOrderStatus(id, 'delivered');
+                showToast('Order marked as delivered', 'success');
+                loadOrders();
+            } catch (error) {
+                console.error('Error marking delivered:', error);
+                showToast('Failed to update order status', 'error');
+            }
+        }
+        
+        // Note: createDeliveryReceipt removed - DR creation is now handled by Warehouse FG
+    </script>
+</body>
+</html>

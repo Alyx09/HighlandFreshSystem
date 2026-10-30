@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers - Sales Custodian | Highland Fresh</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Customer detail modal — premium SaaS aesthetics (display only) */
+        #customerDetailModal .modal-box {
+            padding: 1.5rem 1.75rem 1.25rem;
+            border-radius: 1rem;
+            border: 1px solid oklch(var(--bc) / 0.08);
+            box-shadow: 0 25px 50px -12px oklch(0% 0 0 / 0.18);
+        }
+
+        #customerDetailModal .cd-avatar {
+            width: 3rem;
+            height: 3rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 0.875rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: oklch(var(--p));
+            background: linear-gradient(145deg, oklch(var(--p) / 0.14), oklch(var(--p) / 0.06));
+            border: 1px solid oklch(var(--p) / 0.18);
+            box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.35);
+        }
+
+        #customerDetailModal .cd-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            padding: 0.15rem 0.55rem;
+            border-radius: 9999px;
+            line-height: 1.4;
+        }
+        #customerDetailModal .cd-status-badge.is-active {
+            color: oklch(0.45 0.12 155);
+            background: oklch(0.94 0.04 155);
+            border: 1px solid oklch(0.85 0.06 155);
+        }
+        #customerDetailModal .cd-status-badge.is-active::before {
+            content: '';
+            width: 0.35rem;
+            height: 0.35rem;
+            border-radius: 9999px;
+            background: oklch(0.55 0.15 155);
+        }
+        #customerDetailModal .cd-status-badge.is-inactive {
+            color: oklch(var(--bc) / 0.55);
+            background: oklch(var(--b2));
+            border: 1px solid oklch(var(--bc) / 0.1);
+        }
+
+        #customerDetailModal .cd-kpi-card {
+            position: relative;
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--bc) / 0.1);
+            border-radius: 0.875rem;
+            padding: 1rem 1.05rem 0.95rem;
+            box-shadow: 0 1px 2px oklch(0% 0 0 / 0.04), 0 2px 8px oklch(0% 0 0 / 0.04);
+        }
+        #customerDetailModal .cd-kpi-icon {
+            position: absolute;
+            top: 0.85rem;
+            right: 0.85rem;
+            width: 1.75rem;
+            height: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            background: oklch(var(--b2) / 0.85);
+            color: oklch(var(--bc) / 0.38);
+            font-size: 0.72rem;
+        }
+        #customerDetailModal .cd-kpi-label {
+            font-size: 0.625rem;
+            font-weight: 600;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            padding-right: 2rem;
+        }
+        #customerDetailModal .cd-kpi-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            margin-top: 0.35rem;
+            color: oklch(var(--bc) / 0.88);
+        }
+        #customerDetailModal .cd-kpi-value.is-debt {
+            color: oklch(0.32 0.01 260); /* neutral bold dark grey */
+        }
+        #customerDetailModal .cd-kpi-value.is-debt-warning {
+            color: oklch(0.58 0.15 55); /* orange — nearing credit limit */
+        }
+        #customerDetailModal .cd-kpi-value.is-available {
+            color: oklch(0.48 0.14 155);
+        }
+        #customerDetailModal .cd-kpi-value.is-over-limit {
+            color: oklch(0.55 0.2 25);
+        }
+
+        /* Minimal underline tabs (not pill/boxed) */
+        #customerDetailModal .cd-tabs {
+            display: flex;
+            gap: 0.25rem;
+            border-bottom: 1px solid oklch(var(--bc) / 0.1);
+            margin-bottom: 1.25rem;
+        }
+        #customerDetailModal .cd-tab {
+            position: relative;
+            padding: 0.65rem 0.9rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: oklch(var(--bc) / 0.5);
+            cursor: pointer;
+            background: transparent;
+            border: 0;
+            border-radius: 0;
+            transition: color 0.15s ease;
+            white-space: nowrap;
+        }
+        #customerDetailModal .cd-tab:hover {
+            color: oklch(var(--bc) / 0.8);
+        }
+        #customerDetailModal .cd-tab.tab-active {
+            color: oklch(var(--p));
+            font-weight: 600;
+            background: transparent;
+        }
+        #customerDetailModal .cd-tab.tab-active::after {
+            content: '';
+            position: absolute;
+            left: 0.65rem;
+            right: 0.65rem;
+            bottom: -1px;
+            height: 2px;
+            border-radius: 2px 2px 0 0;
+            background: oklch(var(--p));
+        }
+
+        #customerDetailModal .cd-info-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.45);
+            margin-bottom: 0.2rem;
+        }
+        #customerDetailModal .cd-info-value {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: oklch(var(--bc) / 0.88);
+            line-height: 1.35;
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <!-- Canonical Sales navigation is mounted by js/sales/sidebar.js. -->
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-users text-primary"></i>
+                    <span class="font-semibold">Customer Management</span>
+                </div>
+            </div>
+            <div class="flex-none gap-2">
+                <button class="btn btn-primary btn-sm" onclick="openAddCustomerModal()">
+                    <i class="fas fa-plus"></i> Add Customer
+                </button>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+        
+        <main class="flex-1 p-4 lg:p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-base-content">Customer List</h1>
+                    <p class="text-base-content/60">Manage institutional, wholesale, and retail customers</p>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card bg-base-100 shadow-sm mb-6">
+                <div class="card-body p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div class="form-control">
+                            <input type="text" id="searchCustomer" placeholder="Search name, contact, phone..." class="input input-bordered input-sm" onkeyup="filterCustomers()">
+                        </div>
+                        <div class="form-control">
+                            <select id="typeFilter" class="select select-bordered select-sm" onchange="filterCustomers()">
+                                <option value="">All Types</option>
+                                <option value="supermarket">Supermarket</option>
+                                <option value="institutional">Institutional</option>
+                                <option value="feeding_program">Feeding Program</option>
+                                <option value="distributor">Wholesaler</option>
+                                <option value="restaurant">Restaurant / Food Service</option>
+                                <option value="walk_in">Small Business / Retailer</option>
+                            </select>
+                        </div>
+                        <div class="form-control">
+                            <select id="paymentTermsFilter" class="select select-bordered select-sm" onchange="filterCustomers()">
+                                <option value="">All Payment Terms</option>
+                                <option value="0">Cash (0 days)</option>
+                                <option value="7">Net 7</option>
+                                <option value="14">Net 14</option>
+                                <option value="15">Net 15</option>
+                                <option value="30">Net 30</option>
+                                <option value="45">Net 45</option>
+                                <option value="60">Net 60</option>
+                                <option value="90">Net 90</option>
+                            </select>
+                        </div>
+                        <div class="form-control">
+                            <select id="statusFilter" class="select select-bordered select-sm" onchange="filterCustomers()">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="blocked">Blocked</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-title text-xs">Total Customers</div>
+                    <div class="stat-value text-2xl text-primary" id="totalCustomers">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-title text-xs">Supermarkets</div>
+                    <div class="stat-value text-2xl" id="supermarketCount">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-title text-xs">Institutional</div>
+                    <div class="stat-value text-2xl" id="institutionalCount">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-title text-xs">Wholesalers</div>
+                    <div class="stat-value text-2xl" id="wholesalerCount">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-title text-xs">Small Business / Retailer</div>
+                    <div class="stat-value text-2xl" id="individualCount">0</div>
+                </div>
+            </div>
+            
+            <!-- Customer Table -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Customer</th>
+                                    <th>Type</th>
+                                    <th>Contact</th>
+                                    <th>Credit Info</th>
+                                    <th>Outstanding</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customerTable">
+                                <tr>
+                                    <td colspan="7" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <!-- Add/Edit Customer Modal -->
+    <dialog id="customerModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg mb-4" id="customerModalTitle">Add New Customer</h3>
+            <form id="customerForm">
+                <input type="hidden" id="customerId">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="form-control md:col-span-2">
+                        <label class="label"><span class="label-text">Customer Name *</span></label>
+                        <input type="text" id="customerName" class="input input-bordered" required placeholder="e.g., SM Supermarket - CDO">
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Customer Type *</span></label>
+                        <select id="customerType" class="select select-bordered" required onchange="toggleSubLocation()">
+                            <option value="">Select type...</option>
+                            <option value="supermarket">Supermarket</option>
+                            <option value="institutional">Institutional</option>
+                            <option value="feeding_program">Feeding Program (DepEd)</option>
+                            <option value="distributor">Wholesaler</option>
+                            <option value="restaurant">Restaurant / Food Service</option>
+                            <option value="walk_in">Small Business / Retailer</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-control md:col-span-2" id="subLocationField">
+                        <div class="flex items-center justify-between">
+                            <label class="label"><span class="label-text">Saved Delivery Locations</span></label>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="addSalesLocationRow()"><i class="fas fa-plus"></i> Add location</button>
+                        </div>
+                        <div id="salesLocationRows" class="space-y-2"></div>
+                        <label class="label"><span class="label-text-alt">The correct branch or school is selected when creating an order.</span></label>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Contact Person *</span></label>
+                        <input type="text" id="customerContact" class="input input-bordered" maxlength="160" data-person-name required placeholder="Contact name">
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Phone Number *</span></label>
+                        <input type="tel" id="customerPhone" class="input input-bordered" inputmode="numeric"
+                            maxlength="11" pattern="(?:09\d{9}|0[2-8]\d{8,9})" required placeholder="09171234567">
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Email <span id="salesEmailRequired">*</span></span></label>
+                        <input type="email" id="customerEmail" class="input input-bordered" maxlength="254"
+                            placeholder="name@example.com">
+                        <label class="label"><span class="label-text-alt">Required when this customer uses the PO Inbox.</span></label>
+                    </div>
+                    
+                    <div class="form-control md:col-span-2">
+                        <label class="label"><span class="label-text">Main Billing / Delivery Address *</span></label>
+                        <textarea id="customerAddress" class="textarea textarea-bordered" required placeholder="Full delivery address"></textarea>
+                    </div>
+                </div>
+                
+                <div class="divider">Credit Settings</div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Credit Limit</span></label>
+                        <div class="input-group">
+                            <span class="bg-base-200 px-3 flex items-center">₱</span>
+                            <input type="number" id="customerCreditLimit" class="input input-bordered w-full" placeholder="0.00" min="0" step="0.01">
+                        </div>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Payment Terms</span></label>
+                        <select id="customerPaymentTerms" class="select select-bordered">
+                            <option value="0">Cash (0 days)</option>
+                            <option value="7">Net 7</option>
+                            <option value="14">Net 14</option>
+                            <option value="15">Net 15</option>
+                            <option value="30">Net 30</option>
+                            <option value="45">Net 45</option>
+                            <option value="60">Net 60</option>
+                            <option value="90">Net 90</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Default Payment Mode</span></label>
+                        <select id="customerDefaultPayment" class="select select-bordered" onchange="handleSalesPaymentTypeChange()">
+                            <option value="cash">Cash</option>
+                            <option value="credit">Credit</option>
+                        </select>
+                        <label class="label"><span class="label-text-alt text-base-content/60">Cash disables terms and credit limit.</span></label>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Status</span></label>
+                        <select id="customerStatus" class="select select-bordered" onchange="handleSalesCustomerStatus()">
+                            <option value="active">Active</option><option value="inactive">Inactive</option><option value="blocked">Blocked</option>
+                        </select>
+                    </div>
+                    <div id="salesBlockedReasonField" class="form-control hidden">
+                        <label class="label"><span class="label-text">Why is this customer blocked? *</span></label>
+                        <input type="text" id="salesBlockedReason" class="input input-bordered" maxlength="500">
+                    </div>
+                </div>
+                
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="document.getElementById('customerModal').close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Customer</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    
+    <!-- Customer Detail / Management Modal -->
+    <dialog id="customerDetailModal" class="modal">
+        <div class="modal-box max-w-3xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" aria-label="Close">✕</button>
+            </form>
+
+            <!-- Header: avatar + title + status -->
+            <div class="flex items-start gap-3.5 mb-5 pr-10">
+                <div class="cd-avatar" id="customerDetailAvatar" aria-hidden="true">—</div>
+                <div class="min-w-0 flex-1 pt-0.5">
+                    <h3 class="font-bold text-xl leading-tight tracking-tight text-base-content" id="customerDetailName">Customer</h3>
+                    <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                        <span class="font-mono text-sm font-semibold text-base-content/50" id="customerDetailId">—</span>
+                        <span class="cd-status-badge is-active" id="customerDetailStatus">Active</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Credit metrics — white cards, icons, refined type -->
+            <div class="grid grid-cols-3 gap-3 mb-5">
+                <div class="cd-kpi-card">
+                    <div class="cd-kpi-icon" title="Outstanding"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="cd-kpi-label">Outstanding</div>
+                    <div class="cd-kpi-value is-debt" id="detailOutstanding">₱0.00</div>
+                </div>
+                <div class="cd-kpi-card">
+                    <div class="cd-kpi-icon" title="Credit Limit"><i class="fas fa-shield-alt"></i></div>
+                    <div class="cd-kpi-label">Credit Limit</div>
+                    <div class="cd-kpi-value" id="detailCreditLimit">₱0.00</div>
+                </div>
+                <div class="cd-kpi-card">
+                    <div class="cd-kpi-icon" title="Available"><i class="fas fa-wallet"></i></div>
+                    <div class="cd-kpi-label">Available</div>
+                    <div class="cd-kpi-value is-available" id="detailAvailableCredit">₱0.00</div>
+                </div>
+            </div>
+            
+            <!-- Minimal underline tabs -->
+            <div class="cd-tabs" role="tablist">
+                <button type="button" class="cd-tab tab-active" data-tab="info" onclick="switchDetailTab('info', this)" role="tab">Info</button>
+                <button type="button" class="cd-tab" data-tab="orders" onclick="switchDetailTab('orders', this)" role="tab">Recent Orders</button>
+                <button type="button" class="cd-tab" data-tab="balance" onclick="switchDetailTab('balance', this)" role="tab">Balance History</button>
+            </div>
+            
+            <div id="detailInfoTab">
+                <div class="grid grid-cols-2 gap-x-6 gap-y-4">
+                    <div>
+                        <p class="cd-info-label">Type</p>
+                        <p class="cd-info-value" id="detailType">—</p>
+                    </div>
+                    <div>
+                        <p class="cd-info-label">Sub-Location</p>
+                        <p class="cd-info-value" id="detailSubLocation">—</p>
+                    </div>
+                    <div>
+                        <p class="cd-info-label">Contact Person</p>
+                        <p class="cd-info-value" id="detailContact">—</p>
+                    </div>
+                    <div>
+                        <p class="cd-info-label">Phone</p>
+                        <p class="cd-info-value" id="detailPhone">—</p>
+                    </div>
+                    <div>
+                        <p class="cd-info-label">Email</p>
+                        <p class="cd-info-value" id="detailEmail">—</p>
+                    </div>
+                    <div>
+                        <p class="cd-info-label">Payment Terms</p>
+                        <p class="cd-info-value" id="detailPaymentTerms">—</p>
+                    </div>
+                    <div class="col-span-2">
+                        <p class="cd-info-label">Address</p>
+                        <p class="cd-info-value" id="detailAddress">—</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="detailOrdersTab" style="display: none;">
+                <div class="overflow-x-auto rounded-xl border border-base-300/70">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200/80">
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Order #</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Date</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Amount</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailOrdersTable">
+                            <tr><td colspan="4" class="text-center py-4 text-base-content/60">No recent orders</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="detailBalanceTab" style="display: none;">
+                <div class="overflow-x-auto rounded-xl border border-base-300/70">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200/80">
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Date</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Description</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Debit</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Credit</th>
+                                <th class="text-xs font-bold uppercase tracking-wide text-base-content/60">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailBalanceTable">
+                            <tr><td colspan="5" class="text-center py-4 text-base-content/60">No balance history</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="modal-action mt-6">
+                <button type="button" class="btn btn-ghost border border-base-300 min-h-10 h-10 px-5" onclick="document.getElementById('customerDetailModal').close()">Close</button>
+                <button type="button" class="btn btn-primary min-h-10 h-10 px-5 gap-2" onclick="editFromDetail()">
+                    <i class="fas fa-edit"></i> Edit Customer
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+    
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="sales_custodian,general_manager"></script>
+    <script src="../../js/sales/sidebar.js?v=20260828-salesnav1"></script>
+    <script src="../../js/sales/sales.service.js?v=20260716-cust1"></script>
+    
+    <script>
+        let customers = [];
+        let currentDetailCustomer = null;
+        
+        
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-PH', { 
+                style: 'currency', 
+                currency: 'PHP' 
+            }).format(amount || 0);
+        }
+        
+        function toggleSubLocation() {
+            const type = document.getElementById('customerType').value;
+            const needsEmail = type !== 'walk_in';
+            document.getElementById('customerEmail').required = needsEmail;
+            document.getElementById('salesEmailRequired').classList.toggle('hidden', !needsEmail);
+        }
+
+        function handleSalesPaymentTypeChange() {
+            const isCredit = document.getElementById('customerDefaultPayment').value === 'credit';
+            const terms = document.getElementById('customerPaymentTerms');
+            const limit = document.getElementById('customerCreditLimit');
+            terms.disabled = !isCredit;
+            limit.disabled = !isCredit;
+            terms.required = isCredit;
+            limit.required = isCredit;
+            limit.min = isCredit ? '0.01' : '0';
+            if (!isCredit) {
+                terms.value = '0';
+                limit.value = '0';
+            } else if (terms.value === '0') {
+                terms.value = '30';
+            }
+        }
+
+        function handleSalesCustomerStatus() {
+            const blocked = document.getElementById('customerStatus').value === 'blocked';
+            document.getElementById('salesBlockedReasonField').classList.toggle('hidden', !blocked);
+            document.getElementById('salesBlockedReason').required = blocked;
+        }
+
+        function addSalesLocationRow(location = {}) {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 sales-location-row';
+            row.innerHTML = `
+                <input type="text" class="input input-bordered sales-location-name" maxlength="200" placeholder="Branch / school name" value="${escapeHtml(location.sub_name || '')}">
+                <input type="text" class="input input-bordered sales-location-address" maxlength="500" placeholder="Delivery address" value="${escapeHtml(location.address || '')}">
+                <button type="button" class="btn btn-ghost btn-square text-error" title="Remove location"><i class="fas fa-trash"></i></button>`;
+            row.querySelector('button').addEventListener('click', () => row.remove());
+            document.getElementById('salesLocationRows').appendChild(row);
+        }
+
+        function setSalesLocations(locations = []) {
+            const holder = document.getElementById('salesLocationRows');
+            holder.innerHTML = '';
+            locations.filter(l => (l.status || 'active') === 'active').forEach(addSalesLocationRow);
+            if (!holder.children.length) addSalesLocationRow();
+        }
+
+        function collectSalesLocations() {
+            return [...document.querySelectorAll('.sales-location-row')].map(row => ({
+                sub_name: row.querySelector('.sales-location-name').value.trim(),
+                address: row.querySelector('.sales-location-address').value.trim()
+            })).filter(location => location.sub_name || location.address);
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                    document.getElementById('userInitials').textContent = `${user.first_name[0]}${user.last_name[0]}`;
+                }
+                
+                // Check URL params for specific customer
+                const params = new URLSearchParams(window.location.search);
+                const customerId = params.get('id');
+                const requestedType = params.get('type') === 'wholesaler'
+                    ? 'distributor'
+                    : params.get('type');
+                
+                await loadCustomers();
+
+                if (requestedType && [...document.getElementById('typeFilter').options].some(option => option.value === requestedType)) {
+                    document.getElementById('typeFilter').value = requestedType;
+                    filterCustomers();
+                }
+                
+                if (customerId) {
+                    viewCustomerDetail(parseInt(customerId));
+                }
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+        
+        async function loadCustomers() {
+            try {
+                const response = await SalesService.getCustomers();
+                customers = response.data || [];
+                renderCustomers(customers);
+                updateStats();
+            } catch (error) {
+                console.error('Failed to load customers:', error);
+                document.getElementById('customerTable').innerHTML = `
+                    <tr><td colspan="7" class="text-center py-8 text-error">Failed to load customers</td></tr>`;
+            }
+        }
+        
+        function renderCustomers(list) {
+            const tbody = document.getElementById('customerTable');
+            
+            if (!list || list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-base-content/60">No customers found</td></tr>`;
+                return;
+            }
+            
+            const typeIcons = {
+                'supermarket': 'fa-store',
+                'institutional': 'fa-building',
+                'school': 'fa-school',
+                'feeding_program': 'fa-school',
+                'wholesaler': 'fa-truck',
+                'distributor': 'fa-truck',
+                'individual': 'fa-user',
+                'walk_in': 'fa-user'
+            };
+            
+            const typeLabels = {
+                'supermarket': 'Supermarket',
+                'institutional': 'Institutional',
+                'school': 'School',
+                'feeding_program': 'Feeding Program',
+                'wholesaler': 'Wholesaler',
+                'distributor': 'Wholesaler',
+                'walk_in': 'Small Business / Retailer'
+            };
+            
+            tbody.innerHTML = list.map(c => {
+                const name = escapeHtml(c.customer_name || c.name || 'Unknown');
+                const paymentTerms = c.payment_terms_days ?? c.payment_terms ?? 0;
+                const phone = escapeHtml(c.phone || c.contact_number || '');
+                const code = escapeHtml(c.customer_code || `CUS${String(c.id).padStart(5, '0')}`);
+                const outstanding = Number(c.outstanding_balance || 0);
+                const limit = Number(c.credit_limit || 0);
+                const available = limit - outstanding;
+                const isOverLimit = limit > 0 && outstanding > limit;
+                
+                return `
+                <tr class="hover">
+                    <td>
+                        <div class="flex items-center gap-3">
+                            <div class="avatar placeholder">
+                                <div class="w-10 rounded-lg bg-primary/10 text-primary">
+                                    <i class="fas ${typeIcons[c.customer_type] || 'fa-building'}"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="font-medium">${name}</div>
+                                <div class="text-xs text-base-content/60 font-mono">${code}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge badge-outline badge-sm">${escapeHtml(typeLabels[c.customer_type] || (c.customer_type ? c.customer_type.charAt(0).toUpperCase() + c.customer_type.slice(1) : '—'))}</span></td>
+                    <td>
+                        <div class="text-sm">${escapeHtml(c.contact_person || '—')}</div>
+                        <div class="text-xs text-base-content/60">${phone || '—'}</div>
+                    </td>
+                    <td>
+                        <div class="text-sm">${formatCurrency(c.credit_limit)}</div>
+                        <div class="text-xs text-base-content/60">Net ${paymentTerms} days</div>
+                    </td>
+                    <td>
+                        <div class="font-semibold ${(c.outstanding_balance || 0) > 0 ? 'text-warning' : ''}">${formatCurrency(c.outstanding_balance)}</div>
+                        ${isOverLimit ? '<div class="text-xs text-error">Over limit!</div>' : ''}
+                    </td>
+                    <td>
+                        <span class="badge badge-${c.status === 'active' ? 'success' : c.status === 'suspended' ? 'error' : 'ghost'} badge-sm">${c.status || 'active'}</span>
+                    </td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="btn btn-ghost btn-xs" onclick="viewCustomerDetail(${c.id})" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-xs" onclick="editCustomer(${c.id})" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+        
+        function updateStats() {
+            document.getElementById('totalCustomers').textContent = customers.length;
+            document.getElementById('supermarketCount').textContent = customers.filter(c => c.customer_type === 'supermarket').length;
+            document.getElementById('institutionalCount').textContent = customers.filter(c => c.customer_type === 'institutional' || c.customer_type === 'feeding_program').length;
+            document.getElementById('wholesalerCount').textContent = customers.filter(c => c.customer_type === 'distributor').length;
+            document.getElementById('individualCount').textContent = customers.filter(c => c.customer_type === 'walk_in').length;
+        }
+        
+        function filterCustomers() {
+            const search = document.getElementById('searchCustomer').value.toLowerCase();
+            const type = document.getElementById('typeFilter').value;
+            const terms = document.getElementById('paymentTermsFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            
+            let filtered = customers.filter(c => {
+                const matchSearch = !search || 
+                    c.name.toLowerCase().includes(search) || 
+                    (c.contact_person && c.contact_person.toLowerCase().includes(search)) ||
+                    (c.phone && c.phone.includes(search)) ||
+                    (c.sub_location && c.sub_location.toLowerCase().includes(search));
+                const matchType = !type || c.customer_type === type;
+                const matchTerms = !terms || (c.payment_terms || 0).toString() === terms;
+                const matchStatus = !status || (c.status || 'active') === status;
+                return matchSearch && matchType && matchTerms && matchStatus;
+            });
+            
+            renderCustomers(filtered);
+        }
+        
+        function openAddCustomerModal() {
+            document.getElementById('customerModalTitle').textContent = 'Add New Customer';
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerId').value = '';
+            document.getElementById('customerStatus').value = 'active';
+            setSalesLocations();
+            toggleSubLocation();
+            handleSalesPaymentTypeChange();
+            handleSalesCustomerStatus();
+            document.getElementById('customerModal').showModal();
+        }
+        
+        async function editCustomer(id) {
+            let customer = customers.find(c => Number(c.id) === Number(id));
+            if (!customer) return;
+            try {
+                const detail = await SalesService.getCustomer(id);
+                customer = { ...customer, ...(detail?.data || {}) };
+            } catch (error) {
+                console.warn('Using customer list data because details could not be loaded.', error);
+            }
+            
+            document.getElementById('customerModalTitle').textContent = 'Edit Customer';
+            document.getElementById('customerId').value = customer.id;
+            document.getElementById('customerName').value = customer.name;
+            document.getElementById('customerType').value = customer.customer_type || '';
+            const locations = Array.isArray(customer.locations) ? customer.locations : [];
+            if (!locations.length && customer.sub_location) locations.push({sub_name: customer.sub_location, address: customer.address || ''});
+            setSalesLocations(locations);
+            document.getElementById('customerContact').value = customer.contact_person || '';
+            document.getElementById('customerPhone').value = customer.phone || '';
+            document.getElementById('customerEmail').value = customer.email || '';
+            document.getElementById('customerAddress').value = customer.address || '';
+            document.getElementById('customerCreditLimit').value = customer.credit_limit || '';
+            document.getElementById('customerPaymentTerms').value = String(customer.payment_terms_days ?? customer.payment_terms ?? 30);
+            document.getElementById('customerPhone').value = customer.phone || customer.contact_number || '';
+            document.getElementById('customerDefaultPayment').value = customer.default_payment_type || customer.default_payment_mode || 'cash';
+            document.getElementById('customerStatus').value = customer.status || 'active';
+            document.getElementById('salesBlockedReason').value = customer.blocked_reason || '';
+            
+            toggleSubLocation();
+            handleSalesPaymentTypeChange();
+            handleSalesCustomerStatus();
+            document.getElementById('customerModal').showModal();
+        }
+        
+        document.getElementById('customerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('customerId').value;
+            const locations = collectSalesLocations();
+            if (locations.some(location => !location.sub_name || !location.address)) {
+                showToast('Each saved location needs both a name and delivery address.', 'warning');
+                return;
+            }
+            const data = {
+                name: document.getElementById('customerName').value,
+                customer_type: document.getElementById('customerType').value,
+                sub_location: locations[0]?.sub_name || '',
+                locations,
+                contact_person: document.getElementById('customerContact').value,
+                phone: document.getElementById('customerPhone').value,
+                email: document.getElementById('customerEmail').value,
+                address: document.getElementById('customerAddress').value,
+                credit_limit: parseFloat(document.getElementById('customerCreditLimit').value) || 0,
+                payment_terms_days: parseInt(document.getElementById('customerPaymentTerms').value) || 0,
+                default_payment_type: document.getElementById('customerDefaultPayment').value,
+                status: document.getElementById('customerStatus').value,
+                blocked_reason: document.getElementById('salesBlockedReason').value
+            };
+            
+            try {
+                if (id) {
+                    await SalesService.updateCustomer(id, data);
+                    showToast('Customer updated successfully', 'success');
+                } else {
+                    await SalesService.createCustomer(data);
+                    showToast('Customer added successfully', 'success');
+                }
+                document.getElementById('customerModal').close();
+                await loadCustomers();
+            } catch (error) {
+                console.error('Failed to save customer:', error);
+                showToast(Object.values(error?.errors || {})[0] || error?.message || 'Failed to save customer', 'error');
+            }
+        });
+        
+        async function viewCustomerDetail(id) {
+            try {
+                // Prefer full detail API (sales totals + recent DRs)
+                let customer = customers.find(c => Number(c.id) === Number(id));
+                try {
+                    const detailRes = await SalesService.getCustomer(id);
+                    if (detailRes?.data) {
+                        customer = { ...customer, ...detailRes.data };
+                    }
+                } catch (e) {
+                    console.warn('Detail API fallback to list row', e);
+                }
+                if (!customer) return;
+                
+                currentDetailCustomer = customer;
+                const code = customer.customer_code || `CUS${String(customer.id).padStart(5, '0')}`;
+                const name = customer.name || customer.customer_name || 'Customer';
+                const outstanding = Number(customer.outstanding_balance || 0);
+                const limit = Number(customer.credit_limit || 0);
+                const available = limit > 0 ? Math.max(0, limit - outstanding) : 0;
+                const terms = customer.payment_terms_days ?? customer.payment_terms ?? 30;
+                const phone = customer.phone || customer.contact_number || '—';
+                const isActive = (customer.status || 'active') === 'active';
+                
+                // Header anchors (avatar + name + ID + status) — display only
+                document.getElementById('customerDetailName').textContent = name;
+                document.getElementById('customerDetailId').textContent = code;
+                document.getElementById('customerDetailAvatar').textContent = customerInitials(name);
+                const statusEl = document.getElementById('customerDetailStatus');
+                statusEl.textContent = isActive ? 'Active' : 'Inactive';
+                statusEl.classList.toggle('is-active', isActive);
+                statusEl.classList.toggle('is-inactive', !isActive);
+
+                // KPI values — math unchanged; only color psychology for debt vs credit
+                const outEl = document.getElementById('detailOutstanding');
+                outEl.textContent = formatCurrency(outstanding);
+                outEl.classList.remove('is-debt', 'is-debt-warning', 'is-over-limit', 'text-primary', 'text-success', 'text-error');
+                if (limit > 0 && outstanding > limit) {
+                    outEl.classList.add('is-over-limit');
+                } else if (limit > 0 && outstanding >= limit * 0.8) {
+                    outEl.classList.add('is-debt-warning'); // orange when nearing limit
+                } else {
+                    outEl.classList.add('is-debt'); // neutral dark grey
+                }
+
+                document.getElementById('detailCreditLimit').textContent = formatCurrency(limit);
+
+                const availEl = document.getElementById('detailAvailableCredit');
+                availEl.textContent = formatCurrency(available);
+                availEl.classList.remove('is-available', 'is-over-limit', 'text-success', 'text-error');
+                if (limit > 0 && outstanding > limit) {
+                    availEl.classList.add('is-over-limit');
+                } else {
+                    availEl.classList.add('is-available'); // green available credit
+                }
+                
+                const typeLabels = {
+                    'supermarket': 'Supermarket',
+                    'institutional': 'Institutional',
+                    'school': 'School',
+                    'feeding_program': 'Feeding Program',
+                    'wholesaler': 'Wholesaler',
+                    'distributor': 'Wholesaler',
+                    'walk_in': 'Small Business / Retailer'
+                };
+                
+                document.getElementById('detailType').textContent =
+                    typeLabels[customer.customer_type] ||
+                    (customer.customer_type
+                        ? customer.customer_type.charAt(0).toUpperCase() + customer.customer_type.slice(1)
+                        : '—');
+                document.getElementById('detailSubLocation').textContent = customer.sub_location || '—';
+                document.getElementById('detailContact').textContent = customer.contact_person || '—';
+                document.getElementById('detailPhone').textContent = phone;
+                document.getElementById('detailEmail').textContent = customer.email || '—';
+                document.getElementById('detailPaymentTerms').textContent = `Net ${terms} days`;
+                document.getElementById('detailAddress').textContent = customer.address || '—';
+                
+                // Recent orders: completed Delivery Receipts only (DR-*), never PICK-*
+                const tbody = document.getElementById('detailOrdersTable');
+                let orders = Array.isArray(customer.recent_orders) ? customer.recent_orders : [];
+                orders = orders.filter(o => {
+                    const num = String(o.order_number || o.dr_number || '');
+                    return /^DR-/i.test(num) && !/^PICK-/i.test(num);
+                });
+                if (orders.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-base-content/60">No recent delivery receipts</td></tr>`;
+                } else {
+                    tbody.innerHTML = orders.slice(0, 10).map(o => {
+                        const num = o.order_number || o.dr_number || '—';
+                        const dt = o.order_date || o.delivered_at || o.created_at;
+                        const dateStr = formatDetailDate(dt);
+                        const payStatus = String(o.payment_status || '').toLowerCase();
+                        const bal = o.balance_due != null
+                            ? Number(o.balance_due)
+                            : (Number(o.total_amount || 0) - Number(o.amount_paid || 0));
+                        let badge = 'badge-ghost';
+                        let label = o.payment_status || o.status || '—';
+                        if (payStatus === 'paid' || bal <= 0) {
+                            badge = 'badge-success';
+                            label = 'Paid';
+                        } else if (payStatus === 'partial') {
+                            badge = 'badge-warning';
+                            label = 'Partial';
+                        } else if (payStatus === 'unpaid') {
+                            badge = 'badge-ghost';
+                            label = 'Unpaid';
+                        }
+                        return `
+                            <tr>
+                                <td class="font-mono text-sm font-medium">${escapeHtml(num)}</td>
+                                <td class="tabular-nums text-sm">${escapeHtml(dateStr)}</td>
+                                <td class="tabular-nums text-sm">${formatCurrency(o.total_amount)}</td>
+                                <td><span class="badge badge-sm ${badge}">${escapeHtml(label)}</span></td>
+                            </tr>`;
+                    }).join('');
+                }
+
+                // Balance History ledger — ends at outstanding
+                renderBalanceHistory(customer.balance_history || [], outstanding);
+                
+                switchDetailTab('info');
+                document.getElementById('customerDetailModal').showModal();
+                
+            } catch (error) {
+                console.error('Failed to load customer detail:', error);
+                showToast('Failed to load customer details', 'error');
+            }
+        }
+        
+        function formatDetailDate(value) {
+            if (!value) return '—';
+            const s = String(value).slice(0, 10);
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (m) return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}/${m[1]}`;
+            const d = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(d.getTime())) return '—';
+            return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+        }
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        /** Render AR ledger rows; newest first; last balance row = outstanding. */
+        function renderBalanceHistory(rows, outstanding) {
+            const tbody = document.getElementById('detailBalanceTable');
+            if (!rows || !rows.length) {
+                // Client-side fallback if API omitted history (should not happen)
+                tbody.innerHTML = `
+                    <tr>
+                        <td class="tabular-nums text-sm">${formatDetailDate(new Date().toISOString())}</td>
+                        <td class="text-sm">Current outstanding balance</td>
+                        <td class="tabular-nums text-sm">${formatCurrency(outstanding)}</td>
+                        <td class="tabular-nums text-sm">—</td>
+                        <td class="tabular-nums text-sm font-semibold">${formatCurrency(outstanding)}</td>
+                    </tr>`;
+                return;
+            }
+            tbody.innerHTML = rows.map((r, idx) => {
+                const debit = Number(r.debit || 0);
+                const credit = Number(r.credit || 0);
+                const bal = r.balance != null ? Number(r.balance) : outstanding;
+                const isLatest = idx === 0;
+                return `
+                    <tr class="${isLatest ? 'bg-base-200/40' : ''}">
+                        <td class="tabular-nums text-sm whitespace-nowrap">${escapeHtml(formatDetailDate(r.entry_date))}</td>
+                        <td class="text-sm">${escapeHtml(r.description || '—')}</td>
+                        <td class="tabular-nums text-sm">${debit > 0 ? formatCurrency(debit) : '—'}</td>
+                        <td class="tabular-nums text-sm text-success">${credit > 0 ? formatCurrency(credit) : '—'}</td>
+                        <td class="tabular-nums text-sm font-semibold ${isLatest ? 'text-base-content' : ''}">${formatCurrency(bal)}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        /** Initials for avatar (e.g. "DepEd Region X" → "DX", "SM Supermarket" → "SS"). */
+        function customerInitials(name) {
+            const cleaned = String(name || '')
+                .replace(/\b(inc|corp|co|llc|ltd|the|of|and)\b/gi, ' ')
+                .replace(/[^a-zA-Z0-9\s]/g, ' ')
+                .trim();
+            if (!cleaned) return '—';
+            const parts = cleaned.split(/\s+/).filter(Boolean);
+            if (parts.length === 1) {
+                return parts[0].slice(0, 2).toUpperCase();
+            }
+            // Prefer first + last significant word (DepEd Region X → DX)
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        function switchDetailTab(tab, clickedTab = null) {
+            const tabs = document.querySelectorAll('#customerDetailModal .cd-tab');
+            tabs.forEach(t => t.classList.remove('tab-active'));
+            if (clickedTab) {
+                clickedTab.classList.add('tab-active');
+            } else {
+                const targetTab = document.querySelector(`#customerDetailModal .cd-tab[data-tab="${tab}"]`);
+                if (targetTab) targetTab.classList.add('tab-active');
+            }
+            
+            document.getElementById('detailInfoTab').style.display = tab === 'info' ? 'block' : 'none';
+            document.getElementById('detailOrdersTab').style.display = tab === 'orders' ? 'block' : 'none';
+            document.getElementById('detailBalanceTab').style.display = tab === 'balance' ? 'block' : 'none';
+        }
+        
+        function editFromDetail() {
+            document.getElementById('customerDetailModal').close();
+            if (currentDetailCustomer) {
+                editCustomer(currentDetailCustomer.id);
+            }
+        }
+    </script>
+</body>
+</html>

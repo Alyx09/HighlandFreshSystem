@@ -1,0 +1,2261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <style id="roleGuardPending">html { visibility: hidden; }</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Approvals | Admin | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'IBM Plex Sans', 'Inter', sans-serif;
+        }
+
+        .bento-card {
+            @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+            border-radius: 3px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-value {
+            font-variant-numeric: tabular-nums;
+        }
+
+        .pr-review-surface {
+            font-family: 'IBM Plex Sans', 'Inter', sans-serif;
+        }
+
+        .approval-card {
+            background: #ffffff;
+            border: 1px solid oklch(var(--b3));
+            border-radius: 18px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+            padding: 20px;
+        }
+
+        .approval-card-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid oklch(var(--b3));
+            padding-bottom: 12px;
+            margin-bottom: 14px;
+        }
+
+        .approval-doc-pill {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: oklch(var(--b2));
+            border: 1px solid oklch(var(--b3));
+            color: oklch(var(--bc));
+            font-weight: 600;
+        }
+
+        .approval-pill {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: oklch(var(--b2));
+            border: 1px solid oklch(var(--b3));
+            color: oklch(var(--bc) / 0.7);
+        }
+
+        .approval-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .approval-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: oklch(var(--bc) / 0.6);
+        }
+
+        .approval-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: oklch(var(--bc));
+        }
+
+        .approval-section {
+            border-top: 1px dashed oklch(var(--b3));
+            padding-top: 12px;
+            margin-top: 12px;
+        }
+
+        .approval-table thead th {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: oklch(var(--bc) / 0.7);
+            background: oklch(var(--b2));
+        }
+
+        .approval-table tbody td {
+            font-size: 13px;
+        }
+
+        .decision-modal {
+            max-height: min(84vh, 820px);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .decision-head {
+            border-bottom: 1px solid oklch(var(--b3));
+            padding: 1.25rem 1.5rem 1rem;
+            background: linear-gradient(180deg, oklch(var(--b1)), oklch(var(--b2) / 0.45));
+        }
+
+        .decision-body {
+            overflow-y: auto;
+            padding: 1rem 1.5rem;
+        }
+
+        .decision-foot {
+            border-top: 1px solid oklch(var(--b3));
+            padding: 1rem 1.5rem;
+            background: oklch(var(--b1));
+        }
+
+        .decision-summary > div {
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.75rem;
+            background: oklch(var(--b2) / 0.55);
+            padding: 0.85rem;
+            min-width: 0;
+        }
+
+        .decision-summary span:first-child {
+            display: block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+            margin-bottom: 0.25rem;
+        }
+
+        .decision-summary #modalRef {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            color: oklch(var(--p));
+            overflow-wrap: anywhere;
+        }
+
+        .decision-summary #modalAmount {
+            font-size: 1.125rem;
+            color: oklch(var(--bc));
+        }
+
+        .decision-detail-card {
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.85rem;
+            overflow: hidden;
+            background: oklch(var(--b1));
+        }
+
+        .decision-detail-card table thead th {
+            background: oklch(var(--b2));
+            color: oklch(var(--bc) / 0.65);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .decision-detail-card table th,
+        .decision-detail-card table td {
+            padding: 0.65rem 1rem;
+            vertical-align: top;
+        }
+
+        .decision-detail-note {
+            padding: 1rem;
+        }
+
+        .decision-detail-note__box {
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.75rem;
+            background: oklch(var(--b2) / 0.55);
+            padding: 0.85rem;
+        }
+
+        .decision-detail-note__label {
+            display: block;
+            margin-bottom: 0.35rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+        }
+
+        .decision-detail-note__text {
+            color: oklch(var(--bc) / 0.82);
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+        }
+
+        .price-alerts-card .card-body {
+            padding: 16px;
+        }
+
+        .price-alerts-empty {
+            border: 1px dashed oklch(var(--b3));
+            border-radius: 14px;
+            padding: 16px;
+            text-align: center;
+            color: oklch(var(--bc) / 0.6);
+        }
+
+        .price-alert-card {
+            border: 1px solid oklch(var(--b3));
+            border-radius: 14px;
+            padding: 14px;
+            background: oklch(var(--b2));
+        }
+
+        .price-alert-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: oklch(var(--bc) / 0.7);
+        }
+
+        @keyframes pulse-soft {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .pulse-soft {
+            animation: pulse-soft 2s ease-in-out infinite;
+        }
+
+        /* Workspace continuity — same shell as admin dashboard */
+        .workspace-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            min-width: 0;
+            padding: 0.35rem 0;
+        }
+        .workspace-crumb {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.35rem 0.5rem;
+            font-size: 0.75rem;
+            line-height: 1.2;
+            color: oklch(var(--bc) / 0.55);
+            margin: 0;
+        }
+        .workspace-crumb a {
+            color: oklch(var(--bc) / 0.65);
+            text-decoration: none;
+        }
+        .workspace-crumb a:hover {
+            color: oklch(var(--p));
+        }
+        .workspace-crumb .crumb-current {
+            color: oklch(var(--bc));
+            font-weight: 600;
+        }
+        .workspace-crumb .crumb-sep {
+            opacity: 0.4;
+            font-size: 0.65rem;
+        }
+        .workspace-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            line-height: 1.25;
+            color: oklch(var(--bc));
+        }
+        .workspace-subtitle {
+            margin: 0;
+            font-size: 0.75rem;
+            line-height: 1.35;
+            color: oklch(var(--bc) / 0.5);
+        }
+        .action-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.875rem;
+            border: 1px solid oklch(var(--bc) / 0.1);
+            border-radius: 0.875rem;
+            padding: 0.95rem 1rem;
+            background: oklch(var(--b1));
+            transition: box-shadow 0.15s ease, border-color 0.15s ease;
+        }
+        .action-row:hover {
+            border-color: oklch(var(--p) / 0.35);
+            box-shadow: 0 8px 20px oklch(0% 0 0 / 0.06);
+        }
+
+        .queue-chip {
+            border: 1px solid oklch(var(--b3));
+            background: oklch(var(--b1));
+            color: oklch(var(--bc) / 0.75);
+            border-radius: 999px;
+            padding: 0.4rem 0.85rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            cursor: pointer;
+            transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+            white-space: nowrap;
+        }
+        .queue-chip:hover {
+            border-color: oklch(var(--p) / 0.35);
+            background: oklch(var(--p) / 0.06);
+        }
+        .queue-chip.is-active {
+            background: oklch(var(--p));
+            border-color: oklch(var(--p));
+            color: oklch(var(--pc));
+            box-shadow: 0 6px 16px oklch(var(--p) / 0.25);
+        }
+        .queue-chip .chip-count {
+            font-variant-numeric: tabular-nums;
+            min-width: 1.25rem;
+            text-align: center;
+            opacity: 0.9;
+        }
+
+        .stat-filter-card {
+            cursor: pointer;
+            outline: none;
+        }
+        .stat-filter-card:focus-visible {
+            box-shadow: 0 0 0 2px oklch(var(--b1)), 0 0 0 4px oklch(var(--p) / 0.45);
+        }
+        .stat-filter-card.is-active {
+            border-color: oklch(var(--p) / 0.55) !important;
+            box-shadow: 0 0 0 1px oklch(var(--p) / 0.35), 0 10px 24px oklch(var(--p) / 0.12);
+        }
+
+        .queue-panel {
+            transition: opacity 0.18s ease;
+        }
+        .queue-panel.is-dimmed {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar — same persistent admin shell as dashboard.html -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Admin Panel</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Approvals</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="gm_approvals.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content"
+                            aria-current="page">
+                            <i class="fas fa-check-double w-5 text-center"></i>
+                            <span class="flex-1">Pending Approvals</span>
+                            <span class="badge badge-sm badge-warning" id="totalPendingBadge"></span>
+                            <span class="hidden" id="pendingApprovalsBadge"></span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">User Management</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="users.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users-cog w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Users &amp; Accounts</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Supply Chain</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="farmers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-tractor w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Farmers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="suppliers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-truck w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Suppliers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="customers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-store w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Customers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Product Catalog</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="products.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-box w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Products</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recipes.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-list w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Recipes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="ingredients.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-seedling w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Raw Ingredients</span>
+                        </a>
+                    </li>
+                    <li><a href="ingredients.html?view=packaging" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-box-open w-5 text-center text-base-content/60"></i><span class="flex-1">Packaging Materials</span></a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Infrastructure</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="storage.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-warehouse w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Storage &amp; Tanks</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="chillers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-snowflake w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Chillers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Sales &amp; Orders</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="orders.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-list w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Orders for Approval</span>
+                            <span id="pendingOrdersBadge" class="badge badge-warning badge-sm"></span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Quality Control</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="disposals.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-trash-alt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Disposals</span>
+                            <span id="pendingDisposalsBadge" class="badge badge-warning badge-sm"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recalls.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-exclamation-triangle w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Batch Recalls</span>
+                            <span id="activeRecallsBadge" class="badge badge-error badge-sm"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="qc-standards.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-check w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">QC Standards</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">GM</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">General Manager</p>
+                    <p class="text-xs text-base-content/60 truncate" id="sidebarUserRole">General Manager</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a><i class="fas fa-user-cog w-4"></i> Profile</a></li>
+                        <li><a><i class="fas fa-cog w-4"></i> Settings</a></li>
+                        <li class="border-t border-base-300 mt-1 pt-1">
+                            <a onclick="AuthService.logout()" class="text-error">
+                                <i class="fas fa-sign-out-alt w-4"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content — same offset / shell as rest of admin -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6 h-auto min-h-[4.5rem] items-start lg:items-center py-3">
+            <div class="flex-none lg:hidden pt-1">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()" aria-label="Open navigation">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="workspace-header">
+                    <nav class="workspace-crumb" aria-label="Breadcrumb">
+                        <a href="dashboard.html">Admin</a>
+                        <i class="fas fa-chevron-right crumb-sep" aria-hidden="true"></i>
+                        <span class="crumb-current">Pending Approvals</span>
+                    </nav>
+                    <h1 class="workspace-title">Pending Approvals</h1>
+                    <p class="workspace-subtitle hidden sm:block" id="workspaceContextLabel">
+                        Credit overrides, disposal signatures, procurement, and material reviews - synced with the dashboard Action Center
+                    </p>
+                </div>
+            </div>
+            <div class="flex-none flex items-center gap-2 pt-1">
+                <button class="btn btn-ghost btn-sm" onclick="loadAllData()" title="Refresh queues">
+                    <i class="fas fa-sync-alt"></i> <span class="hidden sm:inline">Refresh</span>
+                </button>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Domain filter chips -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <div class="flex flex-wrap items-center gap-2" id="queueFilterBar" role="tablist" aria-label="Approval queues">
+                    <button type="button" class="queue-chip is-active" data-queue="all" onclick="setQueueFilter('all')" role="tab" aria-selected="true">
+                        All Queues <span class="chip-count" id="chipCountAll">0</span>
+                    </button>
+                    <button type="button" class="queue-chip" data-queue="credit" onclick="setQueueFilter('credit')" role="tab" aria-selected="false">
+                        <i class="fas fa-file-signature text-info"></i> Sales Orders <span class="chip-count" id="chipCountCredit">0</span>
+                    </button>
+                    <button type="button" class="queue-chip" data-queue="disposal" onclick="setQueueFilter('disposal')" role="tab" aria-selected="false">
+                        <i class="fas fa-trash-alt text-error"></i> Disposals <span class="chip-count" id="chipCountDisposal">0</span>
+                    </button>
+                    <button type="button" class="queue-chip" data-queue="procurement" onclick="setQueueFilter('procurement')" role="tab" aria-selected="false">
+                        <i class="fas fa-file-invoice-dollar text-warning"></i> Procurement <span class="chip-count" id="chipCountProcurement">0</span>
+                    </button>
+                    <button type="button" class="queue-chip" data-queue="production" onclick="setQueueFilter('production')" role="tab" aria-selected="false">
+                        <i class="fas fa-clipboard-list text-primary"></i> Material Reviews <span class="chip-count" id="chipCountProduction">0</span>
+                    </button>
+                    <button type="button" class="queue-chip" data-queue="inventory" onclick="setQueueFilter('inventory')" role="tab" aria-selected="false">
+                        <i class="fas fa-box-open text-success"></i> Stock Reviews <span class="chip-count" id="chipCountInventory">0</span>
+                    </button>
+                </div>
+                <p class="text-xs text-base-content/50" id="queueFilterHint">Showing all approval queues</p>
+            </div>
+
+            <!-- Category stat cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
+                <div class="bento-card card bg-base-100 border border-base-300 stat-filter-card is-active" data-stat-filter="all"
+                    role="button" tabindex="0" onclick="setQueueFilter('all')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <i class="fas fa-layer-group text-primary"></i>
+                            </div>
+                            <span class="badge badge-primary badge-sm">Active</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="statAllQueues">0</p>
+                        <p class="text-sm text-base-content/60">All Queues</p>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300 stat-filter-card" data-stat-filter="credit"
+                    role="button" tabindex="0" onclick="setQueueFilter('credit')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center">
+                                <i class="fas fa-hand-holding-usd text-info"></i>
+                            </div>
+                            <span class="badge badge-info badge-sm">Approval</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="statCreditOverrides">0</p>
+                        <p class="text-sm text-base-content/60">Sales Orders</p>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300 stat-filter-card" data-stat-filter="disposal"
+                    role="button" tabindex="0" onclick="setQueueFilter('disposal')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center">
+                                <i class="fas fa-trash-alt text-error"></i>
+                            </div>
+                            <span class="badge badge-warning badge-sm">Signature</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="statDisposals">0</p>
+                        <p class="text-sm text-base-content/60">Disposals</p>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300 stat-filter-card" data-stat-filter="procurement"
+                    role="button" tabindex="0" onclick="setQueueFilter('procurement')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                                <i class="fas fa-file-invoice-dollar text-warning"></i>
+                            </div>
+                            <span class="badge badge-ghost badge-sm">Clear</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="statProcurement">0</p>
+                        <p class="text-sm text-base-content/60">Procurement</p>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300 stat-filter-card" data-stat-filter="production"
+                    role="button" tabindex="0" onclick="setQueueFilter('production')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <i class="fas fa-clipboard-list text-primary"></i>
+                            </div>
+                            <span class="badge badge-info badge-sm">Release</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="statProductionMaterials">0</p>
+                        <p class="text-sm text-base-content/60">Material Reviews</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Unified action list (synced with dashboard) -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start" id="approvalsWorkspace">
+                <div class="card bg-base-100 border border-base-300 xl:col-span-2">
+                    <div class="card-body">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="card-title text-lg">
+                                <i class="fas fa-clipboard-check text-warning mr-2"></i>
+                                Action Queue
+                            </h3>
+                            <span class="badge badge-warning" id="unifiedQueueCount">0 open</span>
+                        </div>
+                        <div id="unifiedQueueList" class="space-y-3">
+                            <!-- Populated by loadUnifiedQueue — never leave All Clear when data exists -->
+                        </div>
+                        <div id="emptyApprovalsSummary" class="hidden text-center py-10">
+                            <i class="fas fa-check-circle text-4xl text-success mb-2"></i>
+                            <p class="font-semibold">No items in this queue</p>
+                            <p class="text-sm text-base-content/60">Try another category filter</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legacy containers kept hidden for approve modals that still reference them -->
+                <div id="pendingPOsCard" class="hidden">
+                    <span id="pendingPOsCount">0</span>
+                    <div id="pendingPOsList"></div>
+                </div>
+                <div id="pendingPRsCard" class="hidden">
+                    <span id="pendingPRsCount">0</span>
+                    <div id="pendingPRsList"></div>
+                </div>
+                <div id="pendingItemRequestsCard" class="hidden">
+                    <span id="pendingItemRequestsCount">0</span>
+                    <div id="pendingItemRequestsList"></div>
+                </div>
+                <span class="hidden" id="statPendingPOs">0</span>
+                <span class="hidden" id="statPendingReqs">0</span>
+                <span class="hidden" id="statPendingPRs">0</span>
+                <span class="hidden" id="statPendingItemRequests">0</span>
+                <span class="hidden" id="statApprovedToday">0</span>
+                <span class="hidden" id="statMonthlySpending">₱0</span>
+
+                <!-- Price Alerts Section (context rail) -->
+                <div id="priceAlerts"
+                    class="card bg-base-100 border border-base-300 price-alerts-card queue-panel xl:col-start-3 xl:row-start-1 xl:row-span-4 xl:sticky xl:top-28"
+                    data-queue-panel="alerts">
+                    <div class="card-body">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="card-title text-lg">
+                                <i class="fas fa-chart-line text-error mr-2"></i>
+                                Recent Price Changes
+                            </h3>
+                            <span class="badge badge-error" id="priceChangesCount">0</span>
+                        </div>
+                        <p id="priceAlertsSummary" class="text-sm text-base-content/60 mb-4">Significant price changes
+                            detected in the last 30 days. Review to ensure costs are being managed.</p>
+
+                        <div id="priceAlertsEmpty" class="price-alerts-empty hidden">
+                            <i class="fas fa-check-circle text-2xl text-success mb-2"></i>
+                            <p class="text-sm font-semibold">No significant price changes</p>
+                            <p class="text-xs text-base-content/60">Last 30 days are stable.</p>
+                        </div>
+
+                        <div id="priceAlertsList" class="space-y-3">
+                            <div class="text-center py-8 text-base-content/60">
+                                <span class="loading loading-spinner loading-md"></span>
+                                <p class="mt-2">Loading price alerts...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="decision-history" class="card bg-base-100 border border-base-300 mt-6 scroll-mt-28">
+                <div class="card-body">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                        <div>
+                            <h3 class="card-title text-lg"><i class="fas fa-shield-halved text-primary mr-2"></i>Purchase Order Decision History</h3>
+                            <p class="text-xs text-base-content/55 mt-1">Read-only PO decisions backed by the tamper-evident audit trail</p>
+                        </div>
+                        <span class="badge badge-ghost" id="decisionHistoryCount">0 retained</span>
+                    </div>
+                    <div id="decisionHistoryList" class="space-y-2">
+                        <div class="text-center py-6 text-base-content/50">Loading decision history…</div>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300 stat-filter-card" data-stat-filter="inventory"
+                    role="button" tabindex="0" onclick="setQueueFilter('inventory')">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                                <i class="fas fa-box-open text-success"></i>
+                            </div>
+                            <span class="badge badge-warning badge-sm">Verify</span>
+                        </div>
+                        <p class="text-2xl lg:text-3xl font-bold stat-value" id="statInventoryOpenings">0</p>
+                        <p class="text-sm text-base-content/60">Stock Reviews</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <div>
+                <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Approve PO Modal -->
+    <dialog id="approvePOModal" class="modal">
+        <div class="modal-box max-w-3xl">
+            <h3 class="font-bold text-lg mb-4" id="poReviewModalTitle"><i class="fas fa-file-invoice-dollar text-warning mr-2"></i>Review
+                Purchase Order</h3>
+            <div id="approvePOContent"></div>
+            <div class="modal-action">
+                <button class="btn btn-ghost" id="poReviewCloseButton"
+                    onclick="document.getElementById('approvePOModal').close()">Cancel</button>
+                <button class="btn btn-outline btn-sm" onclick="if(currentApprovalPO) openPrintablePO(currentApprovalPO.id)"><i class="fas fa-print"></i> Print Preview</button>
+                <button class="btn btn-error" id="poReviewRejectButton" onclick="rejectCurrentPO()"><i class="fas fa-times"></i> Reject</button>
+                <button class="btn btn-success" id="poReviewApproveButton" onclick="approveCurrentPO()"><i class="fas fa-check"></i>
+                    Approve</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Final, explicit result of GM approval and supplier email dispatch. -->
+    <dialog id="poDispatchResultModal" class="modal">
+        <div class="modal-box max-w-xl">
+            <div class="flex items-start gap-3">
+                <div id="poDispatchResultIcon" class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"></div>
+                <div class="min-w-0">
+                    <p class="text-xs uppercase tracking-wide text-base-content/50 font-bold">Purchase Order result</p>
+                    <h3 id="poDispatchResultTitle" class="font-bold text-xl mt-1"></h3>
+                    <p id="poDispatchResultMessage" class="text-sm text-base-content/70 mt-2"></p>
+                </div>
+            </div>
+            <div id="poDispatchResultDetails" class="rounded-xl border border-base-300 bg-base-200/50 p-4 mt-5 text-sm space-y-2"></div>
+            <div id="poDispatchResultHelp" class="alert mt-4 text-sm"></div>
+            <div class="modal-action">
+                <form method="dialog"><button class="btn btn-primary">Done</button></form>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Approval Decision Modal (shared for Sales Orders, disposals, etc.) -->
+    <dialog id="approvalModal" class="modal">
+        <div class="modal-box w-11/12 max-w-2xl decision-modal">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+            </form>
+            <div class="decision-head">
+                <div class="flex items-start gap-3 pr-10">
+                    <div class="w-11 h-11 rounded-xl bg-warning/15 text-warning flex items-center justify-center shrink-0">
+                        <i class="fas fa-gavel text-lg"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs uppercase tracking-wide text-base-content/50 font-bold mb-1">GM Review</p>
+                        <h3 class="font-bold text-xl leading-tight" id="modalTitle">Approval Decision</h3>
+                        <p class="text-sm text-base-content/60 mt-1">Review the request details before approving or rejecting.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading state -->
+            <div id="modalLoading" class="flex flex-col items-center justify-center py-16 gap-3">
+                <span class="loading loading-spinner loading-lg text-primary"></span>
+                <p class="text-sm text-base-content/60">Loading approval details...</p>
+            </div>
+
+            <!-- Content (hidden until loaded) -->
+            <div id="modalContent" class="hidden flex-1 min-h-0 flex flex-col">
+                <div class="decision-body scrollbar-thin space-y-4">
+                <!-- Summary fields -->
+                <div class="decision-summary grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <span class="text-xs text-base-content/50 block">Reference</span>
+                        <span class="font-semibold text-sm" id="modalRef">—</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-base-content/50 block">Type</span>
+                        <span class="badge badge-sm" id="modalType">—</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-base-content/50 block">Customer / Source</span>
+                        <span class="font-medium text-sm" id="modalCustomer">—</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-base-content/50 block" id="modalAmountLabel">Amount</span>
+                        <span class="font-bold text-sm" id="modalAmount">—</span>
+                    </div>
+                </div>
+
+                <!-- Detail section (line items, etc.) -->
+                <div id="modalDetailSection" class="decision-detail-card text-sm hidden">
+                    <div class="px-4 py-3 border-b border-base-300 flex items-center justify-between gap-3">
+                        <div>
+                            <p class="font-bold text-sm">Request Details</p>
+                            <p class="text-xs text-base-content/50">Items, quantity, and amount for this approval.</p>
+                        </div>
+                        <i class="fas fa-list-check text-base-content/40"></i>
+                    </div>
+                    <div id="modalDetailBody" class="max-h-64 overflow-y-auto scrollbar-thin"></div>
+                </div>
+
+                <!-- Remarks -->
+                <div class="form-control">
+                    <label class="label"><span class="label-text text-xs font-semibold">GM Remarks (optional)</span></label>
+                    <textarea id="modalRemarks" class="textarea textarea-bordered textarea-sm h-20" placeholder="Reason for approval or rejection…"></textarea>
+                </div>
+
+                </div>
+
+                <!-- Action buttons -->
+                <div class="decision-foot flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p class="text-xs text-base-content/50">This action will update the request status immediately.</p>
+                    <div class="flex justify-end gap-2">
+                        <button class="btn btn-error gap-2" onclick="submitDecision('reject')">
+                            <i class="fas fa-times"></i> Reject
+                        </button>
+                        <button class="btn btn-success gap-2" onclick="submitDecision('approve')">
+                            <i class="fas fa-check"></i> Approve
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/ui/notification-layer.js?v=20260816-1"></script>
+    <script src="../../js/ui/live-refresh.js?v=20260820-1"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="general_manager"></script>
+    <script src="../../js/purchasing/purchasing.service.js"></script>
+
+    <script>
+        let currentApprovalPO = null;
+        /** Active in-page queue filter: all | po | pr | items | alerts */
+        let currentQueueFilter = 'all';
+        let unifiedQueueItems = [];
+
+        const QUEUE_HINTS = {
+            all: 'Showing all approval queues',
+            credit: 'Sales Orders — customer orders requiring GM authorization',
+            disposal: 'Disposals — inventory write-offs awaiting GM signature',
+            procurement: 'Procurement - purchase orders awaiting GM approval',
+            production: 'Material Reviews - non-recipe or adjusted requests requiring GM review',
+            inventory: 'Stock Reviews - warehouse counts and unrecorded stock awaiting a decision',
+            // legacy keys (unused UI)
+            po: 'Procurement',
+            pr: 'Purchase requests',
+            items: 'Item requests',
+            alerts: 'Price alerts',
+        };
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.getElementById('themeToggle').addEventListener('change', function () {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+
+        function scrollToPriceAlerts() {
+            setQueueFilter('alerts', { scroll: true });
+        }
+
+        /**
+         * Domain filter: all | credit | disposal | procurement | production | inventory
+         */
+        function setQueueFilter(filter, options = {}) {
+            const allowed = ['all', 'credit', 'disposal', 'procurement', 'production', 'inventory'];
+            // Map legacy deep-links
+            if (filter === 'po') filter = 'procurement';
+            if (filter === 'pr' || filter === 'items' || filter === 'alerts') filter = 'all';
+            if (!allowed.includes(filter)) filter = 'all';
+
+            if (!options.force && currentQueueFilter === filter && filter !== 'all') {
+                filter = 'all';
+            }
+            currentQueueFilter = filter;
+
+            document.querySelectorAll('#queueFilterBar .queue-chip').forEach((chip) => {
+                const active = chip.dataset.queue === filter;
+                chip.classList.toggle('is-active', active);
+                chip.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+
+            document.querySelectorAll('.stat-filter-card').forEach((card) => {
+                card.classList.toggle('is-active', card.dataset.statFilter === filter);
+            });
+
+            const hint = document.getElementById('queueFilterHint');
+            if (hint) hint.textContent = QUEUE_HINTS[filter] || QUEUE_HINTS.all;
+
+            const ctx = document.getElementById('workspaceContextLabel');
+            if (ctx) {
+                ctx.textContent = filter === 'all'
+                    ? 'Credit overrides, disposal signatures, procurement, and material reviews - synced with the dashboard Action Center'
+                    : (QUEUE_HINTS[filter] || '');
+            }
+
+            try {
+                const url = new URL(window.location.href);
+                if (filter === 'all') url.searchParams.delete('queue');
+                else url.searchParams.set('queue', filter);
+                history.replaceState({ queue: filter }, '', url);
+            } catch (_) { /* ignore */ }
+
+            renderUnifiedQueue();
+
+            if (options.scroll) {
+                const el = document.getElementById('approvalsWorkspace');
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function applyQueuePanelVisibility() {
+            // Unified list handles visibility; keep price rail visible
+            const alerts = document.getElementById('priceAlerts');
+            if (alerts) {
+                alerts.classList.remove('hidden', 'is-dimmed');
+            }
+        }
+
+        // ========================================
+        // INIT
+        // ========================================
+
+        document.addEventListener('DOMContentLoaded', async function () {
+            if (!AuthService.isAuthenticated()) { window.location.href = '../login.html'; return; }
+
+            const user = AuthService.getCurrentUser();
+            if (!user || user.role !== 'general_manager') {
+                // Hard block: hide all content and redirect non-GM users
+                // Keep sidebar shell intact so the page doesn't "jump" into a foreign layout
+                document.querySelector('main').innerHTML = `
+                    <div class="flex items-center justify-center min-h-[60vh]">
+                        <div class="text-center">
+                            <i class="fas fa-shield-halved text-5xl text-error mb-4"></i>
+                            <h2 class="text-xl font-bold mb-2">Access Restricted</h2>
+                            <p class="text-base-content/60">This page is restricted to the General Manager role only.</p>
+                            <p class="text-base-content/60 mt-1">Redirecting...</p>
+                        </div>
+                    </div>
+                `;
+                setTimeout(() => window.location.href = '../login.html', 2500);
+                return;
+            }
+
+            const displayName = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || 'General Manager';
+            document.getElementById('sidebarUserName').textContent = displayName;
+            const initialsSource = displayName.split(/\s+/).filter(Boolean);
+            const f = (initialsSource[0] || '').charAt(0).toUpperCase();
+            const l = (initialsSource.length > 1 ? initialsSource[initialsSource.length - 1] : '').charAt(0).toUpperCase();
+            document.getElementById('userInitials').textContent = (f + l) || 'GM';
+
+            // Deep-link support: ?queue=po|items|alerts
+            const params = new URLSearchParams(window.location.search);
+            const initialQueue = params.get('queue') || 'all';
+
+            await loadAllData();
+            setQueueFilter(initialQueue, { force: true });
+            HighlandLiveRefresh.start(loadAllData);
+        });
+
+        async function loadAllData() {
+            await Promise.all([
+                loadUnifiedQueue(),
+                loadDecisionHistory(),
+                loadPriceAlerts().catch(() => {})
+            ]);
+            applyQueuePanelVisibility();
+        }
+
+        function getPendingCount(id) {
+            const el = document.getElementById(id);
+            if (!el) return 0;
+            const value = parseInt(el.textContent, 10);
+            return Number.isNaN(value) ? 0 : value;
+        }
+
+        function syncQueueChipCounts() {
+            // counts set from unified queue stats
+        }
+
+        function updateApprovalSectionVisibility() {
+            renderUnifiedQueue();
+        }
+
+        // ========================================
+        // UNIFIED QUEUE (synced with dashboard)
+        // ========================================
+
+        async function loadUnifiedQueue() {
+            try {
+                const response = await api.get('/admin/gm_approvals.php', {
+                    params: { action: 'unified_queue' }
+                });
+                const payload = response?.data || response || {};
+                unifiedQueueItems = Array.isArray(payload.items) ? payload.items : (payload.data?.items || []);
+                const stats = payload.stats || payload.data?.stats || {};
+
+                applyQueueStats(stats, unifiedQueueItems);
+                renderUnifiedQueue();
+
+                // Keep legacy hidden counters in sync for any leftover helpers
+                const credit = unifiedQueueItems.filter(i => i.category === 'credit').length;
+                const disposal = unifiedQueueItems.filter(i => i.category === 'disposal').length;
+                const proc = unifiedQueueItems.filter(i => i.category === 'procurement').length;
+                const production = unifiedQueueItems.filter(i => i.category === 'production').length;
+                setElText('pendingPOsCount', proc);
+                setElText('pendingPRsCount', 0);
+                setElText('pendingItemRequestsCount', 0);
+                setElText('statPendingPOs', proc);
+                setElText('statPendingReqs', production);
+            } catch (error) {
+                console.error('Error loading unified queue:', error);
+                unifiedQueueItems = [];
+                applyQueueStats({
+                    all_queues: 0, sales_orders: 0, credit_overrides: 0, disposals: 0, procurement: 0, production_materials: 0, inventory_openings: 0
+                }, unifiedQueueItems);
+                renderUnifiedQueue();
+            }
+        }
+
+        async function loadDecisionHistory() {
+            const list = document.getElementById('decisionHistoryList');
+            try {
+                const response = await api.get('/admin/gm_approvals.php', {
+                    params: { action: 'decision_history', limit: 25 }
+                });
+                const payload = response?.data ?? response;
+                const rows = Array.isArray(payload)
+                    ? payload
+                    : (Array.isArray(payload?.data) ? payload.data : []);
+                setElText('decisionHistoryCount', `${rows.length} retained`);
+                if (!rows.length) {
+                    list.innerHTML = '<div class="text-center py-8 text-base-content/50">No retained PO decisions yet</div>';
+                    return;
+                }
+
+                list.innerHTML = rows.map(item => {
+                    const poId = parseInt(item.po_id, 10) || 0;
+                    const approved = String(item.decision || '').toUpperCase() === 'APPROVE';
+                    const note = approved ? item.approval_remarks : item.rejection_reason;
+                    return `
+                        <button type="button" class="w-full text-left rounded-xl border border-base-300 px-4 py-3 hover:border-primary/40 hover:bg-base-200/40 transition-colors" onclick="viewPODetail(${poId})">
+                            <div class="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                                <div class="w-9 h-9 rounded-lg ${approved ? 'bg-success/10 text-success' : 'bg-error/10 text-error'} flex items-center justify-center shrink-0">
+                                    <i class="fas ${approved ? 'fa-check' : 'fa-times'}"></i>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="font-mono font-bold text-sm">PO #${escapeHtml(item.po_number || '')}</span>
+                                        <span class="badge badge-xs ${approved ? 'badge-success' : 'badge-error'}">${approved ? 'Approved' : 'Rejected'}</span>
+                                        <span class="text-xs font-semibold">${formatCurrency(item.total_amount)}</span>
+                                    </div>
+                                    <p class="text-xs text-base-content/55 mt-0.5">${escapeHtml(item.supplier_name || 'Supplier')} · ${escapeHtml(item.decided_by || 'General Manager')}</p>
+                                    ${note ? `<p class="text-xs text-base-content/60 mt-1 truncate">${escapeHtml(note)}</p>` : ''}
+                                </div>
+                                <div class="text-[0.65rem] text-base-content/45 md:text-right shrink-0">
+                                    <div>${escapeHtml(formatDateTime(item.decision_at))}</div>
+                                    <div class="font-mono">Audit #${escapeHtml(String(item.audit_id || '—'))}${item.audit_hash ? ` · ${escapeHtml(String(item.audit_hash).slice(0, 12))}…` : ''}</div>
+                                </div>
+                            </div>
+                        </button>`;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading decision history:', error);
+                if (list) list.innerHTML = '<div class="text-center py-8 text-error">Failed to load retained decision history</div>';
+            }
+        }
+
+        function setElText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+
+        function applyQueueStats(stats, items) {
+            const credit = stats.sales_orders != null
+                ? Number(stats.sales_orders)
+                : items.filter(i => i.category === 'credit').length;
+            const disposal = stats.disposals != null
+                ? Number(stats.disposals)
+                : items.filter(i => i.category === 'disposal').length;
+            const procurement = stats.procurement != null
+                ? Number(stats.procurement)
+                : items.filter(i => i.category === 'procurement').length;
+            const production = stats.production_materials != null
+                ? Number(stats.production_materials)
+                : items.filter(i => i.category === 'production').length;
+            const inventory = stats.inventory_openings != null
+                ? Number(stats.inventory_openings)
+                : items.filter(i => i.category === 'inventory').length;
+            const all = stats.all_queues != null
+                ? Number(stats.all_queues)
+                : (credit + disposal + procurement + production + inventory);
+
+            setElText('statAllQueues', all);
+            setElText('statCreditOverrides', credit);
+            setElText('statDisposals', disposal);
+            setElText('statProcurement', procurement);
+            setElText('statProductionMaterials', production);
+            setElText('statInventoryOpenings', inventory);
+            setElText('chipCountAll', all);
+            setElText('chipCountCredit', credit);
+            setElText('chipCountDisposal', disposal);
+            setElText('chipCountProcurement', procurement);
+            setElText('chipCountProduction', production);
+            setElText('chipCountInventory', inventory);
+            setElText('totalPendingBadge', all);
+            setElText('pendingApprovalsBadge', all);
+            setElText('unifiedQueueCount', `${all} open`);
+            QUEUE_HINTS.all = `Showing all approval queues (${all} open items)`;
+        }
+
+        function renderUnifiedQueue() {
+            const list = document.getElementById('unifiedQueueList');
+            const empty = document.getElementById('emptyApprovalsSummary');
+            if (!list) return;
+
+            const f = currentQueueFilter;
+            const filtered = (unifiedQueueItems || []).filter(item => {
+                if (f === 'all') return true;
+                return item.category === f;
+            });
+
+            if (!filtered.length) {
+                list.innerHTML = '';
+                if (empty) empty.classList.remove('hidden');
+                return;
+            }
+            if (empty) empty.classList.add('hidden');
+
+            list.innerHTML = filtered.map(item => {
+                const pr = priorityBadge(item.priority);
+                const icon = typeIconClass(item.type || item.category);
+                const meta = item.meta || (item.amount != null ? formatCurrency(item.amount) : '');
+                const sourceId = item.source_id != null ? item.source_id : (item.id || 0);
+                return `
+                    <div class="action-row">
+                        <div class="w-10 h-10 rounded-xl bg-base-200 border border-base-300 flex items-center justify-center shrink-0">
+                            <i class="fas ${icon}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                                <span class="font-semibold text-sm leading-snug">${escapeHtml(item.title)}</span>
+                                <span class="badge badge-xs ${pr.cls}">${pr.label}</span>
+                                <span class="badge badge-ghost badge-xs">${escapeHtml(categoryLabel(item.category, item.type))}</span>
+                            </div>
+                            <p class="text-xs text-base-content/55 leading-snug">${escapeHtml(item.detail || '')}</p>
+                            <p class="text-[0.65rem] font-mono text-base-content/40 mt-1">${escapeHtml(item.reference || '')}</p>
+                        </div>
+                        <div class="text-right shrink-0 flex flex-col items-end gap-2">
+                            ${meta ? `<div class="text-sm font-mono font-bold tabular-nums">${escapeHtml(meta)}</div>` : ''}
+                            ${queueReviewButton(item, sourceId)}
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+
+        function categoryLabel(cat, type = '') {
+            if (cat === 'credit') return type === 'credit_override' ? 'Credit Override' : 'Sales Order';
+            if (cat === 'disposal') return 'Disposal';
+            if (cat === 'procurement') return 'Procurement';
+            if (cat === 'production') return 'Material Reviews';
+            if (cat === 'inventory') return 'Stock Reviews';
+            return cat || 'Action';
+        }
+
+        function queueReviewButton(item, sourceId) {
+            const numericId = parseInt(String(sourceId).replace(/\D/g, ''), 10) || 0;
+            const type = item.type || '';
+            if (type === 'purchase_request') {
+                return `<button class="btn btn-ghost btn-xs" disabled><i class="fas fa-route mr-1"></i>Purchaser Route</button>`;
+            }
+            if (type === 'purchase_order') {
+                return `<button class="btn btn-primary btn-xs" onclick="viewPODetail(${numericId})"><i class="fas fa-file-invoice mr-1"></i>Review</button>`;
+            }
+            const allowedCategories = ['credit', 'disposal', 'procurement', 'production', 'inventory'];
+            const allowedTypes = ['credit', 'credit_override', 'sales_order', 'disposal', 'requisition', 'ingredient_opening_stock'];
+            const safeCategory = allowedCategories.includes(item.category) ? item.category : '';
+            const safeType = allowedTypes.includes(type) ? type : '';
+            return `<button class="btn btn-primary btn-xs" onclick='openApprovalModal(${numericId}, ${JSON.stringify(safeCategory)}, ${JSON.stringify(safeType)})'>Review</button>`;
+        }
+
+        function priorityBadge(priority) {
+            const p = String(priority || 'medium').toLowerCase();
+            if (p === 'critical') return { label: 'Critical', cls: 'badge-error' };
+            if (p === 'high') return { label: 'High', cls: 'badge-warning' };
+            return { label: 'Normal', cls: 'badge-ghost' };
+        }
+
+        function typeIconClass(type) {
+            const t = String(type || '');
+            if (t.includes('credit')) return 'fa-hand-holding-usd text-info';
+            if (t.includes('disposal')) return 'fa-trash-alt text-error';
+            if (t.includes('purchase') || t.includes('procurement')) return 'fa-file-invoice-dollar text-warning';
+            if (t.includes('opening_stock')) return 'fa-box-open text-success';
+            return 'fa-clipboard-check text-primary';
+        }
+
+        async function loadDashboardStats() {
+            // Stats now come from unified_queue payload
+            return loadUnifiedQueue();
+        }
+
+        // ========================================
+        // PENDING POS
+        // ========================================
+
+        async function loadPendingPOs() {
+            try {
+                const response = await PurchasingService.getGMPendingPOs();
+                const orders = response?.data || [];
+                const container = document.getElementById('pendingPOsList');
+
+                document.getElementById('pendingPOsCount').textContent = orders.length;
+
+                if (orders.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-base-content/60">
+                            <i class="fas fa-check-circle text-4xl text-success mb-2"></i>
+                            <p>No pending purchase orders!</p>
+                        </div>
+                    `;
+                    updateApprovalSectionVisibility();
+                    return;
+                }
+
+                container.innerHTML = orders.map(po => {
+                    const poId = parseInt(po.id, 10) || 0;
+                    return `
+                    <div class="bg-base-200 rounded-xl p-4 hover:bg-base-300 transition-colors">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="font-mono font-bold text-primary text-lg">PO #${escapeHtml(po.po_number)}</span>
+                                    <span class="badge badge-warning badge-sm">Pending</span>
+                                    ${po.payment_terms ? `<span class="badge badge-ghost badge-sm">${escapeHtml(PurchasingService.formatPaymentTerms(po.payment_terms))}</span>` : ''}
+                                </div>
+                                <p class="text-base-content/70">
+                                    <i class="fas fa-truck-field mr-1"></i> ${escapeHtml(po.supplier_name)}
+                                    <span class="mx-2">•</span>
+                                    <i class="fas fa-calendar mr-1"></i> ${formatDate(po.order_date)}
+                                    <span class="mx-2">•</span>
+                                    <i class="fas fa-box mr-1"></i> ${po.item_count} item(s)
+                                </p>
+                                <p class="text-sm text-base-content/50 mt-1">
+                                    <i class="fas fa-user mr-1"></i> Requested by: ${escapeHtml(po.requested_by || 'Unknown')}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-primary">${formatCurrency(po.total_amount)}</p>
+                                <div class="flex gap-2 mt-2 justify-end">
+                                    <button class="btn btn-ghost btn-sm" onclick="viewPODetail(${poId})">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                    <button class="btn btn-ghost btn-sm" onclick="openPrintablePO(${poId})">
+                                        <i class="fas fa-print"></i> Print PO
+                                    </button>
+                                    <button class="btn btn-error btn-sm" onclick="rejectPO(${poId})">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                    <button class="btn btn-success btn-sm" onclick="approvePO(${poId})">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        ${po.items && po.items.length > 0 ? `
+                            <div class="mt-3 pt-3 border-t border-base-300">
+                                <p class="text-sm font-semibold mb-2">Items:</p>
+                                <div class="overflow-x-auto">
+                                    <table class="table table-xs">
+                                        <thead>
+                                            <tr>
+                                                <th>Description</th>
+                                                <th class="text-right">Qty</th>
+                                                <th>Unit</th>
+                                                <th class="text-right">Price</th>
+                                                <th class="text-right">Total</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${po.items.map(item => `
+                                                <tr>
+                                                    <td>
+                                                        <div>${escapeHtml(item.item_description)}</div>
+                                                        ${item.procurement_source === 'purchaser_forecast'
+                                                            ? `<div class="badge badge-warning badge-sm mt-1">Purchasing early-reorder exception</div><div class="text-xs text-base-content/60 mt-1">${escapeHtml(item.forecast_reason || item.notes || '')}</div>`
+                                                            : (item.recommendation_type === 'warehouse_early_reorder'
+                                                                ? `<div class="badge badge-info badge-sm mt-1">Warehouse early-reorder recommendation</div><div class="text-xs text-base-content/60 mt-1">${escapeHtml(item.forecast_reason || 'Warehouse recorded an unusual upcoming need.')}</div>`
+                                                                : (item.recommendation_type === 'early_reorder'
+                                                                ? `<div class="badge badge-info badge-sm mt-1">System early reorder · Warehouse confirmed</div><div class="text-xs text-base-content/60 mt-1">Uses ${Number(item.average_daily_issue_30d || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 })} ${escapeHtml(item.unit || 'units')}/day · ${Number(item.supplier_lead_days || 0)}-day delivery · projected ${Number(item.projected_stock_at_delivery || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 })} at delivery</div>`
+                                                                : ((item.stock_validation_item_id || item.purchase_request_item_id) ? '<div class="badge badge-info badge-sm mt-1">Confirmed Warehouse shortage</div>' : '<div class="badge badge-ghost badge-sm mt-1">Legacy PO item</div>')))}
+                                                    </td>
+                                                    <td class="text-right" colspan="2">${escapeHtml(item.quantity_display || `${parseFloat(item.quantity).toFixed(2)} ${item.unit}`)}</td>
+                                                    <td class="text-right">${escapeHtml(item.price_display || formatCurrency(item.unit_price))}</td>
+                                                    <td class="text-right font-semibold">${formatCurrency(item.total_amount)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                }).join('');
+
+                updateApprovalSectionVisibility();
+
+            } catch (error) {
+                console.error('Error loading pending POs:', error);
+                document.getElementById('pendingPOsList').innerHTML = `
+                    <div class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                        <p>Failed to load pending POs</p>
+                    </div>
+                `;
+                updateApprovalSectionVisibility();
+            }
+        }
+
+        // ========================================
+        // PENDING PURCHASE REQUESTS (PRs)
+        // ========================================
+
+        async function loadPendingPurchaseRequests() {
+            document.getElementById('pendingPRsCount').textContent = '0';
+            document.getElementById('pendingPRsList').innerHTML = `
+                <div class="text-center py-8 text-base-content/60">
+                    <i class="fas fa-route text-4xl text-info mb-2"></i>
+                    <p>PRS records go to Purchasing for canvassing.</p>
+                    <p class="text-xs mt-1">GM approval starts when a PO is submitted.</p>
+                </div>
+            `;
+            updateApprovalSectionVisibility();
+        }
+
+        // ========================================
+        // PENDING ITEM REQUESTS
+        // ========================================
+        async function loadPendingItemRequests() {
+            try {
+                const response = await PurchasingService.getGMPendingItemRequests();
+                const requests = response?.data || [];
+                const container = document.getElementById('pendingItemRequestsList');
+
+                document.getElementById('pendingItemRequestsCount').textContent = requests.length;
+
+                if (requests.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-base-content/60">
+                            <i class="fas fa-check-circle text-4xl text-success mb-2"></i>
+                            <p>No pending item requests!</p>
+                        </div>
+                    `;
+                    updateApprovalSectionVisibility();
+                    return;
+                }
+
+                container.innerHTML = requests.map(req => {
+                    const requestId = parseInt(req.id, 10) || 0;
+                    return `
+                    <div class="bg-base-200 rounded-xl p-4 hover:bg-base-300 transition-colors">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <span class="font-semibold">${escapeHtml(req.item_name)}</span>
+                                    <span class="badge badge-ghost badge-sm">${req.item_type === 'mro' ? 'MRO' : 'Ingredient'}</span>
+                                    ${req.unit_of_measure ? `<span class="badge badge-ghost badge-sm">${escapeHtml(req.unit_of_measure)}</span>` : ''}
+                                </div>
+                                <p class="text-sm text-base-content/60">Requested by: ${escapeHtml(req.requested_by_name || 'Unknown')}</p>
+                                ${req.notes ? `<p class="text-sm text-base-content/60 mt-1">Notes: ${escapeHtml(req.notes)}</p>` : ''}
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="btn btn-error btn-sm" onclick="rejectItemRequest(${requestId})">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                                <button class="btn btn-success btn-sm" onclick="approveItemRequest(${requestId})">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                }).join('');
+
+                updateApprovalSectionVisibility();
+
+            } catch (error) {
+                console.error('Error loading item requests:', error);
+                document.getElementById('pendingItemRequestsList').innerHTML = `
+                    <div class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                        <p>Failed to load item requests</p>
+                    </div>
+                `;
+                updateApprovalSectionVisibility();
+            }
+        }
+
+        // ========================================
+        // PRICE ALERTS
+        // ========================================
+
+        async function loadPriceAlerts() {
+            try {
+                const response = await PurchasingService.getGMPriceAlerts();
+                const alerts = response?.data || [];
+                const list = document.getElementById('priceAlertsList');
+                const emptyState = document.getElementById('priceAlertsEmpty');
+                const summary = document.getElementById('priceAlertsSummary');
+
+                document.getElementById('priceChangesCount').textContent = alerts.length;
+
+                if (alerts.length === 0) {
+                    if (summary) {
+                        summary.textContent = 'No significant price changes detected in the last 30 days.';
+                    }
+                    if (emptyState) emptyState.classList.remove('hidden');
+                    if (list) list.classList.add('hidden');
+                    return;
+                }
+
+                if (summary) {
+                    summary.textContent = 'Significant price changes detected in the last 30 days. Review to ensure costs are being managed.';
+                }
+                if (emptyState) emptyState.classList.add('hidden');
+                if (list) list.classList.remove('hidden');
+
+                list.innerHTML = alerts.map(alert => {
+                    const changeClass = alert.price_change > 0 ? 'text-error' : 'text-success';
+                    const changeIcon = alert.price_change > 0 ? 'fa-arrow-up' : 'fa-arrow-down';
+                    return `
+                        <div class="price-alert-card">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold">${escapeHtml(alert.item_name)}</p>
+                                    <p class="text-xs text-base-content/60">${escapeHtml(alert.item_code)}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-semibold">${formatCurrency(alert.new_price)}</p>
+                                    <p class="text-xs text-base-content/60">from ${formatCurrency(alert.old_price)}</p>
+                                </div>
+                            </div>
+                            <div class="mt-2 ${changeClass} text-sm">
+                                <i class="fas ${changeIcon} mr-1"></i>
+                                ${alert.change_percent > 0 ? '+' : ''}${parseFloat(alert.change_percent).toFixed(1)}%
+                                <span class="text-xs text-base-content/60">(${alert.price_change > 0 ? '+' : ''}${formatCurrency(alert.price_change)})</span>
+                            </div>
+                            <div class="price-alert-meta">
+                                <div>Supplier: ${escapeHtml(alert.supplier_name || '-')}</div>
+                                <div>PO#: ${escapeHtml(alert.po_number || '-')}</div>
+                                <div>Date: ${formatDate(alert.created_at)}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                console.error('Error loading price alerts:', error);
+                if (list) {
+                    list.classList.remove('hidden');
+                    list.innerHTML = `
+                        <div class="text-center py-8 text-error">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            Failed to load price alerts
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // ========================================
+        // ACTIONS
+        // ========================================
+
+        async function viewPODetail(id) {
+            const modal = document.getElementById('approvePOModal');
+            const content = document.getElementById('approvePOContent');
+            currentApprovalPO = null;
+            setPOModalDecisionMode(false, true);
+
+            content.innerHTML = `
+                <div class="text-center py-8 text-base-content/60">
+                    <span class="loading loading-spinner loading-md"></span>
+                    <p class="mt-2">Loading purchase order details...</p>
+                </div>
+            `;
+            modal.showModal();
+
+            try {
+                const response = await PurchasingService.getPurchaseOrderDetail(id);
+                const po = response?.data;
+                if (!po) {
+                    content.innerHTML = `
+                        <div class="alert alert-error">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>Purchase Order not found.</span>
+                        </div>
+                    `;
+                    return;
+                }
+
+                currentApprovalPO = po;
+                setPOModalDecisionMode(po.status === 'pending', false);
+                content.innerHTML = renderPOApprovalDetail(po);
+            } catch (error) {
+                console.error('Failed to load PO detail:', error);
+                content.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>${escapeHtml(error?.message || 'Failed to load purchase order details.')}</span>
+                    </div>
+                `;
+            }
+        }
+
+        function setPOModalDecisionMode(canDecide, loading = false) {
+            const title = document.getElementById('poReviewModalTitle');
+            const closeButton = document.getElementById('poReviewCloseButton');
+            const rejectButton = document.getElementById('poReviewRejectButton');
+            const approveButton = document.getElementById('poReviewApproveButton');
+            if (title) {
+                title.innerHTML = canDecide
+                    ? '<i class="fas fa-file-invoice-dollar text-warning mr-2"></i>Review Purchase Order'
+                    : '<i class="fas fa-shield-halved text-primary mr-2"></i>Purchase Order Decision Evidence';
+            }
+            if (closeButton) closeButton.textContent = canDecide ? 'Cancel' : 'Close';
+            rejectButton?.classList.toggle('hidden', !canDecide || loading);
+            approveButton?.classList.toggle('hidden', !canDecide || loading);
+        }
+
+        function renderPOApprovalDetail(po) {
+            const items = po.items || [];
+            const statusBadge = PurchasingService.getStatusBadgeClass(po.status || 'pending');
+            const paymentTerms = PurchasingService.formatPaymentTerms(po.payment_terms || '');
+            const decisionAction = String(po.approval_action || '').toUpperCase();
+            const isRejectedDecision = decisionAction === 'REJECT' || po.status === 'rejected';
+            const hasDecisionProof = !!(po.approval_audit_id || po.approved_at || po.rejection_reason);
+            const decisionLabel = isRejectedDecision ? 'Rejected' : 'Approved';
+            const decisionNote = isRejectedDecision ? po.rejection_reason : po.approval_remarks;
+            const decisionAt = po.approval_audit_at || po.approved_at;
+            const decisionBy = po.decision_by_name || po.approver_name || po.approved_by_name || 'General Manager';
+
+            return `
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div class="bg-base-200 rounded-xl p-3">
+                            <p class="text-xs text-base-content/60 mb-1">PO Number</p>
+                            <p class="font-mono font-bold text-primary">${escapeHtml(po.po_number)}</p>
+                        </div>
+                        <div class="bg-base-200 rounded-xl p-3">
+                            <p class="text-xs text-base-content/60 mb-1">Status</p>
+                            <span class="badge ${statusBadge}">${escapeHtml(PurchasingService.formatStatus(po.status || 'pending'))}</span>
+                        </div>
+                        <div class="bg-base-200 rounded-xl p-3">
+                            <p class="text-xs text-base-content/60 mb-1">Total Amount</p>
+                            <p class="font-bold text-primary">${formatCurrency(po.total_amount)}</p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="bg-base-200 rounded-xl p-3">
+                            <p class="text-xs text-base-content/60 mb-1">Supplier</p>
+                            <p class="font-semibold">${escapeHtml(po.supplier_name || '-')}</p>
+                            <p class="text-sm text-base-content/60">${escapeHtml(po.supplier_code || '')}</p>
+                            ${po.contact_person ? `<p class="text-sm text-base-content/60">Contact: ${escapeHtml(po.contact_person)}</p>` : ''}
+                        </div>
+                        <div class="bg-base-200 rounded-xl p-3">
+                            <p class="text-xs text-base-content/60 mb-1">Order Details</p>
+                            <p class="text-sm">Order Date: <span class="font-medium">${formatDate(po.order_date)}</span></p>
+                            <p class="text-sm">Expected Delivery: <span class="font-medium">${formatDate(po.expected_delivery)}</span></p>
+                            <p class="text-sm">Payment Terms: <span class="font-medium">${escapeHtml(paymentTerms)}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        ${po.pr_number ? `
+                            <div class="bg-primary/5 border border-primary/20 rounded-xl p-3">
+                                <p class="text-xs text-base-content/60 mb-1">Approved PR</p>
+                                <p class="font-mono font-semibold text-primary">${escapeHtml(po.pr_number)}</p>
+                                ${po.pr_purpose ? `<p class="text-sm text-base-content/60">${escapeHtml(po.pr_purpose)}</p>` : ''}
+                            </div>
+                        ` : ''}
+                        ${po.requisition_code ? `
+                            <div class="bg-base-200 rounded-xl p-3">
+                                <p class="text-xs text-base-content/60 mb-1">Linked Requisition</p>
+                                <p class="font-mono font-semibold">${escapeHtml(po.requisition_code)}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="overflow-x-auto border border-base-300 rounded-xl">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Description</th>
+                                    <th class="text-right">Qty</th>
+                                    <th>Unit</th>
+                                    <th class="text-right">Unit Price</th>
+                                    <th class="text-right">Line Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${items.length ? items.map(item => `
+                                    <tr>
+                                        <td>
+                                            <div>${escapeHtml(item.item_description || '-')}</div>
+                                            ${item.procurement_source === 'purchaser_forecast'
+                                                ? `<div class="badge badge-warning badge-sm mt-1">Purchasing early-reorder exception</div><div class="text-xs text-base-content/60 mt-1">${escapeHtml(item.forecast_reason || item.notes || '')}</div>`
+                                                : (item.recommendation_type === 'warehouse_early_reorder'
+                                                    ? `<div class="badge badge-info badge-sm mt-1">Warehouse early-reorder recommendation</div><div class="text-xs text-base-content/60 mt-1">${escapeHtml(item.forecast_reason || 'Warehouse recorded an unusual upcoming need.')}</div>`
+                                                    : (item.recommendation_type === 'early_reorder'
+                                                    ? `<div class="badge badge-info badge-sm mt-1">System early reorder · Warehouse confirmed</div><div class="text-xs text-base-content/60 mt-1">Uses ${Number(item.average_daily_issue_30d || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 })} ${escapeHtml(item.unit || 'units')}/day · ${Number(item.supplier_lead_days || 0)}-day delivery · projected ${Number(item.projected_stock_at_delivery || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 })} at delivery</div>`
+                                                    : ((item.stock_validation_item_id || item.purchase_request_item_id) ? '<div class="badge badge-info badge-sm mt-1">Confirmed Warehouse shortage</div>' : '<div class="badge badge-ghost badge-sm mt-1">Legacy PO item</div>')))}
+                                        </td>
+                                        <td class="text-right">${parseFloat(item.quantity || 0).toFixed(2)}</td>
+                                        <td>${escapeHtml(item.unit || '-')}</td>
+                                        <td class="text-right">${formatCurrency(item.unit_price)}</td>
+                                        <td class="text-right font-semibold">${formatCurrency(item.total_amount)}</td>
+                                    </tr>
+                                `).join('') : `
+                                    <tr>
+                                        <td colspan="5" class="text-center py-6 text-base-content/60">No items found</td>
+                                    </tr>
+                                `}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    ${hasDecisionProof ? `
+                        <div class="rounded-xl border ${isRejectedDecision ? 'border-error/30 bg-error/5' : 'border-success/30 bg-success/5'} p-4">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <p class="text-xs font-bold uppercase tracking-wide text-base-content/50">GM Decision Proof</p>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="badge ${isRejectedDecision ? 'badge-error' : 'badge-success'}">${decisionLabel}</span>
+                                        <span class="font-semibold text-sm">${escapeHtml(decisionBy)}</span>
+                                    </div>
+                                    <p class="text-xs text-base-content/60 mt-1">${escapeHtml(formatDateTime(decisionAt))}</p>
+                                </div>
+                                <div class="text-right text-[0.65rem] text-base-content/50 font-mono">
+                                    <div>Audit #${escapeHtml(String(po.approval_audit_id || '—'))}</div>
+                                    ${po.approval_audit_hash ? `<div title="Tamper-evident audit fingerprint">${escapeHtml(String(po.approval_audit_hash).slice(0, 16))}…</div>` : ''}
+                                </div>
+                            </div>
+                            ${decisionNote ? `<div class="mt-3 pt-3 border-t border-base-300/70"><p class="text-xs text-base-content/50 mb-1">Decision remarks</p><p class="text-sm whitespace-pre-line">${escapeHtml(decisionNote)}</p></div>` : ''}
+                        </div>` : ''}
+
+                    ${po.notes ? `
+                        <div class="bg-base-200 rounded-xl p-3">
+                            <p class="text-xs text-base-content/60 mb-1">Notes</p>
+                            <p class="text-sm">${escapeHtml(po.notes)}</p>
+                        </div>
+                    ` : ''}
+                    ${po.payment_terms_override_reason ? `
+                        <div class="bg-warning/10 border border-warning/30 rounded-xl p-3">
+                            <p class="text-xs font-semibold text-warning mb-1"><i class="fas fa-triangle-exclamation mr-1"></i>Special Payment Agreement</p>
+                            <p class="text-sm">${escapeHtml(po.payment_terms_override_reason)}</p>
+                            <p class="text-xs text-base-content/60 mt-2">The selected term differs from this supplier's usual agreement.</p>
+                        </div>
+                    ` : ''}
+                    ${po.internal_review_notes ? `
+                        <div class="bg-warning/10 border border-warning/30 rounded-xl p-3">
+                            <p class="text-xs font-semibold text-warning mb-1"><i class="fas fa-triangle-exclamation mr-1"></i>Limited Supplier Review</p>
+                            <p class="text-sm whitespace-pre-line">${escapeHtml(po.internal_review_notes)}</p>
+                            <p class="text-xs text-base-content/60 mt-2">Confirm that every available accredited supplier was canvassed before approving.</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        async function approveCurrentPO() {
+            if (!currentApprovalPO?.id) return;
+            document.getElementById('approvePOModal').close();
+            await approvePO(currentApprovalPO.id);
+        }
+
+        async function rejectCurrentPO() {
+            if (!currentApprovalPO?.id) return;
+            document.getElementById('approvePOModal').close();
+            await rejectPO(currentApprovalPO.id);
+        }
+
+        async function approvePO(id) {
+            let po = currentApprovalPO?.id == id ? currentApprovalPO : null;
+            if (!po) {
+                try {
+                    const response = await PurchasingService.getPurchaseOrderDetail(id);
+                    po = response?.data || null;
+                } catch (_) {}
+            }
+            const approvalSummary = po
+                ? `${po.po_number || `PO #${id}`} | ${po.supplier_name || 'Supplier'} | ${formatCurrency(po.total_amount)}`
+                : `Purchase Order #${id}`;
+            const deliveryText = po?.expected_delivery ? formatDate(po.expected_delivery) : 'Not specified';
+            const supplierDestination = po?.supplier_email || po?.supplier_name || 'the supplier';
+            const approvalRemarks = await AuthService.promptText({
+                title: 'Approve Purchase Order',
+                message: 'Review the final PO details. Your password will be requested next to apply your digital approval.',
+                highlight: approvalSummary,
+                highlightLabel: 'Purchase order for approval',
+                callout: `Expected delivery: ${deliveryText}. When you approve, the system will immediately email the signed PO to ${supplierDestination}. The result will be shown before you continue.`,
+                calloutTone: 'info',
+                label: 'Decision note (optional)',
+                placeholder: 'Example: Approved as reviewed',
+                confirmText: 'Approve and Sign',
+                confirmIcon: 'fa-signature',
+                icon: 'fa-file-signature',
+                tone: 'success',
+                multiline: true,
+                rows: 3,
+                size: 'lg',
+                required: false
+            });
+            if (approvalRemarks === null) return;
+            try {
+                const stepUpToken = await AuthService.promptStepUp('po_approval', 'PO approval');
+                if (!stepUpToken) return;
+                const response = await PurchasingService.approvePO(id, stepUpToken, approvalRemarks);
+                showPODispatchResult(response?.data || {}, response?.message || 'Purchase Order approval completed.');
+                await loadAllData();
+            } catch (e) {
+                showToast(e?.message || 'Failed to approve', 'error');
+            }
+        }
+
+        async function rejectPO(id) {
+            const reason = await AuthService.promptText({
+                title: 'Reject Purchase Order',
+                message: 'Add the reason so Purchasing knows what to correct.',
+                label: 'Rejection reason',
+                placeholder: 'Example: Supplier price is too high',
+                confirmText: 'Reject PO',
+                icon: 'fa-times-circle',
+                tone: 'error'
+            });
+            if (reason === null) return;
+            try {
+                await PurchasingService.rejectPO(id, reason);
+                showToast('Purchase Order rejected. Purchasing can review your reason and correct it.', 'success');
+                await loadAllData();
+            } catch (e) {
+                showToast(e?.message || 'Failed to reject', 'error');
+            }
+        }
+
+        function openPrintablePO(id) {
+            if (!id) return;
+            window.open(`../purchasing/print_po.html?po_id=${id}&v=20260824-2`, '_blank', 'noopener');
+        }
+
+        async function approveItemRequest(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Approve Item Request',
+                message: 'Approve this new item so it can be used in purchasing?',
+                confirmText: 'Approve Item',
+                icon: 'fa-box-open',
+                tone: 'success'
+            });
+            if (!confirmed) return;
+            try {
+                await PurchasingService.approveItemRequest(id);
+                showToast('New item approved. Purchasing can now use it in future requests.', 'success');
+                await loadAllData();
+            } catch (e) {
+                showToast(e?.message || 'Failed to approve', 'error');
+            }
+        }
+
+        async function rejectItemRequest(id) {
+            const reason = await AuthService.promptText({
+                title: 'Reject Item Request',
+                message: 'Add a reason if the item should not be added.',
+                label: 'Rejection reason',
+                placeholder: 'Optional reason',
+                confirmText: 'Reject Item',
+                icon: 'fa-times-circle',
+                tone: 'error',
+                required: false
+            });
+            if (reason === null) return;
+            try {
+                await PurchasingService.rejectItemRequest(id, reason);
+                showToast('New item request rejected. Purchasing can review the decision.', 'success');
+                await loadAllData();
+            } catch (e) {
+                showToast(e?.message || 'Failed to reject', 'error');
+            }
+        }
+
+        // ========================================
+        // HELPERS
+        // ========================================
+
+        function getPriorityMeta(priority) {
+            const level = String(priority || 'normal').toLowerCase();
+            const map = {
+                urgent: { label: 'Urgent', class: 'badge-error' },
+                high: { label: 'High', class: 'badge-warning' },
+                normal: { label: 'Normal', class: 'badge-info' },
+                low: { label: 'Low', class: 'badge-ghost' }
+            };
+            return map[level] || map.normal;
+        }
+
+        function formatDepartmentLabel(department) {
+            if (!department) return 'Unknown';
+            return String(department)
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, char => char.toUpperCase());
+        }
+
+        function formatCurrency(amount) {
+            return '₱' + parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function showPODispatchResult(result, responseMessage) {
+            const delivery = result?.supplier_delivery || {};
+            const sent = delivery.ok === true;
+            const poNumber = result?.po_number || 'Purchase Order';
+            const recipient = delivery.supplier_email || 'No valid supplier email on file';
+            const sentAt = delivery.sent_at ? formatDateTime(delivery.sent_at) : null;
+            const modal = document.getElementById('poDispatchResultModal');
+            const icon = document.getElementById('poDispatchResultIcon');
+            const title = document.getElementById('poDispatchResultTitle');
+            const message = document.getElementById('poDispatchResultMessage');
+            const details = document.getElementById('poDispatchResultDetails');
+            const help = document.getElementById('poDispatchResultHelp');
+
+            icon.className = `w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${sent ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`;
+            icon.innerHTML = `<i class="fas ${sent ? 'fa-envelope-circle-check' : 'fa-triangle-exclamation'} text-xl"></i>`;
+            title.textContent = sent ? `${poNumber} approved and emailed` : `${poNumber} approved; email needs attention`;
+            message.textContent = sent
+                ? 'The approval is saved and the supplier email service accepted the final PO.'
+                : (delivery.message || responseMessage || 'The approval is saved, but the supplier email was not sent.');
+            details.innerHTML = `
+                <div class="flex justify-between gap-4"><span class="text-base-content/55">GM approval</span><span class="font-semibold text-success">Saved</span></div>
+                <div class="flex justify-between gap-4"><span class="text-base-content/55">Email status</span><span class="font-semibold ${sent ? 'text-success' : 'text-warning'}">${sent ? 'Sent' : 'Not sent'}</span></div>
+                <div class="flex justify-between gap-4"><span class="text-base-content/55">Supplier email</span><span class="font-medium text-right break-all">${escapeHtml(recipient)}</span></div>
+                ${sentAt ? `<div class="flex justify-between gap-4"><span class="text-base-content/55">Sent at</span><span class="font-medium text-right">${escapeHtml(sentAt)}</span></div>` : ''}
+            `;
+            help.className = `alert mt-4 text-sm ${sent ? 'alert-info' : 'alert-warning'}`;
+            help.innerHTML = sent
+                ? '<i class="fas fa-circle-info"></i><span>This confirms the email was accepted for delivery. It does not prove that the supplier opened it.</span>'
+                : '<i class="fas fa-rotate-right"></i><span>Purchasing can correct the supplier email or connection, then use <strong>Email Final PO</strong> from Purchase Orders. The GM does not approve it again.</span>';
+            modal.showModal();
+        }
+
+        function formatDateTime(value) {
+            if (!value) return 'Decision time not recorded';
+            const date = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(date.getTime())) return String(value);
+            return date.toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' });
+        }
+
+        function getTimeAgo(dateStr) {
+            if (!dateStr) return '';
+            const now = new Date();
+            const date = new Date(dateStr);
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+            if (diffHours < 24) return `${diffHours}h ago`;
+            if (diffDays < 7) return `${diffDays}d ago`;
+            return formatDate(dateStr);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            window.HighlandNotificationLayer?.sync();
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : type === 'warning' ? 'alert-warning' : 'alert-info';
+            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg text-sm`;
+            const iconElement = document.createElement('i');
+            iconElement.className = `fas fa-${icon}`;
+            const messageElement = document.createElement('span');
+            messageElement.textContent = String(message ?? '');
+            toast.append(iconElement, messageElement);
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        // ─── Approval Decision Modal Logic ───────────────────────
+        let currentApproval = { sourceId: null, type: null, category: null };
+
+        async function openApprovalModal(sourceId, category, type) {
+            const numericId = parseInt(String(sourceId).replace(/\D/g, ''), 10);
+            if (!numericId) {
+                showToast('Cannot open detail for this demo item', 'warning');
+                return;
+            }
+
+            currentApproval = { sourceId: numericId, type, category };
+            const modal = document.getElementById('approvalModal');
+            document.getElementById('modalLoading').classList.remove('hidden');
+            document.getElementById('modalContent').classList.add('hidden');
+            document.getElementById('modalRemarks').value = '';
+            modal.showModal();
+
+            try {
+                const res = await api.post('/admin/gm_approvals.php?action=get_detail', {
+                    type: type,
+                    source_id: numericId,
+                });
+                const detail = res.data || res;
+                populateApprovalModal(detail, type, category);
+            } catch (err) {
+                document.getElementById('modalLoading').classList.add('hidden');
+                document.getElementById('modalContent').classList.remove('hidden');
+                document.getElementById('modalDetailSection').classList.remove('hidden');
+                document.getElementById('modalDetailBody').innerHTML = `<p class="text-error text-sm">Failed to load details. You can still approve/reject.</p>`;
+                document.getElementById('modalRef').textContent = sourceId;
+                document.getElementById('modalType').textContent = category;
+                document.getElementById('modalCustomer').textContent = '—';
+                document.getElementById('modalAmount').textContent = '—';
+            }
+        }
+
+        function populateApprovalModal(detail, type, category) {
+            document.getElementById('modalLoading').classList.add('hidden');
+            document.getElementById('modalContent').classList.remove('hidden');
+
+            const ref = detail.order_number || detail.disposal_code || detail.po_number || detail.requisition_code || detail.pr_number || detail.request_code || `#${currentApproval.sourceId}`;
+            document.getElementById('modalRef').textContent = ref;
+
+            const isTraceabilityCorrection = type === 'ingredient_opening_stock' && detail.request_purpose === 'traceability_correction';
+            const isStockAdjustment = type === 'ingredient_opening_stock' && detail.request_purpose === 'stock_adjustment';
+            const typeLabels = { credit: 'Credit Override', credit_override: 'Credit Override', sales_order: 'Sales Order', disposal: 'Disposal', purchase_order: 'Purchase Order', purchase_request: 'Purchase Request', requisition: 'Requisition', ingredient_opening_stock: isStockAdjustment ? 'Stock Count Adjustment' : (isTraceabilityCorrection ? 'Held Stock Lot Review' : 'Unrecorded Delivery Review') };
+            document.getElementById('modalType').textContent = typeLabels[type] || category;
+
+            const customer = detail.customer_name || detail.ingredient_name || detail.supplier_name || detail.product_name || detail.department || detail.requested_by_name || '—';
+            document.getElementById('modalCustomer').textContent = customer;
+
+            const amount = detail.total_amount ?? detail.total_value ?? detail.estimated_total;
+            const amountNumber = parseFloat(amount || 0);
+            document.getElementById('modalAmountLabel').textContent = type === 'disposal' ? 'Estimated inventory loss' : (type === 'ingredient_opening_stock' ? (isStockAdjustment ? 'Stock change' : (isTraceabilityCorrection ? 'Stock to make usable' : 'Stock to add')) : 'Amount');
+            document.getElementById('modalAmount').textContent = amountNumber > 0
+                ? `${detail.value_is_estimate == 1 ? 'Est. ' : ''}${formatCurrency(amountNumber)}`
+                : (type === 'disposal' ? 'Cost not recorded' : (type === 'ingredient_opening_stock' ? `${detail.quantity_to_add || 0} ${escapeHtml(detail.unit || '')}` : '—'));
+
+            const detailSection = document.getElementById('modalDetailSection');
+            const detailBody = document.getElementById('modalDetailBody');
+            if (type === 'ingredient_opening_stock') {
+                detailSection.classList.remove('hidden');
+                const adjustmentQuantity = parseFloat(detail.quantity_to_add || 0);
+                const adjustmentClass = adjustmentQuantity < 0 ? 'text-error' : 'text-success';
+                const adjustmentLabel = adjustmentQuantity > 0 ? 'Add after approval' : 'Remove after approval';
+                if (isStockAdjustment) {
+                    const isBatchCount = String(detail.adjustment_scope || 'ingredient') === 'batch';
+                    const allocationPreview = Array.isArray(detail.batch_allocation_preview)
+                        ? detail.batch_allocation_preview
+                        : [];
+                    const allocationHtml = !isBatchCount && adjustmentQuantity < 0 && allocationPreview.length
+                        ? `<div class="alert alert-warning py-2 text-xs">
+                            <i class="fas fa-list-check"></i>
+                            <div>
+                                <strong>Proposed lot changes for this overall count</strong>
+                                ${allocationPreview.map(row => `<p>${escapeHtml(row.batch_code || `Batch #${row.batch_id}`)}: ${escapeHtml(String(row.quantity_before))} → ${escapeHtml(String(row.quantity_after))} ${escapeHtml(detail.unit || '')}</p>`).join('')}
+                            </div>
+                           </div>`
+                        : '';
+                    detailBody.innerHTML = `
+                        <div class="p-4 space-y-3">
+                            <div class="alert alert-info py-2 text-sm"><i class="fas fa-route"></i><span><strong>Warehouse → GM only.</strong> No Purchasing or QC step is required for this internal count correction.</span></div>
+                            <div class="badge ${isBatchCount ? 'badge-info' : 'badge-ghost'}">${isBatchCount ? 'Specific batch count' : 'Overall item count'}</div>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div><span class="text-xs text-base-content/50 block">${isBatchCount ? 'Batch record' : 'System stock'}</span><strong>${escapeHtml(String(detail.system_quantity))} ${escapeHtml(detail.unit || '')}</strong></div>
+                                <div><span class="text-xs text-base-content/50 block">${isBatchCount ? 'Counted in batch' : 'Warehouse counted'}</span><strong>${escapeHtml(String(detail.counted_quantity))} ${escapeHtml(detail.unit || '')}</strong></div>
+                                <div><span class="text-xs text-base-content/50 block">${adjustmentLabel}</span><strong class="${adjustmentClass}">${adjustmentQuantity > 0 ? '+' : ''}${escapeHtml(String(detail.quantity_to_add))} ${escapeHtml(detail.unit || '')}</strong></div>
+                            </div>
+                            ${detail.source_batch_id ? `<div><span class="text-xs text-base-content/50 block">${isBatchCount ? 'Batch Warehouse physically counted' : 'Original lot for returned/recovered stock'}</span><p><strong>${escapeHtml(detail.source_batch_code || 'Recorded batch')}</strong>${detail.supplier_batch_no ? ` · Supplier lot ${escapeHtml(detail.supplier_batch_no)}` : ''}${detail.expiry_date ? ` · expires ${escapeHtml(detail.expiry_date)}` : ''}</p></div>` : ''}
+                            ${allocationHtml}
+                            <div><span class="text-xs text-base-content/50 block">Warehouse reason</span><p>${escapeHtml(detail.reason || 'No explanation')}</p></div>
+                            <div class="alert alert-warning py-2 text-xs"><i class="fas fa-triangle-exclamation"></i><span>Approve only if the physical count and explanation are believable. ${isBatchCount ? 'Only the identified batch and the item total will change.' : 'The displayed lot allocation and item total will change immediately.'}</span></div>
+                        </div>`;
+                    return;
+                }
+                detailBody.innerHTML = `
+                    <div class="p-4 space-y-3">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div><span class="text-xs text-base-content/50 block">System showed</span><strong>${escapeHtml(String(detail.system_quantity))} ${escapeHtml(detail.unit || '')}</strong></div>
+                            <div><span class="text-xs text-base-content/50 block">Warehouse counted</span><strong>${escapeHtml(String(detail.counted_quantity))} ${escapeHtml(detail.unit || '')}</strong></div>
+                            <div><span class="text-xs text-base-content/50 block">${isTraceabilityCorrection ? 'Make usable after approval' : 'Add after approval'}</span><strong class="text-success">${escapeHtml(String(detail.quantity_to_add))} ${escapeHtml(detail.unit || '')}</strong></div>
+                            <div><span class="text-xs text-base-content/50 block">Verified unit cost</span><strong>${formatCurrency(detail.unit_cost || 0)}</strong><p class="text-xs text-success">${escapeHtml(detail.price_reference || 'Verified by Purchasing')}</p></div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div><span class="text-xs text-base-content/50 block">Source</span><p>${escapeHtml(detail.source_type === 'unrecorded_delivery' ? (detail.supplier_name || 'Supplier delivery') : 'Opening balance')} · ${escapeHtml(detail.source_reference || '')}</p></div>
+                            <div><span class="text-xs text-base-content/50 block">Lot and dates</span><p>Lot: ${escapeHtml(detail.supplier_batch_no || 'Not required')} · Received: ${escapeHtml(detail.received_date || '—')} · Expires: ${escapeHtml(detail.expiry_date || 'Not applicable')}</p></div>
+                        </div>
+                        <div><span class="text-xs text-base-content/50 block">Warehouse explanation</span><p>${escapeHtml(detail.reason || 'No explanation')}</p></div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div class="alert alert-success py-2 text-xs"><i class="fas fa-file-invoice-dollar"></i><span>Price check: ${escapeHtml(detail.price_status === 'matched_po' ? 'Matched to PO' : 'Verified by Purchasing')}</span></div>
+                            <div class="alert ${detail.qc_status === 'approved' ? 'alert-success' : 'alert-info'} py-2 text-xs"><i class="fas fa-shield-heart"></i><span>QC: ${escapeHtml(detail.qc_status === 'not_required' ? 'Not required' : 'Passed')}</span></div>
+                        </div>
+                        <div class="alert alert-warning py-2 text-xs"><i class="fas fa-triangle-exclamation"></i><span>GM gives final authorization. Price and required safety checks are already complete.</span></div>
+                    </div>`;
+            } else if (type === 'disposal') {
+                detailSection.classList.remove('hidden');
+                const quantity = parseFloat(detail.quantity || 0);
+                const unitCost = parseFloat(detail.unit_cost || 0);
+                const costLabel = detail.value_is_estimate == 1 ? 'Estimated value per item' : 'Cost per item';
+                detailBody.innerHTML = `
+                    <div class="p-4 space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div><span class="text-xs text-base-content/50 block">Quantity</span><strong>${quantity.toLocaleString()} ${escapeHtml(detail.unit || '')}</strong></div>
+                            <div><span class="text-xs text-base-content/50 block">${costLabel}</span><strong>${unitCost > 0 ? formatCurrency(unitCost) : 'Not recorded'}</strong></div>
+                            <div><span class="text-xs text-base-content/50 block">Estimated loss</span><strong class="text-error">${amountNumber > 0 ? formatCurrency(amountNumber) : 'Not available'}</strong></div>
+                        </div>
+                        <div><span class="text-xs text-base-content/50 block">Reason</span><p>${escapeHtml(detail.disposal_reason || 'No reason recorded')}</p></div>
+                    </div>`;
+            } else if (detail.items && detail.items.length) {
+                detailSection.classList.remove('hidden');
+                detailBody.innerHTML = `
+                    <table class="table table-sm w-full">
+                        <thead><tr><th>Item</th><th class="text-right">Quantity</th><th class="text-right">Amount</th></tr></thead>
+                        <tbody>
+                            ${detail.items.map(i => `
+                                <tr class="hover">
+                                    <td class="truncate max-w-[160px]">${escapeHtml(i.item_description || i.product_name || i.item_name || '—')}</td>
+                                    <td class="text-right">${escapeHtml(i.quantity_display || `${i.quantity || i.quantity_ordered || i.requested_quantity || ''} ${i.unit || i.base_unit || i.unit_of_measure || ''}`)}</td>
+                                    <td class="text-right">${i.total_amount || i.line_total ? formatCurrency(i.total_amount || i.line_total) : ''}</td>
+                                </tr>`).join('')}
+                        </tbody>
+                    </table>`;
+            } else if (detail.disposal_reason || detail.notes || detail.purpose) {
+                detailSection.classList.remove('hidden');
+                const detailText = detail.disposal_reason || detail.notes || detail.purpose;
+                const detailLabel = detail.disposal_reason ? 'Reason' : 'Notes';
+                detailBody.innerHTML = `
+                    <div class="decision-detail-note">
+                        <div class="decision-detail-note__box">
+                            <span class="decision-detail-note__label">${detailLabel}</span>
+                            <p class="decision-detail-note__text">${escapeHtml(detailText)}</p>
+                        </div>
+                    </div>`;
+            } else {
+                detailSection.classList.add('hidden');
+            }
+
+            if ((type === 'credit' || type === 'credit_override' || type === 'sales_order') && detail.credit_limit) {
+                const creditInfo = `<div class="mt-2 text-xs text-base-content/60">Credit Limit: ${formatCurrency(detail.credit_limit)} · Balance: ${formatCurrency(detail.credit_balance || 0)}</div>`;
+                detailSection.classList.remove('hidden');
+                detailBody.innerHTML += creditInfo;
+            }
+        }
+
+        async function submitDecision(decision) {
+            if (!currentApproval.sourceId) return;
+
+            const remarks = document.getElementById('modalRemarks').value.trim();
+
+            try {
+                const res = await api.post(`/admin/gm_approvals.php?action=${decision}`, {
+                    type: currentApproval.type,
+                    source_id: currentApproval.sourceId,
+                    remarks: remarks,
+                });
+
+                document.getElementById('approvalModal').close();
+                showToast(getDecisionResultMessage(decision, currentApproval.type), 'success');
+
+                loadUnifiedQueue();
+            } catch (err) {
+                showToast(err?.response?.data?.message || err.message || 'Failed to process decision', 'error');
+            }
+        }
+
+        function getDecisionResultMessage(decision, type) {
+            const approved = decision === 'approve';
+            const messages = {
+                credit_override: approved
+                    ? 'Credit exception approved. Sales can now continue the order.'
+                    : 'Credit exception rejected. Sales must revise or cancel the order.',
+                sales_order: approved
+                    ? 'Sales Order approved. Warehouse FG can now prepare it for delivery.'
+                    : 'Sales Order closed. Sales can review the reason and request a revised customer PO if needed.',
+                disposal: approved
+                    ? 'Disposal approved. QC and the warehouse can now carry it out and record the result.'
+                    : 'Disposal rejected. The requesting team can review the reason.',
+                requisition: approved
+                    ? 'Material request approved. Warehouse Raw can now release the requested materials.'
+                    : 'Material request rejected. Production can review the reason and revise it.',
+                ingredient_opening_stock: approved
+                    ? 'Stock review approved. The approved inventory change is now recorded.'
+                    : 'Stock review rejected. Warehouse can recount and submit a corrected explanation.'
+            };
+            return messages[type] || (approved
+                ? 'Request approved. The next responsible team can now continue.'
+                : 'Request rejected. The requesting team can review the reason.');
+        }
+    </script>
+</body>
+
+</html>

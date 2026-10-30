@@ -1,0 +1,1339 @@
+<?php
+/**
+ * Highland Fresh System - Disposals API
+ * 
+ * Manages disposal/write-off records for QC rejected items
+ * Implements GM approval workflow
+ * 
+ * Endpoints:
+ * GET    - List disposals, get single disposal, get stats
+ * POST   - Create new disposal request
+ * PUT    - Approve/reject/complete disposal
+ * DELETE - Cancel disposal (only pending)
+ * 
+ * @package HighlandFresh
+ * @version 4.0
+ * @deployed 2026-02-11 v2 - Added error logging
+ */
+
+// Catch fatal errors
+register_shutdown_function(function() {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        http_response_code(500);
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Fatal PHP error',
+            'error_detail' => $error['message'],
+            'error_file' => basename($error['file']),
+            'error_line' => $error['line']
+        ]);
+    }
+});
+
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
+
+require_once dirname(__DIR__) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/helpers/plain_text.php';
+require_once dirname(__DIR__) . '/helpers/finished_goods_disposal.php';
+require_once dirname(__DIR__) . '/warehouse/fg/inventory_helpers.php';
+
+// Require QC, GM/Admin, Finance, or Warehouse role
+$currentUser = Auth::requireRole(['qc_officer', 'general_manager', 'finance_officer', 'warehouse_raw', 'warehouse_fg']);
+
+// Disposal categories
+define('DISPOSAL_CATEGORIES', [
+    'qc_failed' => 'QC Test Failed',
+    'expired' => 'Expired',
+    'near_expiry' => 'Near Expiry',
+    'spoiled' => 'Spoiled',
+    'contaminated' => 'Contaminated',
+    'damaged' => 'Damaged',
+    'rejected_receipt' => 'Rejected at Receiving',
+    'production_waste' => 'Production Waste',
+    'other' => 'Other'
+]);
+
+define('DISPOSAL_METHODS', [
+    'drain' => 'Drain (Liquid)',
+    'incinerate' => 'Incinerate',
+    'animal_feed' => 'Convert to Animal Feed',
+    'compost' => 'Compost',
+    'special_waste' => 'Special Waste Contractor',
+    'other' => 'Other Method'
+]);
+
+define('SOURCE_TYPES', [
+    'raw_milk' => 'Raw Milk Inventory',
+    'finished_goods' => 'Finished Goods',
+    'ingredients' => 'Ingredients',
+    'production_batch' => 'Production Batch',
+    'milk_receiving' => 'Milk Receiving'
+]);
+
+/**
+ * Resolve an auto-created driver/delivery return disposal.
+ *
+ * These goods were deducted when the DR was picked. Completing their disposal is
+ * an approval/audit event only and must never deduct the source FG lot a second
+ * time. New records use a negative return ID; the notes check keeps old records
+ * safe as well.
+ */
+function resolveDeliveryReturnDisposal(PDO $db, array $disposal): ?array {
+    if (($disposal['source_type'] ?? '') !== 'finished_goods') {
+        return null;
+    }
+
+    $notes = (string)($disposal['notes'] ?? '');
+    $rawSourceId = (int)($disposal['source_id'] ?? 0);
+    $isMarkedReturn = $rawSourceId < 0
+        || str_starts_with($notes, 'Auto-created from delivery return.');
+    if (!$isMarkedReturn || $rawSourceId === 0) {
+        return null;
+    }
+
+    $stmt = $db->prepare("
+        SELECT dr.*, dri.inventory_id, dri.unit_price, dri.delivery_receipt_id
+        FROM delivery_returns dr
+        LEFT JOIN delivery_receipt_items dri ON dri.id = dr.dr_item_id
+        WHERE dr.id = ?
+        LIMIT 1
+    ");
+    $stmt->execute([abs($rawSourceId)]);
+    $return = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $return ?: null;
+}
+
+try {
+    $db = Database::getInstance()->getConnection();
+    
+    switch ($requestMethod) {
+        case 'GET':
+            handleGetRequest($db, $currentUser);
+            break;
+            
+        case 'POST':
+            handlePostRequest($db, $currentUser);
+            break;
+            
+        case 'PUT':
+            handlePutRequest($db, $currentUser);
+            break;
+            
+        case 'DELETE':
+            handleDeleteRequest($db, $currentUser);
+            break;
+            
+        default:
+            Response::error('Method not allowed', 405);
+    }
+    
+} catch (Exception $e) {
+    error_log("Disposals API error: " . $e->getMessage());
+    Response::error('An error occurred: ' . $e->getMessage(), 500);
+}
+
+/**
+ * Handle GET requests
+ */
+function handleGetRequest($db, $currentUser) {
+    $action = getParam('action', 'list');
+    $id = getParam('id');
+    
+    // Get single disposal
+    if ($id) {
+        $stmt = $db->prepare("
+            SELECT d.*,
+                   ui.first_name as initiated_by_name, ui.last_name as initiated_by_last,
+                   ua.first_name as approved_by_name, ua.last_name as approved_by_last,
+                   ud.first_name as disposed_by_name, ud.last_name as disposed_by_last,
+                   p.product_code, p.product_name as product_full_name
+            FROM disposals d
+            LEFT JOIN users ui ON d.initiated_by = ui.id
+            LEFT JOIN users ua ON d.approved_by = ua.id
+            LEFT JOIN users ud ON d.disposed_by = ud.id
+            LEFT JOIN products p ON d.product_id = p.id
+            WHERE d.id = ?
+        ");
+        $stmt->execute([$id]);
+        $disposal = $stmt->fetch();
+        
+        if (!$disposal) {
+            Response::notFound('Disposal not found');
+        }
+        
+        // Get disposal items if any
+        $itemsStmt = $db->prepare("
+            SELECT di.*, p.product_code
+            FROM disposal_items di
+            LEFT JOIN products p ON di.product_id = p.id
+            WHERE di.disposal_id = ?
+            ORDER BY di.id
+        ");
+        $itemsStmt->execute([$id]);
+        $disposal['items'] = $itemsStmt->fetchAll();
+        
+        Response::success($disposal, 'Disposal retrieved successfully');
+    }
+    
+    // Get statistics
+    if ($action === 'stats') {
+        $period = getParam('period', 'month'); // today, week, month, year
+        
+        $dateFilter = match($period) {
+            'today' => "DATE(d.created_at) = CURDATE()",
+            'week' => "d.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
+            'month' => "d.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
+            'year' => "YEAR(d.created_at) = YEAR(CURDATE())",
+            default => "d.created_at >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+        };
+        
+        // Overall stats
+        $stats = $db->query("
+            SELECT 
+                COUNT(*) as total_disposals,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN status = 'completed' THEN total_value ELSE 0 END) as total_loss_value
+            FROM disposals d
+            WHERE $dateFilter
+        ")->fetch();
+        
+        // By category
+        $byCategory = $db->query("
+            SELECT 
+                disposal_category,
+                COUNT(*) as count,
+                SUM(quantity) as total_quantity,
+                SUM(CASE WHEN status = 'completed' THEN total_value ELSE 0 END) as total_value
+            FROM disposals d
+            WHERE $dateFilter
+            GROUP BY disposal_category
+            ORDER BY count DESC
+        ")->fetchAll();
+        
+        // By source type
+        $bySourceType = $db->query("
+            SELECT 
+                source_type,
+                COUNT(*) as count,
+                SUM(CASE WHEN status = 'completed' THEN total_value ELSE 0 END) as total_value
+            FROM disposals d
+            WHERE $dateFilter
+            GROUP BY source_type
+        ")->fetchAll();
+        
+        // Recent pending approvals (for GM)
+        $pendingApprovals = $db->query("
+            SELECT d.id, d.disposal_code, d.product_name, d.quantity, d.unit,
+                   d.disposal_category, d.total_value, d.initiated_at,
+                   u.first_name as initiated_by_name
+            FROM disposals d
+            LEFT JOIN users u ON d.initiated_by = u.id
+            WHERE d.status = 'pending'
+            ORDER BY d.initiated_at ASC
+            LIMIT 10
+        ")->fetchAll();
+        
+        Response::success([
+            'summary' => $stats,
+            'by_category' => $byCategory,
+            'by_source_type' => $bySourceType,
+            'pending_approvals' => $pendingApprovals,
+            'categories' => DISPOSAL_CATEGORIES,
+            'methods' => DISPOSAL_METHODS,
+            'source_types' => SOURCE_TYPES
+        ], 'Disposal statistics retrieved');
+    }
+    
+    // Get pending approvals for GM
+    if ($action === 'pending') {
+        $stmt = $db->query("
+            SELECT d.*,
+                   u.first_name as initiated_by_name,
+                   p.product_code
+            FROM disposals d
+            LEFT JOIN users u ON d.initiated_by = u.id
+            LEFT JOIN products p ON d.product_id = p.id
+            WHERE d.status = 'pending'
+            ORDER BY d.initiated_at ASC
+        ");
+        
+        Response::success([
+            'pending' => $stmt->fetchAll(),
+            'count' => $stmt->rowCount()
+        ], 'Pending approvals retrieved');
+    }
+    
+    // Get lookup data
+    if ($action === 'lookup') {
+        Response::success([
+            'categories' => DISPOSAL_CATEGORIES,
+            'methods' => DISPOSAL_METHODS,
+            'source_types' => SOURCE_TYPES
+        ], 'Lookup data retrieved');
+    }
+    
+    // Get available sources for disposal
+    if ($action === 'sources') {
+        $type = getParam('type', 'finished_goods');
+        
+        $sources = [];
+        
+        if ($type === 'finished_goods' || $type === 'all') {
+            // Get finished goods with available quantity, prioritizing items near expiry
+            $stmt = $db->query("
+                SELECT 
+                    'finished_goods' as source_type,
+                    fgi.id as source_id,
+                    CONCAT(fgi.product_name, ' (', pb.batch_code, ')') as display_name,
+                    fgi.product_id,
+                    fgi.product_name,
+                    pb.batch_code as reference,
+                    GREATEST(COALESCE(fgi.quantity_available, 0), 0) as available_quantity,
+                    'pcs' as unit,
+                    COALESCE(
+                        NULLIF(p.cost_price, 0),
+                        NULLIF(fgi.unit_price, 0),
+                        NULLIF(p.unit_price, 0),
+                        NULLIF(p.selling_price, 0),
+                        0
+                    ) as unit_cost,
+                    CASE
+                        WHEN COALESCE(p.cost_price, 0) > 0 THEN 'recorded_cost'
+                        WHEN COALESCE(fgi.unit_price, p.unit_price, p.selling_price, 0) > 0 THEN 'catalog_estimate'
+                        ELSE 'missing'
+                    END as cost_basis,
+                    fgi.expiry_date,
+                    fgi.manufacturing_date,
+                    DATEDIFF(fgi.expiry_date, CURDATE()) as days_until_expiry,
+                    CASE 
+                        WHEN fgi.expiry_date < CURDATE() THEN 'Expired'
+                        WHEN fgi.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) THEN 'Expiring Soon'
+                        ELSE 'Active'
+                    END as status
+                FROM finished_goods_inventory fgi
+                LEFT JOIN production_batches pb ON fgi.batch_id = pb.id
+                LEFT JOIN products p ON fgi.product_id = p.id
+                WHERE COALESCE(fgi.quantity_available, 0) > 0
+                  AND fgi.status IN ('available', 'low_stock', 'expired')
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM disposals existing_disposal
+                      WHERE existing_disposal.source_type = 'finished_goods'
+                        AND existing_disposal.source_id = fgi.id
+                        AND existing_disposal.status IN ('pending', 'approved')
+                        AND COALESCE(existing_disposal.notes, '') NOT LIKE 'Auto-created from delivery return.%'
+                  )
+                ORDER BY fgi.expiry_date ASC
+                LIMIT 100
+            ");
+            $sources = array_merge($sources, $stmt->fetchAll(PDO::FETCH_ASSOC));
+        }
+        
+        if ($type === 'raw_milk' || $type === 'all') {
+            $stmt = $db->query("
+                SELECT 
+                    'raw_milk' as source_type,
+                    rmi.id as source_id,
+                    CONCAT('Raw Milk - Tank ', COALESCE(st.tank_name, 'Unknown'), ' (Batch: ', COALESCE(rmi.batch_code, 'N/A'), ')') as display_name,
+                    NULL as product_id,
+                    'Raw Milk' as product_name,
+                    COALESCE(rmi.batch_code, CONCAT('RMI-', rmi.id)) as reference,
+                    COALESCE(rmi.remaining_liters, rmi.volume_liters, 0) as available_quantity,
+                    'liters' as unit,
+                    COALESCE(rmi.unit_cost, 30.00) as unit_cost,
+                    rmi.expiry_date,
+                    DATE(rmi.received_date) as manufacturing_date,
+                    CASE 
+                        WHEN rmi.expiry_date IS NOT NULL THEN DATEDIFF(rmi.expiry_date, CURDATE())
+                        ELSE NULL
+                    END as days_until_expiry,
+                    CASE 
+                        WHEN rmi.expiry_date IS NOT NULL AND rmi.expiry_date < CURDATE() THEN 'Expired'
+                        WHEN rmi.expiry_date IS NOT NULL AND rmi.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 3 DAY) THEN 'Expiring Soon'
+                        ELSE rmi.status
+                    END as status
+                FROM raw_milk_inventory rmi
+                LEFT JOIN storage_tanks st ON rmi.tank_id = st.id
+                WHERE COALESCE(rmi.remaining_liters, rmi.volume_liters, 0) > 0 
+                  AND (rmi.status IN ('stored', 'available', 'active', '') OR rmi.status IS NULL)
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM disposals existing_disposal
+                      WHERE existing_disposal.source_type = 'raw_milk'
+                        AND existing_disposal.source_id = rmi.id
+                        AND existing_disposal.status IN ('pending', 'approved')
+                  )
+                ORDER BY rmi.expiry_date ASC, rmi.created_at ASC
+                LIMIT 50
+            ");
+            $sources = array_merge($sources, $stmt->fetchAll(PDO::FETCH_ASSOC));
+        }
+        
+        Response::success($sources, 'Disposal sources retrieved');
+    }
+    
+    // List disposals with filters
+    $status = getParam('status');
+    $category = getParam('category');
+    $sourceType = getParam('source_type');
+    $dateFrom = getParam('date_from');
+    $dateTo = getParam('date_to');
+    $search = getParam('search');
+    $page = max(1, intval(getParam('page', 1)));
+    $limit = min(100, max(1, intval(getParam('limit', 20))));
+    $offset = ($page - 1) * $limit;
+    
+    $where = "1=1";
+    $params = [];
+    
+    if ($status && in_array($status, ['pending', 'approved', 'rejected', 'completed', 'cancelled'])) {
+        $where .= " AND d.status = ?";
+        $params[] = $status;
+    }
+    
+    if ($category && array_key_exists($category, DISPOSAL_CATEGORIES)) {
+        $where .= " AND d.disposal_category = ?";
+        $params[] = $category;
+    }
+    
+    if ($sourceType && array_key_exists($sourceType, SOURCE_TYPES)) {
+        $where .= " AND d.source_type = ?";
+        $params[] = $sourceType;
+    }
+    
+    if ($dateFrom) {
+        $where .= " AND DATE(d.created_at) >= ?";
+        $params[] = $dateFrom;
+    }
+    
+    if ($dateTo) {
+        $where .= " AND DATE(d.created_at) <= ?";
+        $params[] = $dateTo;
+    }
+    
+    if ($search) {
+        $where .= " AND (d.disposal_code LIKE ? OR d.product_name LIKE ? OR d.disposal_reason LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+    }
+    
+    // Count total
+    $countStmt = $db->prepare("SELECT COUNT(*) FROM disposals d WHERE $where");
+    $countStmt->execute($params);
+    $total = $countStmt->fetchColumn();
+    
+    // Get data
+    $params[] = $limit;
+    $params[] = $offset;
+    
+    $stmt = $db->prepare("
+        SELECT d.*,
+               ui.first_name as initiated_by_name,
+               ui.last_name as initiated_by_last,
+               ui.role as initiated_by_role,
+               ua.first_name as approved_by_name,
+               p.product_code,
+               p.cost_price,
+               p.unit_price AS catalog_unit_price,
+               p.selling_price,
+               TRIM(CONCAT(COALESCE(ui.first_name, ''), ' ', COALESCE(ui.last_name, ''))) as requested_by_name,
+               TRIM(CONCAT(COALESCE(ui.first_name, ''), ' ', COALESCE(ui.last_name, ''))) as created_by_name
+        FROM disposals d
+        LEFT JOIN users ui ON d.initiated_by = ui.id
+        LEFT JOIN users ua ON d.approved_by = ua.id
+        LEFT JOIN products p ON d.product_id = p.id
+        WHERE $where
+        ORDER BY d.created_at DESC
+        LIMIT ? OFFSET ?
+    ");
+    $stmt->execute($params);
+    $disposals = $stmt->fetchAll();
+
+    // Enrich requester labels for audit display (Name + Role)
+    foreach ($disposals as &$d) {
+        $full = trim(($d['initiated_by_name'] ?? '') . ' ' . ($d['initiated_by_last'] ?? ''));
+        if ($full === '') {
+            $full = 'System';
+        }
+        $roleLabel = formatDisposalRoleLabel($d['initiated_by_role'] ?? null);
+        $d['requested_by_name'] = $roleLabel ? ($full . ' (' . $roleLabel . ')') : $full;
+        $d['created_by_name'] = $d['requested_by_name'];
+        // Never expose blank category to UI
+        if (empty($d['disposal_category'])) {
+            $d['disposal_category'] = 'spoiled';
+        }
+        // Use real product values for older records that were saved before
+        // finished-goods valuation was enforced. Never invent a flat cost.
+        if ((float)($d['total_value'] ?? 0) <= 0 && (float)($d['quantity'] ?? 0) > 0) {
+            $unitCost = (float)($d['unit_cost'] ?? 0);
+            if ($unitCost <= 0) {
+                $unitCost = (float)($d['cost_price'] ?? 0);
+            }
+            if ($unitCost <= 0) {
+                $unitCost = (float)($d['catalog_unit_price'] ?? $d['selling_price'] ?? 0);
+            }
+            if ($unitCost > 0) {
+                $d['unit_cost'] = $unitCost;
+                $d['total_value'] = round((float)$d['quantity'] * $unitCost, 2);
+                $d['value_is_estimate'] = (float)($d['cost_price'] ?? 0) <= 0;
+            }
+        }
+    }
+    unset($d);
+    
+    Response::paginated($disposals, $total, $page, $limit, 'Disposals retrieved');
+}
+
+function formatDisposalRoleLabel(?string $role): string {
+    $map = [
+        'qc_officer' => 'QC',
+        'warehouse_fg' => 'Warehouse',
+        'warehouse_raw' => 'Warehouse',
+        'general_manager' => 'GM',
+        'production_staff' => 'Production',
+        'sales_custodian' => 'Sales',
+    ];
+    if (!$role) {
+        return '';
+    }
+    return $map[$role] ?? ucwords(str_replace('_', ' ', $role));
+}
+
+/**
+ * Handle POST requests - Create new disposal, or action=cancel
+ */
+function handlePostRequest($db, $currentUser) {
+    $action = getParam('action', '');
+
+    // Cancel via POST (reliable when DELETE override is awkward)
+    if ($action === 'cancel') {
+        handleDeleteRequest($db, $currentUser);
+        return;
+    }
+
+    // Only QC Officer and General Manager can create disposal requests
+    // Warehouse staff must report to QC (segregation of duties)
+    $allowedToCreate = ['qc_officer', 'general_manager'];
+    requireActionRole(
+        $currentUser,
+        $allowedToCreate,
+        'Only QC Officers can create disposal requests. Please report the issue to QC for validation.'
+    );
+    
+    // Validate required fields
+    $sourceType = getParam('source_type');
+    $sourceId = getParam('source_id');
+    $quantity = floatval(getParam('quantity'));
+    $unit = hfPlainText(getParam('unit', 'pcs'), 30);
+    $category = getParam('disposal_category');
+    $reason = hfPlainText(getParam('disposal_reason', ''), 2000, true);
+    $method = getParam('disposal_method', 'drain');
+    
+    $errors = [];
+    
+    if (!$sourceType || !array_key_exists($sourceType, SOURCE_TYPES)) {
+        $errors['source_type'] = 'Valid source type is required';
+    }
+    
+    if (!$sourceId || !is_numeric($sourceId)) {
+        $errors['source_id'] = 'Source ID is required';
+    }
+    
+    if ($quantity <= 0) {
+        $errors['quantity'] = 'Quantity must be greater than 0';
+    }
+    
+    if (!$category || !array_key_exists($category, DISPOSAL_CATEGORIES)) {
+        $errors['disposal_category'] = 'Valid disposal category is required';
+    }
+    
+    if (empty($reason)) {
+        $errors['disposal_reason'] = 'Disposal reason is required';
+    }
+    
+    if (!empty($errors)) {
+        Response::validationError($errors);
+    }
+
+    $duplicateStmt = $db->prepare("
+        SELECT disposal_code, status
+        FROM disposals
+        WHERE source_type = ?
+          AND source_id = ?
+          AND status IN ('pending', 'approved')
+          AND NOT (
+              source_type = 'finished_goods'
+              AND COALESCE(notes, '') LIKE 'Auto-created from delivery return.%'
+          )
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $duplicateStmt->execute([$sourceType, $sourceId]);
+    $existingDisposal = $duplicateStmt->fetch(PDO::FETCH_ASSOC);
+    if ($existingDisposal) {
+        Response::error(
+            'This stock already has an open disposal request: ' . $existingDisposal['disposal_code'] . '.',
+            409
+        );
+    }
+    
+    // Validate source exists and get details
+    $sourceDetails = validateSource($db, $sourceType, $sourceId, $quantity);
+    
+    if (!$sourceDetails['valid']) {
+        Response::error($sourceDetails['error'], 400);
+    }
+    
+    // Generate disposal code
+    $disposalCode = generateDisposalCode($db);
+    
+    // Calculate total value
+    // The server owns the valuation. A hidden browser field must not be able
+    // to replace a known inventory cost with zero or another arbitrary value.
+    $unitCost = floatval($sourceDetails['unit_cost'] ?? 0);
+    if ($unitCost <= 0) {
+        Response::error(
+            'No inventory value is recorded for this item. Set its production cost or catalog price before submitting the disposal request.',
+            409
+        );
+    }
+    $totalValue = $quantity * $unitCost;
+
+    $notes = hfPlainText(getParam('notes', ''), 2000, true);
+    if (($sourceDetails['cost_basis'] ?? '') === 'catalog_estimate') {
+        $valuationNote = 'Estimated using the current catalog price because no production cost was recorded.';
+        $notes = trim($notes === '' ? $valuationNote : ($notes . "\n" . $valuationNote));
+    }
+    
+    // Create disposal record
+    $db->beginTransaction();
+    
+    try {
+        // Optional recall_id for linking disposal to a recall
+        $recallId = getParam('recall_id') ? intval(getParam('recall_id')) : null;
+        
+        $stmt = $db->prepare("
+            INSERT INTO disposals (
+                disposal_code, source_type, source_id, source_reference,
+                product_id, product_name, quantity, unit,
+                unit_cost, total_value, disposal_category, disposal_reason,
+                disposal_method, status, initiated_by, initiated_at, notes, recall_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, NOW(), ?, ?)
+        ");
+        
+        $stmt->execute([
+            $disposalCode,
+            $sourceType,
+            $sourceId,
+            $sourceDetails['reference'] ?? null,
+            $sourceDetails['product_id'] ?? null,
+            $sourceDetails['product_name'] ?? getParam('product_name'),
+            $quantity,
+            $unit,
+            $unitCost,
+            $totalValue,
+            $category,
+            $reason,
+            $method,
+            $currentUser['user_id'],
+            $notes !== '' ? $notes : null,
+            $recallId
+        ]);
+        
+        $disposalId = $db->lastInsertId();
+        
+        // Log audit
+        logAudit($currentUser['user_id'], 'CREATE', 'disposals', $disposalId, null, [
+            'disposal_code' => $disposalCode,
+            'source_type' => $sourceType,
+            'source_id' => $sourceId,
+            'quantity' => $quantity,
+            'category' => $category
+        ]);
+
+        if ($sourceType === 'finished_goods') {
+            $noticeStmt = $db->prepare("
+                UPDATE procurement_notifications
+                SET is_read = 1
+                WHERE target_role = 'qc_officer'
+                  AND notification_type = 'fg_disposal_review'
+                  AND reference_type = 'finished_goods_inventory'
+                  AND reference_id = ?
+            ");
+            $noticeStmt->execute([$sourceId]);
+        }
+        
+        $db->commit();
+        
+        // Fetch created disposal
+        $stmt = $db->prepare("SELECT * FROM disposals WHERE id = ?");
+        $stmt->execute([$disposalId]);
+        $disposal = $stmt->fetch();
+        
+        Response::success($disposal, 'Disposal request created successfully. Awaiting GM approval.', 201);
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+/**
+ * Handle PUT requests - Approve/Reject/Complete disposal
+ */
+function handlePutRequest($db, $currentUser) {
+    $id = getParam('id');
+    $action = getParam('action'); // approve, reject, complete, execute
+    
+    if (!$id || !is_numeric($id)) {
+        Response::error('Disposal ID is required', 400);
+    }
+    
+    // Get existing disposal
+    $stmt = $db->prepare("SELECT * FROM disposals WHERE id = ?");
+    $stmt->execute([$id]);
+    $disposal = $stmt->fetch();
+    
+    if (!$disposal) {
+        Response::notFound('Disposal not found');
+    }
+    
+    $db->beginTransaction();
+    
+    try {
+        switch ($action) {
+            case 'approve':
+                requireActionRole($currentUser, ['general_manager'], 'Access forbidden');
+
+                // Only GM can approve
+                if ($currentUser['role'] !== 'general_manager') {
+                    Response::error('Only General Manager can approve disposals', 403);
+                }
+
+                $stepUpToken = getParam('step_up_token');
+                Auth::requireStepUp($currentUser, 'disposal_approval', $stepUpToken);
+                
+                if ($disposal['status'] !== 'pending') {
+                    Response::error('Only pending disposals can be approved', 400);
+                }
+                
+                $approvalNotes = hfPlainText(getParam('approval_notes', ''), 2000, true);
+                
+                $stmt = $db->prepare("
+                    UPDATE disposals SET
+                        status = 'approved',
+                        approved_by = ?,
+                        approved_at = NOW(),
+                        approval_notes = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$currentUser['user_id'], $approvalNotes, $id]);
+                
+                logAudit($currentUser['user_id'], 'APPROVE', 'disposals', $id, 
+                    ['status' => 'pending'], 
+                    [
+                        'status' => 'approved',
+                        'approved_by' => $currentUser['user_id'],
+                        'approval_notes' => $approvalNotes,
+                        'step_up_verified' => true
+                    ]
+                );
+
+                // ── Auto-create Credit Memo if disposal came from a customer return ──
+                $creditMemoResult = autoCreateCreditMemoForReturn($db, $disposal, $currentUser);
+                $message = 'Disposal approved successfully';
+                if ($creditMemoResult) {
+                    $message .= ". Credit memo {$creditMemoResult['credit_code']} (₱" . number_format($creditMemoResult['credit_amount'], 2) . ") created for {$creditMemoResult['customer_name']}.";
+                }
+                break;
+                
+            case 'reject':
+                requireActionRole($currentUser, ['general_manager'], 'Access forbidden');
+
+                // Only GM can reject
+                if ($currentUser['role'] !== 'general_manager') {
+                    Response::error('Only General Manager can reject disposals', 403);
+                }
+                
+                if ($disposal['status'] !== 'pending') {
+                    Response::error('Only pending disposals can be rejected', 400);
+                }
+                
+                $rejectionReason = hfPlainText(
+                    getParam('rejection_reason', getParam('approval_notes', '')),
+                    2000,
+                    true
+                );
+                if (empty($rejectionReason)) {
+                    Response::validationError(['rejection_reason' => 'Rejection reason is required']);
+                }
+                
+                $stmt = $db->prepare("
+                    UPDATE disposals SET
+                        status = 'rejected',
+                        approved_by = ?,
+                        approved_at = NOW(),
+                        approval_notes = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$currentUser['user_id'], $rejectionReason, $id]);
+                
+                logAudit($currentUser['user_id'], 'REJECT', 'disposals', $id,
+                    ['status' => 'pending'],
+                    ['status' => 'rejected', 'reason' => $rejectionReason]
+                );
+                
+                $message = 'Disposal rejected';
+                break;
+                
+            case 'complete':
+            case 'execute':
+                requireActionRole(
+                    $currentUser,
+                    ['qc_officer', 'warehouse_raw', 'warehouse_fg', 'general_manager'],
+                    'Only QC, Warehouse, or the General Manager can execute disposals'
+                );
+
+                if ($disposal['status'] !== 'approved') {
+                    Response::error('Only approved disposals can be completed', 400);
+                }
+                
+                $witnessName = hfPlainText(getParam('witness_name', ''), 150);
+                $disposalLocation = hfPlainText(getParam('disposal_location', ''), 255);
+                $executionNotes = hfPlainText(getParam('notes', ''), 2000, true);
+
+                if ($witnessName === '' || $disposalLocation === '') {
+                    Response::validationError([
+                        'witness_name' => $witnessName === '' ? 'Witness name is required' : null,
+                        'disposal_location' => $disposalLocation === '' ? 'Disposal location is required' : null
+                    ]);
+                }
+
+                // Returned goods already left sellable FG during picking. Their
+                // physical disposal closes the audit record without a second stock
+                // deduction. Ordinary FG disposals still deduct here.
+                $deliveryReturn = resolveDeliveryReturnDisposal($db, $disposal);
+                if (!$deliveryReturn) {
+                    executeDisposal($db, $disposal, $currentUser);
+                }
+                
+                $stmt = $db->prepare("
+                    UPDATE disposals SET
+                        status = 'completed',
+                        disposed_by = ?,
+                        disposed_at = NOW(),
+                        witness_name = ?,
+                        disposal_location = ?,
+                        notes = CONCAT(COALESCE(notes, ''), '\n[Execution] ', ?)
+                    WHERE id = ?
+                ");
+                $stmt->execute([
+                    $currentUser['user_id'],
+                    $witnessName,
+                    $disposalLocation,
+                    $executionNotes,
+                    $id
+                ]);
+                
+                logAudit($currentUser['user_id'], 'COMPLETE', 'disposals', $id,
+                    ['status' => 'approved'],
+                    ['status' => 'completed', 'disposed_by' => $currentUser['user_id']]
+                );
+                
+                $message = $deliveryReturn
+                    ? 'Returned goods disposal completed. Sellable stock was already removed at dispatch; no second deduction was made.'
+                    : 'Disposal completed successfully. Inventory updated.';
+                break;
+                
+            default:
+                Response::error('Invalid action. Use: approve, reject, complete', 400);
+        }
+        
+        $db->commit();
+        
+        // Fetch updated disposal
+        $stmt = $db->prepare("SELECT * FROM disposals WHERE id = ?");
+        $stmt->execute([$id]);
+        $updatedDisposal = $stmt->fetch();
+        
+        Response::success($updatedDisposal, $message);
+        
+    } catch (Exception $e) {
+        $db->rollBack();
+        throw $e;
+    }
+}
+
+/**
+ * Handle DELETE requests - Cancel disposal
+ *
+ * Who may cancel a *pending* disposal:
+ *  - General Manager / Admin: any request
+ *  - QC Officer: any request (reviewers must be able to withdraw bad write-offs,
+ *    including auto-created delivery-return disposals initiated by Warehouse FG)
+ *  - Initiator (Warehouse FG/Raw, QC, etc.): their own request only
+ */
+function handleDeleteRequest($db, $currentUser) {
+    requireActionRole(
+        $currentUser,
+        ['qc_officer', 'general_manager', 'warehouse_fg', 'warehouse_raw'],
+        'Only QC, Warehouse, or GM/Admin can cancel disposal requests'
+    );
+
+    $id = getParam('id') ?? getParam('disposal_id');
+    
+    if (!$id || !is_numeric($id)) {
+        Response::error('Disposal ID is required', 400);
+    }
+    
+    $stmt = $db->prepare("SELECT * FROM disposals WHERE id = ?");
+    $stmt->execute([$id]);
+    $disposal = $stmt->fetch();
+    
+    if (!$disposal) {
+        Response::notFound('Disposal not found');
+    }
+    
+    // Only pending can be cancelled
+    if ($disposal['status'] !== 'pending') {
+        Response::error('Only pending disposals can be cancelled (current: ' . $disposal['status'] . ')', 400);
+    }
+
+    $role = $currentUser['role'] ?? '';
+    $isReviewer = in_array($role, ['qc_officer', 'general_manager'], true);
+    $isInitiator = (int)($disposal['initiated_by'] ?? 0) === (int)($currentUser['user_id'] ?? 0);
+
+    if (!$isReviewer && !$isInitiator) {
+        Response::error(
+            'You can only cancel disposal requests you created, or you need a QC/GM role to cancel others.',
+            403
+        );
+    }
+    
+    $stmt = $db->prepare("UPDATE disposals SET status = 'cancelled' WHERE id = ? AND status = 'pending'");
+    $stmt->execute([$id]);
+
+    if ($stmt->rowCount() < 1) {
+        Response::error('Failed to cancel disposal (it may have already been processed)', 409);
+    }
+    
+    logAudit($currentUser['user_id'], 'CANCEL', 'disposals', $id,
+        ['status' => 'pending'],
+        ['status' => 'cancelled', 'cancelled_by' => $currentUser['user_id']]
+    );
+    
+    Response::success(['id' => (int)$id, 'status' => 'cancelled'], 'Disposal cancelled successfully');
+}
+
+/**
+ * Validate source item exists and has sufficient quantity
+ */
+function validateSource($db, $sourceType, $sourceId, $quantity) {
+    switch ($sourceType) {
+        case 'raw_milk':
+            $stmt = $db->prepare("
+                SELECT rmi.*, 
+                       COALESCE(rmi.batch_code, CONCAT('RMI-', rmi.id)) as reference,
+                       COALESCE(rmi.remaining_liters, rmi.volume_liters, 0) as available_liters
+                FROM raw_milk_inventory rmi
+                WHERE rmi.id = ?
+            ");
+            $stmt->execute([$sourceId]);
+            $item = $stmt->fetch();
+            
+            if (!$item) {
+                return ['valid' => false, 'error' => 'Raw milk inventory not found'];
+            }
+            
+            $available = floatval($item['available_liters']);
+            if ($quantity > $available) {
+                return ['valid' => false, 'error' => "Insufficient quantity. Available: $available liters"];
+            }
+            
+            return [
+                'valid' => true,
+                'reference' => $item['reference'],
+                'product_name' => 'Raw Milk',
+                'unit_cost' => floatval($item['unit_cost'] ?? 30.00)
+            ];
+            
+        case 'finished_goods':
+            $stmt = $db->prepare("
+                SELECT fgi.*, p.product_name, p.product_code, p.cost_price,
+                       p.unit_price AS catalog_unit_price, p.selling_price,
+                       pb.batch_code as reference
+                FROM finished_goods_inventory fgi
+                LEFT JOIN products p ON fgi.product_id = p.id
+                LEFT JOIN production_batches pb ON fgi.batch_id = pb.id
+                WHERE fgi.id = ?
+            ");
+            $stmt->execute([$sourceId]);
+            $item = $stmt->fetch();
+            
+            if (!$item) {
+                return ['valid' => false, 'error' => 'Finished goods inventory not found'];
+            }
+            
+            if (!in_array((string)$item['status'], ['available', 'low_stock', 'expired'], true)) {
+                return ['valid' => false, 'error' => 'This finished-goods batch is no longer available for disposal'];
+            }
+
+            $available = fgDisposalAvailableBaseUnits($item);
+            if ($quantity > $available) {
+                return ['valid' => false, 'error' => "Insufficient quantity. Available: $available pieces"];
+            }
+            
+            return [
+                'valid' => true,
+                'reference' => $item['reference'],
+                'product_id' => $item['product_id'],
+                'product_name' => $item['product_name'],
+                'unit_cost' => (float)(
+                    ((float)($item['cost_price'] ?? 0) > 0)
+                        ? $item['cost_price']
+                        : (((float)($item['unit_price'] ?? 0) > 0)
+                            ? $item['unit_price']
+                            : ($item['catalog_unit_price'] ?? $item['selling_price'] ?? 0))
+                ),
+                'cost_basis' => ((float)($item['cost_price'] ?? 0) > 0)
+                    ? 'recorded_cost'
+                    : 'catalog_estimate'
+            ];
+            
+        case 'milk_receiving':
+            $stmt = $db->prepare("
+                SELECT mr.*, f.farmer_code, 
+                       CONCAT(f.first_name, ' ', COALESCE(f.last_name, '')) as farmer_name
+                FROM milk_receiving mr
+                LEFT JOIN farmers f ON mr.farmer_id = f.id
+                WHERE mr.id = ?
+            ");
+            $stmt->execute([$sourceId]);
+            $item = $stmt->fetch();
+            
+            if (!$item) {
+                return ['valid' => false, 'error' => 'Milk receiving record not found'];
+            }
+            
+            return [
+                'valid' => true,
+                'reference' => $item['receiving_code'],
+                'product_name' => 'Raw Milk from ' . ($item['farmer_name'] ?? 'Unknown Farmer'),
+                'unit_cost' => 30.00
+            ];
+            
+        case 'production_batch':
+            $stmt = $db->prepare("
+                SELECT pb.*, p.product_name, p.cost_price
+                FROM production_batches pb
+                LEFT JOIN products p ON pb.product_id = p.id
+                WHERE pb.id = ?
+            ");
+            $stmt->execute([$sourceId]);
+            $item = $stmt->fetch();
+            
+            if (!$item) {
+                return ['valid' => false, 'error' => 'Production batch not found'];
+            }
+            
+            return [
+                'valid' => true,
+                'reference' => $item['batch_code'],
+                'product_id' => $item['product_id'],
+                'product_name' => $item['product_name'] ?? 'Production Batch',
+                'unit_cost' => floatval($item['cost_price'] ?? 0)
+            ];
+            
+        case 'ingredients':
+            $stmt = $db->prepare("
+                SELECT ib.*, i.ingredient_name, i.unit_cost
+                FROM ingredient_batches ib
+                LEFT JOIN ingredients i ON ib.ingredient_id = i.id
+                WHERE ib.id = ?
+            ");
+            $stmt->execute([$sourceId]);
+            $item = $stmt->fetch();
+            
+            if (!$item) {
+                return ['valid' => false, 'error' => 'Ingredient batch not found'];
+            }
+            
+            $available = floatval($item['current_quantity'] ?? $item['quantity'] ?? 0);
+            if ($quantity > $available) {
+                return ['valid' => false, 'error' => "Insufficient quantity. Available: $available"];
+            }
+            
+            return [
+                'valid' => true,
+                'reference' => $item['batch_number'] ?? $item['id'],
+                'product_name' => $item['ingredient_name'] ?? 'Ingredient',
+                'unit_cost' => floatval($item['unit_cost'] ?? 0)
+            ];
+            
+        default:
+            return ['valid' => false, 'error' => 'Invalid source type'];
+    }
+}
+
+/**
+ * Execute disposal - deduct from inventory
+ */
+function executeDisposal($db, $disposal, $currentUser) {
+    $sourceType = $disposal['source_type'];
+    $sourceId = $disposal['source_id'];
+    $quantity = floatval($disposal['quantity']);
+    
+    switch ($sourceType) {
+        case 'raw_milk':
+            // Deduct from raw_milk_inventory
+            $stmt = $db->prepare("
+                UPDATE raw_milk_inventory SET
+                    remaining_liters = GREATEST(0, COALESCE(remaining_liters, volume_liters, 0) - ?),
+                    disposed_liters = COALESCE(disposed_liters, 0) + ?,
+                    disposal_id = ?,
+                    disposed_at = NOW(),
+                    disposal_reason = ?,
+                    status = CASE 
+                        WHEN COALESCE(remaining_liters, volume_liters, 0) - ? <= 0 THEN 'consumed'
+                        ELSE status 
+                    END
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $quantity, $quantity,
+                $disposal['id'],
+                $disposal['disposal_reason'],
+                $quantity,
+                $sourceId
+            ]);
+            break;
+            
+        case 'finished_goods':
+            $sourceStmt = $db->prepare("
+                SELECT fgi.quantity_available, fgi.remaining_quantity,
+                       fgi.boxes_available, fgi.pieces_available, fgi.chiller_id,
+                       COALESCE(NULLIF(p.pieces_per_box, 0), 1) AS pieces_per_box
+                FROM finished_goods_inventory fgi
+                LEFT JOIN products p ON p.id = fgi.product_id
+                WHERE fgi.id = ?
+                FOR UPDATE
+            ");
+            $sourceStmt->execute([$sourceId]);
+            $source = $sourceStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$source) {
+                throw new Exception('Finished Goods inventory was not found');
+            }
+
+            $piecesPerBox = max(1, (int)$source['pieces_per_box']);
+            $available = fgDisposalAvailableBaseUnits($source);
+            if ($quantity > $available) {
+                throw new Exception("Only {$available} units remain in Finished Goods inventory");
+            }
+            $remaining = max(0, $available - (int)$quantity);
+            $split = fgDisposalSplitBaseUnits($remaining, $piecesPerBox);
+            $remainingBoxes = $split['boxes'];
+            $remainingPieces = $split['pieces'];
+
+            $stmt = $db->prepare("
+                UPDATE finished_goods_inventory SET
+                    quantity_available = ?,
+                    remaining_quantity = ?,
+                    quantity_boxes = ?,
+                    boxes_available = ?,
+                    quantity_pieces = ?,
+                    pieces_available = ?,
+                    disposed_quantity = COALESCE(disposed_quantity, 0) + ?,
+                    disposal_id = ?,
+                    disposed_at = NOW(),
+                    disposal_reason = ?,
+                    status = CASE WHEN ? = 0 THEN 'disposed' ELSE status END
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $remaining, $remaining,
+                $remainingBoxes, $remainingBoxes,
+                $remainingPieces, $remainingPieces,
+                $quantity,
+                $disposal['id'],
+                $disposal['disposal_reason'],
+                $remaining,
+                $sourceId
+            ]);
+
+            if (!empty($source['chiller_id'])) {
+                fgSyncChillerCount($db, (int)$source['chiller_id']);
+            }
+            
+            // Create inventory transaction record
+            $txCode = 'DSP-' . date('Ymd') . '-' . str_pad(mt_rand(1, 9999), 4, '0', STR_PAD_LEFT);
+            $txStmt = $db->prepare("
+                INSERT INTO fg_inventory_transactions (
+                    transaction_code, transaction_type, inventory_id, product_id,
+                    quantity, performed_by, reason, reference_type, reference_id
+                ) VALUES (?, 'disposal', ?, ?, ?, ?, ?, 'disposal', ?)
+            ");
+            $txStmt->execute([
+                $txCode, $sourceId, $disposal['product_id'],
+                $quantity, $currentUser['user_id'],
+                'Disposal: ' . $disposal['disposal_code'] . ' - ' . $disposal['disposal_reason'],
+                $disposal['id']
+            ]);
+            break;
+            
+        case 'ingredients':
+            // Deduct from ingredient_batches
+            $stmt = $db->prepare("
+                UPDATE ingredient_batches SET
+                    current_quantity = GREATEST(0, COALESCE(current_quantity, quantity) - ?),
+                    status = CASE 
+                        WHEN COALESCE(current_quantity, quantity) - ? <= 0 THEN 'consumed'
+                        ELSE status 
+                    END
+                WHERE id = ?
+            ");
+            $stmt->execute([$quantity, $quantity, $sourceId]);
+            break;
+            
+        case 'milk_receiving':
+            // Update milk_receiving status
+            $stmt = $db->prepare("
+                UPDATE milk_receiving SET
+                    status = 'rejected',
+                    rejected_liters = COALESCE(rejected_liters, 0) + ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$quantity, $sourceId]);
+            break;
+            
+        case 'production_batch':
+            // Update production batch status
+            $stmt = $db->prepare("
+                UPDATE production_batches SET
+                    qc_status = 'rejected',
+                    qc_notes = CONCAT(COALESCE(qc_notes, ''), '\n[Disposed] ', ?)
+                WHERE id = ?
+            ");
+            $stmt->execute([$disposal['disposal_reason'], $sourceId]);
+            break;
+    }
+}
+
+/**
+ * Generate unique disposal code
+ */
+function generateDisposalCode($db) {
+    $date = date('Ymd');
+    
+    // Get today's count
+    $stmt = $db->prepare("
+        SELECT COUNT(*) FROM disposals 
+        WHERE DATE(created_at) = CURDATE()
+    ");
+    $stmt->execute();
+    $count = $stmt->fetchColumn() + 1;
+    
+    return 'DSP-' . $date . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+}
+
+/**
+ * Auto-create a credit memo when a disposal is approved and originated from a customer return.
+ * Returns ['credit_code', 'credit_amount', 'customer_name'] on success, null otherwise.
+ */
+function autoCreateCreditMemoForReturn(PDO $db, array $disposal, array $currentUser): ?array {
+    // Only for source_type = finished_goods with source_reference starting with 'RET-'
+    $sourceRef = $disposal['source_reference'] ?? '';
+    if (($disposal['source_type'] ?? '') !== 'finished_goods' || !str_starts_with($sourceRef, 'RET-')) {
+        return null;
+    }
+
+    // Find the customer return by return_code
+    $retStmt = $db->prepare("SELECT * FROM customer_returns WHERE return_code = ? LIMIT 1");
+    $retStmt->execute([$sourceRef]);
+    $return = $retStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$return || empty($return['customer_id'])) return null;
+
+    // Check if credit memo already exists for this return
+    $dupStmt = $db->prepare("SELECT id FROM credit_memos WHERE return_id = ? AND status != 'voided' LIMIT 1");
+    $dupStmt->execute([$return['id']]);
+    if ($dupStmt->fetch()) return null; // Already created
+
+    // Calculate credit amount from disposal total_value
+    $creditAmount = (float) ($disposal['total_value'] ?? 0);
+    if ($creditAmount <= 0) {
+        // Fallback: sum from disposal_items
+        $diStmt = $db->prepare("SELECT COALESCE(SUM(line_total), 0) FROM disposal_items WHERE disposal_id = ?");
+        $diStmt->execute([$disposal['id']]);
+        $creditAmount = (float) $diStmt->fetchColumn();
+    }
+    if ($creditAmount <= 0) return null; // No value to credit
+
+    // Generate credit code
+    $today = date('Ymd');
+    $codeStmt = $db->prepare("SELECT COUNT(*) FROM credit_memos WHERE credit_code LIKE ?");
+    $codeStmt->execute(["CRM-{$today}-%"]);
+    $cmCount = (int) $codeStmt->fetchColumn() + 1;
+    $creditCode = "CRM-{$today}-" . str_pad($cmCount, 3, '0', STR_PAD_LEFT);
+
+    // Map return reason to credit reason
+    $reasonMap = [
+        'damaged_transit'    => 'return_damaged',
+        'expired'            => 'return_expired',
+        'quality_issue'      => 'return_quality',
+        'customer_rejection' => 'return_damaged',
+        'wrong_order'        => 'other',
+        'overage'            => 'other',
+        'other'              => 'other',
+    ];
+    $creditReason = $reasonMap[$return['return_reason'] ?? 'other'] ?? 'other';
+
+    $db->prepare("
+        INSERT INTO credit_memos
+            (credit_code, customer_id, customer_name, return_id, disposal_id,
+             dr_number, credit_amount, reason, description, status,
+             initiated_by, initiated_at, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, NOW(), ?)
+    ")->execute([
+        $creditCode,
+        $return['customer_id'],
+        $return['customer_name'],
+        $return['id'],
+        $disposal['id'],
+        $return['dr_number'] ?? null,
+        $creditAmount,
+        $creditReason,
+        "Auto-generated from approved disposal {$disposal['disposal_code']} for return {$return['return_code']}",
+        $currentUser['user_id'],
+        "Auto-created: disposal {$disposal['disposal_code']} approved → credit memo {$creditCode}."
+    ]);
+
+    $cmId = (int) $db->lastInsertId();
+
+    // Update customer balance
+    $db->prepare("UPDATE customers SET current_balance = GREATEST(0, current_balance - ?), updated_at = NOW() WHERE id = ?")
+       ->execute([$creditAmount, $return['customer_id']]);
+
+    // Link credit memo back to return
+    $db->prepare("UPDATE customer_returns SET credit_memo_id = ? WHERE id = ?")
+       ->execute([$cmId, $return['id']]);
+
+    logAudit($currentUser['user_id'], 'CREATE', 'credit_memos', $cmId, null, [
+        'credit_code' => $creditCode,
+        'auto_from_disposal' => $disposal['id'],
+        'return_id' => $return['id'],
+        'amount' => $creditAmount,
+    ]);
+
+    return [
+        'credit_code' => $creditCode,
+        'credit_amount' => $creditAmount,
+        'customer_name' => $return['customer_name'],
+    ];
+}

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supplier Order Review - Purchasing | Highland Fresh</title>
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+    <!-- Canonical Purchasing navigation is mounted by js/purchasing/sidebar.js. -->
+
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content">Prepare Supplier Purchase Orders</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <a href="purchase_orders.html" class="btn btn-ghost btn-sm gap-2"><i class="fas fa-file-invoice-dollar"></i><span class="hidden sm:inline">PO List</span></a>
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle">
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6 space-y-6">
+            <section class="bg-base-100 border border-base-300 rounded-lg p-4">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                    <div>
+                        <p class="text-xs uppercase font-semibold text-base-content/50">Warehouse request queue</p>
+                        <h2 class="font-bold text-lg"><span id="pendingPrsCount">0</span> pending PRS <span class="font-normal text-base-content/50">· <span id="pendingItemCount">0</span> item(s)</span></h2>
+                        <p class="text-sm text-base-content/60">Select one or more Warehouse slips. They open first as an internal request overview, not as a Purchase Order.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="selectAllPrsBtn" class="btn btn-outline gap-2" onclick="toggleAllPRS()" disabled>
+                            <i class="fas fa-check-double"></i>
+                            Select all
+                        </button>
+                        <button id="reviewSelectedBtn" class="btn btn-primary gap-2" onclick="openSelectedPRS()" disabled>
+                            <i class="fas fa-layer-group"></i>
+                            Review selected
+                        </button>
+                    </div>
+                </div>
+                <div id="pendingPrsList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2 mt-3"></div>
+            </section>
+
+            <section id="emptyState" class="bg-base-100 border border-base-300 rounded-lg p-10 text-center">
+                <i class="fas fa-inbox text-4xl text-base-content/20 mb-3"></i>
+                <p class="font-semibold">Loading pending Warehouse requests</p>
+                <p class="text-sm text-base-content/60 mt-1">The Purchaser can review the whole queue without opening each slip separately.</p>
+            </section>
+
+            <section id="workbench" class="hidden space-y-6">
+                <div class="bg-base-100 border border-base-300 rounded-lg p-4">
+                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="badge badge-primary badge-outline">PRS</span>
+                                <span class="font-mono font-semibold" id="prsNumber">-</span>
+                            </div>
+                            <h2 class="text-xl font-bold" id="prsPurpose">Warehouse request</h2>
+                            <p class="text-sm text-base-content/60 mt-1" id="prsMeta">-</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="btn btn-outline btn-sm gap-2" onclick="refreshWorkbench()"><i class="fas fa-rotate"></i>Refresh</button>
+                            <button id="createPOBtn" class="btn btn-primary btn-sm gap-2" onclick="createPOFromQuotes()" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                                Create Separate POs &amp; Send to GM
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="progressBand" class="alert bg-warning/10 border border-warning/30">
+                    <i class="fas fa-scale-balanced text-warning"></i>
+                    <span id="progressText">Loading registered supplier prices...</span>
+                </div>
+
+                <div class="bg-base-100 border border-base-300 rounded-lg p-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Order Date</span></label>
+                            <input id="orderDate" type="date" class="input input-bordered">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Expected Delivery</span></label>
+                            <input id="expectedDelivery" type="date" class="input input-bordered">
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">Payment Terms</span></label>
+                            <select id="paymentTerms" class="select select-bordered">
+                                <option value="cash">Cash</option>
+                                <option value="credit_7">Credit - 7 Days</option>
+                                <option value="credit_15">Credit - 15 Days</option>
+                                <option value="credit_30" selected>Credit - 30 Days</option>
+                                <option value="credit_45">Credit - 45 Days</option>
+                                <option value="credit_60">Credit - 60 Days</option>
+                            </select>
+                        </div>
+                        <div class="form-control md:col-span-3">
+                            <label class="label"><span class="label-text">Notes</span></label>
+                            <input id="poNotes" class="input input-bordered" placeholder="Optional PO notes">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="itemList" class="space-y-4"></div>
+            </section>
+        </main>
+    </div>
+
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="purchaser,general_manager"></script>
+    <script src="../../js/purchasing/purchasing.service.js"></script>
+    <script src="../../js/purchasing/sidebar.js?v=20260903-purchasing-nav-2"></script>
+
+    <script>
+        let prsInbox = [];
+        let selectedPRSIds = new Set();
+        let currentPRSList = [];
+        let failedPRSList = [];
+        let suppliers = [];
+        let activeSupplierPreviewKey = '';
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const redirectPrId = new URLSearchParams(window.location.search).get('pr_id');
+            window.location.replace(
+                `purchase_orders.html?action=new${redirectPrId ? `&pr_id=${encodeURIComponent(redirectPrId)}` : ''}`
+            );
+            return;
+
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+
+            const user = AuthService.getCurrentUser();
+            if (user?.role !== 'purchaser' && user?.role !== 'general_manager') {
+                window.location.href = '../login.html';
+                return;
+            }
+
+            document.getElementById('sidebarUserName').textContent = user.full_name || user.username || 'Purchaser';
+            document.getElementById('userInitials').textContent = getInitials(user.full_name || user.username || 'PU');
+            setupTheme();
+            setDefaultDates();
+
+            await Promise.all([loadSuppliers(), loadPRSInbox()]);
+            const requestedId = parseInt(new URLSearchParams(window.location.search).get('pr_id') || '0', 10);
+            if (requestedId > 0 && prsInbox.some(pr => Number(pr.id) === requestedId)) {
+                selectedPRSIds.add(requestedId);
+                updateQueueSelection();
+                await openSelectedPRS();
+            } else if (prsInbox.length === 1) {
+                selectedPRSIds.add(Number(prsInbox[0].id));
+                updateQueueSelection();
+            }
+        });
+
+        function setupTheme() {
+            const toggle = document.getElementById('themeToggle');
+            const saved = localStorage.getItem('theme') || 'emerald';
+            document.documentElement.setAttribute('data-theme', saved);
+            toggle.checked = saved === 'dark';
+            toggle.addEventListener('change', () => {
+                const theme = toggle.checked ? 'dark' : 'emerald';
+                document.documentElement.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+            });
+        }
+
+        function setDefaultDates() {
+            const today = new Date();
+            const soon = new Date();
+            soon.setDate(today.getDate() + 7);
+            document.getElementById('orderDate').value = today.toISOString().slice(0, 10);
+            document.getElementById('expectedDelivery').value = soon.toISOString().slice(0, 10);
+        }
+
+        async function loadSuppliers() {
+            const response = await PurchasingService.getSuppliers({ status: 'active' });
+            suppliers = response?.data || [];
+        }
+
+        async function loadPRSInbox() {
+            try {
+                const response = await PurchasingService.getPRSInbox();
+                prsInbox = response?.data || [];
+                const itemCount = prsInbox.reduce((sum, pr) => sum + (pr.items?.length || 0), 0);
+                document.getElementById('pendingPrsCount').textContent = prsInbox.length;
+                document.getElementById('pendingItemCount').textContent = itemCount;
+                selectedPRSIds = new Set([...selectedPRSIds].filter(id => prsInbox.some(pr => Number(pr.id) === Number(id))));
+                document.getElementById('selectAllPrsBtn').disabled = prsInbox.length === 0;
+                document.getElementById('pendingPrsList').innerHTML = prsInbox.length
+                    ? prsInbox.map(pr => `
+                        <label class="flex items-center gap-3 border border-base-300 rounded-lg px-3 py-2 cursor-pointer hover:bg-base-200">
+                            <input type="checkbox" class="checkbox checkbox-primary checkbox-sm" value="${Number(pr.id)}" onchange="togglePRSSelection(${Number(pr.id)}, this.checked)">
+                            <span class="min-w-0">
+                                <span class="block font-mono font-semibold text-sm truncate">${escapeHtml(pr.pr_number)}</span>
+                                <span class="block text-xs text-base-content/60">${pr.items?.length || 0} item(s) | ${escapeHtml(pr.requested_by_name || 'Warehouse Raw')}</span>
+                            </span>
+                        </label>`).join('')
+                    : '<span class="text-sm text-base-content/60">No submitted PRS is waiting for Purchasing.</span>';
+                updateQueueSelection();
+                if (prsInbox.length === 0) {
+                    document.getElementById('emptyState').innerHTML = '<i class="fas fa-circle-check text-4xl text-success mb-3"></i><p class="font-semibold">Purchasing queue is clear</p><p class="text-sm text-base-content/60 mt-1">New Warehouse requests will appear here automatically.</p>';
+                    document.getElementById('emptyState').classList.remove('hidden');
+                    document.getElementById('workbench').classList.add('hidden');
+                }
+            } catch (error) {
+                showToast('Could not load PRS inbox', 'error');
+            }
+        }
+
+        function togglePRSSelection(prId, checked) {
+            if (checked) selectedPRSIds.add(Number(prId));
+            else selectedPRSIds.delete(Number(prId));
+            updateQueueSelection();
+        }
+
+        function toggleAllPRS() {
+            if (selectedPRSIds.size === prsInbox.length) selectedPRSIds.clear();
+            else selectedPRSIds = new Set(prsInbox.map(pr => Number(pr.id)));
+            updateQueueSelection();
+        }
+
+        function updateQueueSelection() {
+            const selectedCount = selectedPRSIds.size;
+            document.querySelectorAll('#pendingPrsList input[type="checkbox"]').forEach(input => {
+                input.checked = selectedPRSIds.has(Number(input.value));
+            });
+            const reviewButton = document.getElementById('reviewSelectedBtn');
+            reviewButton.disabled = selectedCount === 0;
+            reviewButton.innerHTML = `<i class="fas fa-layer-group"></i> Review selected${selectedCount ? ` (${selectedCount})` : ''}`;
+            const selectAllButton = document.getElementById('selectAllPrsBtn');
+            selectAllButton.innerHTML = selectedCount > 0 && selectedCount === prsInbox.length
+                ? '<i class="fas fa-xmark"></i> Clear selection'
+                : '<i class="fas fa-check-double"></i> Select all';
+        }
+
+        async function openSelectedPRS() {
+            const selectedInbox = prsInbox.filter(pr => selectedPRSIds.has(Number(pr.id)));
+            if (selectedInbox.length === 0) {
+                showToast('Select at least one Warehouse request', 'error');
+                return;
+            }
+            try {
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('workbench').classList.remove('hidden');
+                document.getElementById('itemList').innerHTML = loadingMarkup('Loading registered supplier prices...');
+                document.getElementById('reviewSelectedBtn').disabled = true;
+
+                currentPRSList = [];
+                failedPRSList = [];
+                for (const inboxItem of selectedInbox) {
+                    try {
+                        const prepared = await PurchasingService.preparePRSCanvassing(inboxItem.id);
+                        let prs = prepared?.data?.prs || null;
+                        if (!prs) {
+                            const detail = await PurchasingService.getPRSCanvassingWorkbench(inboxItem.id);
+                            prs = detail?.data || null;
+                        }
+                        if (prs) currentPRSList.push(prs);
+                    } catch (error) {
+                        failedPRSList.push({ prs: inboxItem, message: error?.message || 'Could not load supplier prices' });
+                    }
+                }
+                renderWorkbench();
+                history.replaceState(null, '', 'canvassing.html');
+            } catch (error) {
+                showToast(error?.message || 'Failed to open pending requests', 'error');
+                document.getElementById('itemList').innerHTML = errorMarkup('Could not open the pending Warehouse requests.');
+            } finally {
+                updateQueueSelection();
+            }
+        }
+
+        async function refreshWorkbench() {
+            if (currentPRSList.length === 0) return;
+            try {
+                const refreshed = [];
+                for (const prs of currentPRSList) {
+                    const detail = await PurchasingService.getPRSCanvassingWorkbench(prs.id);
+                    refreshed.push(detail?.data || prs);
+                }
+                currentPRSList = refreshed;
+                renderWorkbench();
+                showToast('Registered supplier prices refreshed', 'success');
+            } catch (error) {
+                showToast('Refresh failed', 'error');
+            }
+        }
+
+        function renderWorkbench() {
+            const lines = currentPRSList.flatMap(prs => (prs.items || []).map(item => ({ prs, item })));
+            document.getElementById('prsNumber').textContent = `${currentPRSList.length} source slip${currentPRSList.length === 1 ? '' : 's'}`;
+            document.getElementById('prsPurpose').textContent = 'Warehouse Request Overview';
+            document.getElementById('prsMeta').textContent = `${lines.length} requested item(s) | Internal review only - this is not a supplier PO`;
+            document.getElementById('itemList').innerHTML = renderSupplierReview(lines) + renderSupplierPOPreview(lines) + renderFailedPRS();
+            updateProgress();
+        }
+
+        function renderFailedPRS() {
+            if (failedPRSList.length === 0) return '';
+            return `<section class="alert alert-error"><i class="fas fa-triangle-exclamation"></i><div><strong>${failedPRSList.length} PRS could not be prepared.</strong><div class="text-sm">${failedPRSList.map(entry => `${escapeHtml(entry.prs.pr_number)}: ${escapeHtml(entry.message)}`).join('<br>')}</div></div></section>`;
+        }
+
+        function renderSupplierReview(lines) {
+            return `
+                <section class="bg-base-100 border border-base-300 rounded-lg overflow-hidden">
+                    <div class="px-4 py-3 border-b border-base-300">
+                        <p class="text-xs uppercase font-semibold text-primary">Step 1 - Internal Warehouse overview</p>
+                        <h3 class="font-bold">Match requested materials to accredited suppliers</h3>
+                        <p class="text-sm text-base-content/60">This table keeps the Warehouse request together for review. It is not sent to any supplier. The lowest valid saved price is recommended, but the Purchaser may choose another approved partner with a reason.</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead><tr><th>Source PRS</th><th>Requested Item</th><th>Recommended Supplier</th><th class="text-right">Saved Unit Price</th><th>Delivery / Terms</th><th>Review</th></tr></thead>
+                            <tbody>${lines.map(renderSupplierReviewRow).join('')}</tbody>
+                        </table>
+                    </div>
+                </section>`;
+        }
+
+        function getSupplierPOGroups(lines = getSelectedLines()) {
+            const groups = new Map();
+            lines.filter(line => line.selected).forEach(line => {
+                const prsId = Number(line.prs.id);
+                const supplierId = Number(line.selected.supplier_id);
+                const key = `${prsId}:${supplierId}`;
+                if (!groups.has(key)) {
+                    const supplier = suppliers.find(entry => Number(entry.id) === supplierId) || {};
+                    groups.set(key, {
+                        key,
+                        prs: line.prs,
+                        supplierId,
+                        supplierName: line.selected.supplier_name || supplier.supplier_name || 'Supplier',
+                        supplierCode: line.selected.supplier_code || supplier.supplier_code || '',
+                        lines: []
+                    });
+                }
+                groups.get(key).lines.push(line);
+            });
+            return [...groups.values()];
+        }
+
+        function renderSupplierPOPreview() {
+            const groups = getSupplierPOGroups();
+            if (groups.length === 0) {
+                activeSupplierPreviewKey = '';
+                return `
+                    <section class="bg-base-100 border border-base-300 rounded-lg p-5">
+                        <p class="text-xs uppercase font-semibold text-primary">Step 2 - Supplier PO preview</p>
+                        <h3 class="font-bold mt-1">Choose suppliers for every requested item first</h3>
+                        <p class="text-sm text-base-content/60 mt-1">A supplier-specific Purchase Order preview will appear here when the matching is complete.</p>
+                    </section>`;
+            }
+
+            if (!groups.some(group => group.key === activeSupplierPreviewKey)) {
+                activeSupplierPreviewKey = groups[0].key;
+            }
+            const active = groups.find(group => group.key === activeSupplierPreviewKey) || groups[0];
+            const total = active.lines.reduce((sum, line) => sum + (parseFloat(line.item.quantity || 0) * parseFloat(line.selected.unit_price || 0)), 0);
+            const options = groups.map((group, index) => `
+                <option value="${escapeHtml(group.key)}" ${group.key === active.key ? 'selected' : ''}>
+                    PO ${index + 1}: ${escapeHtml(group.supplierName)} - ${escapeHtml(group.prs.pr_number || 'PRS')} - ${group.lines.length} item(s)
+                </option>`).join('');
+
+            return `
+                <section class="bg-base-100 border-2 border-primary/30 rounded-lg overflow-hidden">
+                    <div class="px-4 py-4 border-b border-base-300 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+                        <div>
+                            <p class="text-xs uppercase font-semibold text-primary">Step 2 - Supplier PO preview</p>
+                            <h3 class="font-bold text-lg">Check what each supplier will receive</h3>
+                            <p class="text-sm text-base-content/60">Choose a supplier PO below. Only Warehouse-requested items assigned to that supplier are shown.</p>
+                        </div>
+                        <label class="form-control w-full lg:max-w-xl">
+                            <span class="label-text font-semibold mb-1">Purchase Order to preview</span>
+                            <select class="select select-bordered w-full" onchange="selectSupplierPOPreview(this.value)">${options}</select>
+                        </label>
+                    </div>
+                    <div class="px-4 py-3 bg-primary/5 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <div class="font-bold">${escapeHtml(active.supplierName)} ${active.supplierCode ? `<span class="font-mono text-sm text-base-content/60">(${escapeHtml(active.supplierCode)})</span>` : ''}</div>
+                            <div class="text-sm text-base-content/60">Source: ${escapeHtml(active.prs.pr_number || '-')} | PO ${groups.indexOf(active) + 1} of ${groups.length}</div>
+                        </div>
+                        <span class="badge badge-primary badge-outline h-auto py-2">One supplier only</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead><tr><th>Warehouse Requested Item</th><th class="text-right">Requested Qty</th><th>Unit</th><th class="text-right">Agreed Unit Price</th><th class="text-right">Line Total</th></tr></thead>
+                            <tbody>${active.lines.map(line => {
+                                const itemName = line.item.ingredient_name || line.item.mro_item_name || line.item.item_description || 'Requested item';
+                                const quantity = parseFloat(line.item.quantity || 0);
+                                const unitPrice = parseFloat(line.selected.unit_price || 0);
+                                return `<tr><td class="font-semibold">${escapeHtml(itemName)}</td><td class="text-right">${formatQty(quantity)}</td><td>${escapeHtml(line.item.unit || 'units')}</td><td class="text-right">${formatCurrency(unitPrice)}</td><td class="text-right font-semibold">${formatCurrency(quantity * unitPrice)}</td></tr>`;
+                            }).join('')}</tbody>
+                            <tfoot><tr><th colspan="4" class="text-right">PO Total</th><th class="text-right">${formatCurrency(total)}</th></tr></tfoot>
+                        </table>
+                    </div>
+                    <div class="px-4 py-3 border-t border-base-300 text-sm text-base-content/70">
+                        <i class="fas fa-lock mr-1 text-primary"></i>
+                        This PO belongs only to <strong>${escapeHtml(active.supplierName)}</strong>. Items assigned to other suppliers are placed in separate PO documents.
+                    </div>
+                </section>`;
+        }
+
+        function selectSupplierPOPreview(key) {
+            activeSupplierPreviewKey = key;
+            renderWorkbench();
+        }
+
+        function renderSupplierReviewRow(entry, index) {
+            const { prs, item } = entry;
+            const canvass = item.canvass || {};
+            const quotes = canvass.quotes || [];
+            const selected = quotes.find(q => Number(q.is_selected) === 1);
+            const eligible = item.ingredient_id ? (item.eligible_suppliers || []) : [];
+            const missingPrices = Math.max(0, eligible.length - quotes.length);
+            const itemName = item.ingredient_name || item.mro_item_name || item.item_description || 'Requested item';
+            const options = quotes.map(quote => `
+                <option value="${quote.id}" ${Number(quote.is_selected) === 1 ? 'selected' : ''}>
+                    ${escapeHtml(quote.supplier_name)} - ${formatCurrency(quote.unit_price)}
+                </option>`).join('');
+
+            let review = '<span class="badge badge-error badge-outline">No approved supplier</span>';
+            if (eligible.length > 0 && missingPrices > 0) {
+                review = `<span class="badge badge-warning badge-outline">${missingPrices} price${missingPrices === 1 ? '' : 's'} missing</span><p class="text-xs text-base-content/60 mt-1">Ask the GM to complete the supplier agreement.</p>`;
+            } else if (selected) {
+                const marketText = eligible.length < 3
+                    ? `${eligible.length} approved partner${eligible.length === 1 ? '' : 's'} available`
+                    : `${eligible.length} approved partner prices compared`;
+                review = `<span class="badge badge-success badge-outline">Ready</span><p class="text-xs text-base-content/60 mt-1">${marketText}</p>`;
+            }
+
+            return `
+                <tr>
+                    <td><div class="font-mono font-semibold whitespace-nowrap">${escapeHtml(prs.pr_number || '-')}</div><div class="text-xs text-base-content/60">${escapeHtml(prs.requested_by_name || 'Warehouse Raw')}</div></td>
+                    <td>
+                        <div class="font-semibold">${escapeHtml(itemName)}</div>
+                        <div class="text-xs text-base-content/60">Line ${index + 1} | ${formatQty(item.quantity)} ${escapeHtml(item.unit || 'units')}</div>
+                    </td>
+                    <td class="min-w-64">
+                        ${quotes.length ? `
+                            <select class="select select-bordered select-sm w-full" aria-label="Supplier for ${escapeHtml(itemName)}" onchange="chooseRegisteredSupplier(this.value, ${selected ? selected.id : 0})">
+                                ${options}
+                            </select>
+                            <p class="text-xs text-base-content/55 mt-1">${escapeHtml(selected?.notes || '')}</p>
+                            ${quotes.length > 1 ? `<details class="mt-2"><summary class="text-xs link link-primary cursor-pointer">View all ${quotes.length} saved prices</summary><div class="mt-2 space-y-2">${quotes.map(q => `<div class="text-xs border-b border-base-300 pb-1"><div class="flex justify-between gap-4"><span>${escapeHtml(q.supplier_name)}</span><strong>${formatCurrency(q.unit_price)} / ${escapeHtml(item.unit || 'unit')}</strong></div><div class="text-base-content/50">${escapeHtml(q.notes || '')}</div></div>`).join('')}</div></details>` : ''}
+                        ` : `<span class="text-sm text-error">${item.ingredient_id ? 'No saved supplier price' : 'Supplier setup is missing for this item type'}</span>`}
+                    </td>
+                    <td class="text-right font-semibold">${selected ? formatCurrency(selected.unit_price) : '-'}</td>
+                    <td>${selected ? `${parseInt(selected.delivery_days || 0, 10)} day(s)<div class="text-xs text-base-content/60">${formatTerms(selected.payment_terms)}</div>` : '-'}</td>
+                    <td>${review}</td>
+                </tr>`;
+        }
+
+        function chooseRegisteredSupplier(quoteId, selectedQuoteId) {
+            const nextId = parseInt(quoteId || '0', 10);
+            if (nextId > 0 && nextId !== Number(selectedQuoteId)) {
+                overrideQuote(nextId);
+            }
+        }
+
+        async function overrideQuote(quoteId) {
+            const reason = await AuthService.promptText({
+                title: 'Use This Supplier',
+                message: 'Add the business reason for choosing this supplier instead of the system recommendation.',
+                label: 'Reason',
+                placeholder: 'Example: Faster delivery needed, better quality record, preferred credit terms',
+                confirmText: 'Use Supplier',
+                icon: 'fa-user-check',
+                tone: 'primary',
+                required: true
+            });
+            if (reason === null) return;
+
+            try {
+                await PurchasingService.overrideCanvassQuote(quoteId, reason);
+                await refreshWorkbench();
+                showToast('Supplier choice saved', 'success');
+            } catch (error) {
+                showToast(error?.message || 'Could not save supplier choice', 'error');
+            }
+        }
+
+        function getSelectedLines() {
+            return currentPRSList.flatMap(prs => (prs.items || []).map(item => {
+                const selected = (item.canvass?.quotes || []).find(q => Number(q.is_selected) === 1);
+                return { prs, item, selected };
+            }));
+        }
+
+        function updateProgress() {
+            const lines = getSelectedLines();
+            const ready = lines.filter(line => line.selected).length;
+            const total = lines.length;
+            const complete = total > 0 && ready === total && failedPRSList.length === 0;
+            const poCount = getSupplierPOGroups(lines).length;
+
+            document.getElementById('progressText').textContent = failedPRSList.length
+                ? `${ready} of ${total} loaded item(s) are ready, but ${failedPRSList.length} PRS still needs attention.`
+                : complete
+                    ? `${total} requested item(s) are ready. The system will create ${poCount} separate supplier PO${poCount === 1 ? '' : 's'}.`
+                    : `${ready} of ${total} requested item(s) have an approved supplier and saved price.`;
+            const createButton = document.getElementById('createPOBtn');
+            createButton.disabled = !complete;
+            createButton.innerHTML = complete
+                ? `<i class="fas fa-paper-plane"></i> Create ${poCount} Separate PO${poCount === 1 ? '' : 's'} &amp; Send to GM`
+                : '<i class="fas fa-paper-plane"></i> Create Separate POs &amp; Send to GM';
+            document.getElementById('progressBand').className = complete
+                ? 'alert bg-success/10 border border-success/30'
+                : 'alert bg-warning/10 border border-warning/30';
+        }
+
+        async function createPOFromQuotes() {
+            const lines = getSelectedLines();
+            if (currentPRSList.length === 0 || lines.length === 0) {
+                showToast('There are no loaded Warehouse requests', 'error');
+                return;
+            }
+            if (failedPRSList.length > 0) {
+                showToast('Resolve the PRS that failed to load before creating supplier orders.', 'error');
+                return;
+            }
+            if (lines.some(line => !line.selected)) {
+                showToast('Finish the supplier review for every requested item before creating supplier POs.', 'error');
+                return;
+            }
+
+            const supplierCount = currentPRSList.reduce((count, prs) => {
+                const prsSuppliers = new Set(lines.filter(line => Number(line.prs.id) === Number(prs.id)).map(line => String(line.selected.supplier_id)));
+                return count + prsSuppliers.size;
+            }, 0);
+            const poLabel = supplierCount === 1 ? 'purchase order' : 'separate purchase orders';
+            const confirmed = await AuthService.confirmAction({
+                title: 'Create Separate Supplier POs',
+                message: `You reviewed the Warehouse overview and the supplier-only previews. This will create ${supplierCount} ${poLabel} from ${currentPRSList.length} PRS and send ${supplierCount === 1 ? 'it' : 'all of them'} to the General Manager. Each PO contains one supplier only, and the original PRS records remain unchanged.`,
+                confirmText: 'Create & Send',
+                icon: 'fa-paper-plane',
+                tone: 'primary'
+            });
+            if (!confirmed) return;
+
+            const createButton = document.getElementById('createPOBtn');
+            const completedPRS = [];
+            let allRequestsSent = false;
+            createButton.disabled = true;
+            createButton.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Sending requests...';
+            try {
+                let count = 0;
+                for (const prs of currentPRSList) {
+                    const prsLines = lines.filter(line => Number(line.prs.id) === Number(prs.id));
+                    const payload = {
+                        purchase_request_id: prs.id,
+                        order_date: document.getElementById('orderDate').value,
+                        expected_delivery: document.getElementById('expectedDelivery').value || null,
+                        payment_terms: document.getElementById('paymentTerms').value,
+                        notes: document.getElementById('poNotes').value.trim() || `Created from combined supplier review; source ${prs.pr_number}`,
+                        submit_for_approval: true,
+                        items: prsLines.map(line => ({
+                            purchase_request_item_id: parseInt(line.item.id, 10),
+                            supplier_id: parseInt(line.selected.supplier_id, 10),
+                            unit_price: parseFloat(line.selected.unit_price),
+                            quantity: parseFloat(line.item.quantity || 0)
+                        }))
+                    };
+                    const response = await PurchasingService.createPurchaseOrdersFromPR(payload);
+                    count += (response?.data?.purchase_orders || []).length || 1;
+                    completedPRS.push(prs.pr_number);
+                }
+                showToast(`${count} ${count === 1 ? 'PO was' : 'POs were'} created and sent to GM`, 'success');
+                allRequestsSent = true;
+                setTimeout(() => {
+                    window.location.href = 'purchase_orders.html';
+                }, 900);
+            } catch (error) {
+                if (completedPRS.length > 0) {
+                    showToast(`${completedPRS.length} PRS sent successfully. The remaining requests stayed in the queue.`, 'error');
+                    await loadPRSInbox();
+                    selectedPRSIds = new Set(prsInbox.map(pr => Number(pr.id)));
+                    updateQueueSelection();
+                    if (prsInbox.length > 0) await openSelectedPRS();
+                } else {
+                    showToast(error?.message || 'Could not create supplier orders', 'error');
+                }
+            } finally {
+                if (!allRequestsSent) {
+                    updateProgress();
+                }
+            }
+        }
+
+        function loadingMarkup(text) {
+            return `<div class="bg-base-100 border border-base-300 rounded-lg p-10 text-center">
+                <span class="loading loading-spinner loading-md"></span>
+                <p class="mt-3 text-sm text-base-content/60">${escapeHtml(text)}</p>
+            </div>`;
+        }
+
+        function errorMarkup(text) {
+            return `<div class="bg-base-100 border border-error/30 rounded-lg p-10 text-center text-error">
+                <i class="fas fa-exclamation-circle text-3xl mb-3"></i>
+                <p>${escapeHtml(text)}</p>
+            </div>`;
+        }
+
+        function getInitials(name) {
+            return String(name || 'PU').split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatQty(value) {
+            return parseFloat(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 2 });
+        }
+
+        function formatCurrency(value) {
+            return 'PHP ' + parseFloat(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function formatTerms(value) {
+            const labels = {
+                cash: 'Cash',
+                credit_7: '7 Days',
+                credit_15: '15 Days',
+                credit_30: '30 Days',
+                credit_45: '45 Days',
+                credit_60: '60 Days'
+            };
+            return labels[value] || value || '-';
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info';
+            const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg text-sm`;
+            toast.innerHTML = `<i class="fas fa-${icon}"></i><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+
+</html>

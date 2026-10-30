@@ -1,0 +1,238 @@
+<?php
+/**
+ * Highland Fresh System - Production Dashboard API
+ * 
+ * GET - Get production dashboard statistics
+ * 
+ * @package HighlandFresh
+ * @version 4.0
+ */
+
+require_once dirname(__DIR__) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/helpers/sales_production_demand.php';
+require_once dirname(__DIR__) . '/helpers/raw_milk_gate.php';
+
+// Require Production role
+$currentUser = Auth::requireRole(['production_staff', 'general_manager', 'qc_officer']);
+
+if ($requestMethod !== 'GET') {
+    Response::error('Method not allowed', 405);
+}
+
+try {
+    $db = Database::getInstance()->getConnection();
+    
+    $today = date('Y-m-d');
+    $weekStart = date('Y-m-d', strtotime('monday this week'));
+    
+    // Today's production runs
+    $todayRuns = $db->prepare("
+        SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN status = 'planned' THEN 1 ELSE 0 END) as planned,
+            SUM(CASE WHEN status IN ('in_progress', 'pasteurization', 'processing', 'cooling', 'packaging') THEN 1 ELSE 0 END) as in_progress,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN status = 'completed' THEN actual_quantity ELSE 0 END) as total_yield
+        FROM production_runs
+        WHERE DATE(created_at) = ?
+    ");
+    $todayRuns->execute([$today]);
+    $runStats = $todayRuns->fetch();
+    
+    // Week's production by product type
+    $weekProduction = $db->prepare("
+        SELECT 
+            mr.product_type,
+            COUNT(pr.id) as batches,
+            SUM(pr.actual_quantity) as total_produced,
+            AVG(pr.yield_variance) as avg_variance
+        FROM production_runs pr
+        JOIN master_recipes mr ON pr.recipe_id = mr.id
+        WHERE pr.status = 'completed' AND DATE(pr.end_datetime) >= ?
+        GROUP BY mr.product_type
+    ");
+    $weekProduction->execute([$weekStart]);
+    $productionByType = $weekProduction->fetchAll();
+    
+    // Pending requisitions
+    $pendingReqs = $db->prepare("
+        SELECT COUNT(*) as count
+        FROM material_requisitions
+        WHERE status IN ('draft', 'pending')
+    ");
+    $pendingReqs->execute();
+    $reqStats = $pendingReqs->fetch();
+    
+    // Recent CCP logs needing attention (failures)
+    $ccpAlerts = $db->prepare("
+        SELECT COUNT(*) as count
+        FROM production_ccp_logs
+        WHERE status = 'fail'
+    ");
+    $ccpAlerts->execute();
+    $ccpStats = $ccpAlerts->fetch();
+    
+    // Active recipes
+    $activeRecipes = $db->prepare("
+        SELECT COUNT(*) as count FROM master_recipes WHERE is_active = 1
+    ");
+    $activeRecipes->execute();
+    $recipeStats = $activeRecipes->fetch();
+    
+    // Recent production runs
+    $recentRuns = $db->prepare("
+        SELECT 
+            pr.id,
+            pr.run_code,
+            pr.status,
+            pr.planned_quantity,
+            pr.actual_quantity,
+            pr.start_datetime,
+            pr.end_datetime,
+            mr.product_name,
+            mr.product_type,
+            mr.variant
+        FROM production_runs pr
+        JOIN master_recipes mr ON pr.recipe_id = mr.id
+        ORDER BY pr.created_at DESC
+        LIMIT 10
+    ");
+    $recentRuns->execute();
+    $recentRunsList = $recentRuns->fetchAll();
+    
+    // Ensure milk usage tracking table exists (REVISED: uses receiving_id instead of delivery_id)
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS production_run_milk_usage (
+            id INT(11) NOT NULL AUTO_INCREMENT,
+            run_id INT(11) NOT NULL,
+            receiving_id INT(11) NOT NULL,
+            milk_liters_allocated DECIMAL(10,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_run (run_id),
+            INDEX idx_receiving (receiving_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    
+    // One authoritative view of usable milk. The three-hour gate is based on
+    // physical arrival, so stale milk cannot appear available to Production.
+    $gateDeadline = sqlRawMilkExpiresAtExpr('rmi', 'mr');
+    $availableMilk = $db->prepare("
+        SELECT COALESCE(SUM(rmi.remaining_liters), 0) AS total_liters,
+               COUNT(*) AS source_count
+        FROM raw_milk_inventory rmi
+        LEFT JOIN milk_receiving mr ON rmi.receiving_id = mr.id
+        WHERE rmi.status IN ('available', 'reserved')
+          AND rmi.qc_status = 'approved'
+          AND rmi.remaining_liters > 0
+          AND rmi.expiry_date >= CURDATE()
+          AND {$gateDeadline} > NOW()
+    ");
+    $availableMilk->execute();
+    $milkStats = $availableMilk->fetch();
+    
+    // Also get usable raw_milk_inventory for total stored milk (for informational purposes)
+    $storedStats = ['total_liters' => (float) ($milkStats['total_liters'] ?? 0)];
+    
+    // Get milk issued to Production through fulfilled requisitions.
+    // This is not a Production tank; it is Warehouse Raw-issued milk already transferred to production.
+    //
+    // V4.0 (Issue A follow-up) — same fix as api/production/runs.php:
+    // previously summed ALL issued raw milk regardless of batch expiry, so
+    // the dashboard would say "1,213 L Usable Issued Milk" when in fact
+    // every batch had expired (the pasteurization page correctly excluded
+    // them). Now we INNER JOIN to the inventory_transactions trace and
+    // require earliest_expiry >= CURDATE() before counting the requisition.
+    $productionMilk = $db->prepare("
+        SELECT
+            COALESCE(SUM(issued.issued_liters), 0) as total_issued,
+            COUNT(*) as issued_batches,
+            MIN(issued.issued_at) as earliest_issued_at
+        FROM (
+            SELECT
+                ri.requisition_id,
+                SUM(COALESCE(ri.issued_quantity, 0)) as issued_liters,
+                MAX(COALESCE(ri.fulfilled_at, ri.updated_at, ri.created_at)) as issued_at
+            FROM requisition_items ri
+            WHERE COALESCE(ri.issued_quantity, 0) > 0
+              AND (
+                  ri.item_type = 'raw_milk'
+                  OR LOWER(ri.item_name) IN ('raw', 'raw milk', 'fresh milk', 'carabao', 'cow milk', 'goat milk', 'whole milk')
+                  OR (
+                      LOWER(ri.item_name) LIKE '%milk%'
+                      AND LOWER(ri.item_name) NOT LIKE '%powder%'
+                      AND LOWER(ri.item_name) NOT LIKE '%chocolate%'
+                  )
+              )
+            GROUP BY ri.requisition_id
+        ) issued
+        JOIN material_requisitions ir ON ir.id = issued.requisition_id
+        JOIN (
+            SELECT
+                it.reference_id,
+                MIN(rmi.expiry_date) as earliest_expiry
+            FROM inventory_transactions it
+            JOIN raw_milk_inventory rmi ON rmi.id = it.batch_id
+            WHERE it.item_type = 'raw_milk'
+              AND it.reference_type = 'requisition'
+              AND it.quantity > 0
+            GROUP BY it.reference_id
+            HAVING MIN(rmi.expiry_date) >= CURDATE()
+        ) trace ON trace.reference_id = issued.requisition_id
+        WHERE issued.issued_liters > 0
+          AND ir.department = 'production'
+    ");
+    $productionMilk->execute();
+    $prodMilkStats = $productionMilk->fetch();
+    
+    // Get milk already reserved/used in production runs (from production_runs table directly)
+    $usedMilkSql = "
+        SELECT COALESCE(SUM(milk_liters_used), 0) as total_used
+        FROM production_runs
+        WHERE status IN ('planned', 'in_progress', 'pasteurization', 'processing', 'cooling', 'packaging', 'completed')
+          AND (milk_source_type IS NULL OR milk_source_type = 'raw')
+    ";
+    $usedMilkParams = [];
+    if (!empty($prodMilkStats['earliest_issued_at'])) {
+        $usedMilkSql .= " AND created_at >= ?";
+        $usedMilkParams[] = $prodMilkStats['earliest_issued_at'];
+    }
+    $usedMilk = $db->prepare($usedMilkSql);
+    $usedMilk->execute($usedMilkParams);
+    $usedStats = $usedMilk->fetch();
+    
+    // Production's available milk = issued - used
+    $productionAvailableMilk = max(0, ($prodMilkStats['total_issued'] ?? 0) - ($usedStats['total_used'] ?? 0));
+    $customerProductionDemand = hfApprovedSalesProductionDemand($db);
+    
+    Response::success([
+        'today' => [
+            'date' => $today,
+            'total_runs' => (int) $runStats['total'],
+            'planned' => (int) $runStats['planned'],
+            'in_progress' => (int) $runStats['in_progress'],
+            'completed' => (int) $runStats['completed'],
+            'total_yield' => (int) ($runStats['total_yield'] ?? 0)
+        ],
+        'week_production' => $productionByType,
+        'pending_requisitions' => (int) $reqStats['count'],
+        'ccp_alerts' => (int) $ccpStats['count'],
+        'active_recipes' => (int) $recipeStats['count'],
+        // Production's available milk (issued via requisitions minus used in runs)
+        'available_milk' => (float) $productionAvailableMilk,
+        'available_milk_sources' => (int) ($prodMilkStats['issued_batches'] ?? 0),
+        // Usable Warehouse Raw milk (production must requisition to get this)
+        'warehouse_tank_milk' => (float) ($storedStats['total_liters'] ?? 0),
+        // Legacy: delivery-based allocation tracking
+        'delivery_based_milk' => (float) ($milkStats['total_liters'] ?? 0),
+        // Total usable stored raw milk.
+        'stored_milk' => (float) ($storedStats['total_liters'] ?? 0),
+        'recent_runs' => $recentRunsList,
+        'customer_production_demand' => $customerProductionDemand,
+        'customer_production_demand_count' => count($customerProductionDemand)
+    ], 'Dashboard data retrieved successfully');
+    
+} catch (Exception $e) {
+    error_log("Production Dashboard API error: " . $e->getMessage());
+    Response::error('An error occurred: ' . $e->getMessage(), 500);
+}

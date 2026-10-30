@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Low Stock Validation | Highland Fresh</title>
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <style>
+        .bento-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .bento-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.15);
+        }
+
+        .status-low {
+            background-color: oklch(var(--wa) / 0.1);
+            border-left: 4px solid oklch(var(--wa));
+        }
+
+        .status-out {
+            background-color: oklch(var(--b3));
+            border-left: 4px solid oklch(var(--bc) / 0.4);
+        }
+
+        .pulse-alert {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Mobile Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <!-- Populated by js/warehouse/raw-sidebar.js -->
+    </aside>
+
+<!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i
+                        class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold"><i
+                        class="fas fa-clipboard-check text-warning mr-2"></i>Low Stock Validation</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <button class="btn btn-ghost btn-sm" onclick="loadAlerts()">
+                    <i class="fas fa-sync-alt"></i> <span class="hidden sm:inline">Refresh</span>
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="exportReport()">
+                    <i class="fas fa-download"></i> <span class="hidden sm:inline">Export</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Hero banner: gradient with urgent count, breakdown, and a
+                 bulk-action primary CTA. Visible only when there's at least
+                 one alert to act on; otherwise the page shows an empty state. -->
+            <div id="reorderHero" class="hidden mb-6 rounded-2xl p-6 bg-gradient-to-r from-error to-warning text-error-content shadow-lg">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <i class="fas fa-exclamation-triangle text-2xl"></i>
+                            <div class="text-xs font-semibold uppercase tracking-wider opacity-80">Warehouse shelf check</div>
+                        </div>
+                        <div class="text-2xl lg:text-3xl font-bold">
+                            <span id="reorderHeroTotal">0</span> items need a shelf count
+                        </div>
+                        <div class="text-sm opacity-90 mt-1" id="reorderHeroBreakdown">
+                            Count one or several items. Purchasing will automatically see only the shortages you confirm.
+                        </div>
+                    </div>
+                    <div class="flex gap-2 flex-shrink-0">
+                        <div class="badge badge-lg badge-neutral gap-2 py-3">
+                            <i class="fas fa-robot"></i>
+                            Warehouse validates
+                        </div>
+                        <button id="reorderHeroCta" class="btn btn-neutral" onclick="bulkCreatePRs()">
+                            <i class="fas fa-file-signature"></i>
+                            <span id="reorderHeroCtaLabel">Confirm Shelf Counts</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Banner (legacy, kept for compatibility but hidden by default — the hero replaces it) -->
+            <div id="alertBanner" class="hidden mb-6">
+                <div class="alert alert-warning shadow-lg">
+                    <i class="fas fa-exclamation-circle text-2xl pulse-alert"></i>
+                    <div>
+                        <h3 class="font-bold">Low Stock Alert!</h3>
+                        <div class="text-sm" id="alertBannerText">You have items that need to be reordered.</div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="btn btn-sm" onclick="scrollToAlerts()">View All</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Summary Cards. Low Stock is the single low-inventory state;
+                 clicking it filters the table to low-stock rows so the user
+                 can immediately generate PRS records. -->
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div class="bento-card card bg-error/10 border border-error/40">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-error flex items-center justify-center relative">
+                                <i class="fas fa-times-circle text-error-content text-xl"></i>
+                                <span class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-error-content border-2 border-error animate-pulse"></span>
+                            </div>
+                            <div>
+                                <p class="text-3xl font-bold text-error" id="outOfStockCount">0</p>
+                                <p class="text-xs text-error/80 font-semibold uppercase tracking-wider">Out of Stock</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" onclick="focusLowStock()" class="bento-card card bg-warning/10 border border-warning/30 text-left cursor-pointer hover:-translate-y-0.5 hover:shadow-lg transition-all" title="Show items that need a shelf count">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-warning flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-warning-content text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-3xl font-bold text-warning" id="lowCount">0</p>
+                                <p class="text-xs text-warning/80 font-semibold uppercase tracking-wider">Low Stock</p>
+                            </div>
+                        </div>
+                    </div>
+                </button>
+                <div class="bento-card card bg-success/10 border border-success/30">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-xl bg-success flex items-center justify-center">
+                                <i class="fas fa-check-circle text-success-content text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-3xl font-bold text-success" id="okCount">0</p>
+                                <p class="text-xs text-success/80 font-semibold uppercase tracking-wider">OK</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- How this works (collapsible). The legend used to live at the
+                 bottom where most users never saw it. Now it's a collapsed
+                 section right above the table so first-time users can pop
+                 it open to understand the statuses, and power users never
+                 see it again. -->
+            <div class="collapse collapse-arrow bg-base-100 border border-base-300 mb-4">
+                <input type="checkbox" aria-label="Toggle how this works" />
+                <div class="collapse-title text-sm font-semibold flex items-center gap-2">
+                    <i class="fas fa-circle-info text-info"></i>
+                    How reorder alerts work
+                </div>
+                <div class="collapse-content">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div class="flex items-start gap-3">
+                            <span class="badge badge-ghost badge-sm flex-shrink-0">OUT</span>
+                            <div>
+                                <p class="font-medium">Out of Stock</p>
+                                <p class="text-base-content/60 text-xs">Zero inventory. Production may be impacted.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="badge badge-warning badge-sm flex-shrink-0">LOW</span>
+                            <div>
+                                <p class="font-medium">Low Stock</p>
+                                <p class="text-base-content/60 text-xs">At or below the reorder point. Confirm the shelf count so Purchasing can act.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <span class="badge badge-info badge-sm flex-shrink-0">ORDER SOON</span>
+                            <div>
+                                <p class="font-medium">Early-reorder warning</p>
+                                <p class="text-base-content/60 text-xs">Recorded Production use may bring stock to the reorder point before a linked supplier can deliver. Confirm the shelf count first.</p>
+                            </div>
+                        </div>
+                        <div class="md:col-span-2 flex items-start gap-3 rounded-lg bg-info/10 border border-info/20 p-3">
+                            <i class="fas fa-list-check text-info mt-0.5"></i>
+                            <div>
+                                <p class="font-medium">Checking several items</p>
+                                <p class="text-base-content/60 text-xs">Tick the circles beside multiple rows, then choose Confirm Counts. They will be saved together as one Warehouse stock check.</p>
+                            </div>
+                        </div>
+                        <div class="md:col-span-3 flex items-start gap-3 rounded-lg bg-base-200/60 border border-base-300 p-3">
+                            <i class="fas fa-bullseye text-primary mt-0.5"></i>
+                            <div>
+                                <p class="font-medium">What the three stock numbers mean</p>
+                                <p class="text-base-content/60 text-xs"><strong>Reorder point:</strong> start buying here. <strong>Safety buffer:</strong> the minimum you try not to cross. <strong>Restocking target:</strong> the level Purchasing refills toward.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card bg-base-100 border border-base-300 mb-4">
+                <div class="card-body p-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label class="input input-bordered input-sm flex items-center gap-2 flex-1 min-w-48">
+                            <i class="fas fa-search text-base-content/40"></i>
+                            <input type="text" id="searchInput" placeholder="Search items..." class="grow" />
+                        </label>
+                        <select class="select select-bordered select-sm w-full md:w-48" id="statusFilter">
+                            <option value="">All Alerts</option>
+                            <option value="OUT_OF_STOCK">Out of Stock</option>
+                            <option value="LOW">Low Stock</option>
+                            <option value="ORDER_SOON">Order Soon</option>
+                            <option value="OK">OK / Early-reorder candidates</option>
+                        </select>
+                        <select class="select select-bordered select-sm w-full md:w-40" id="categoryFilter">
+                            <option value="">All Categories</option>
+                        </select>
+                        <label class="label cursor-pointer gap-2">
+                            <span class="label-text text-sm">Show OK items</span>
+                            <input type="checkbox" id="showOkItems" class="checkbox checkbox-sm checkbox-primary" />
+                        </label>
+                        <button type="button" class="btn btn-info btn-sm" onclick="showWarehouseEarlyReorderCandidates()">
+                            <i class="fas fa-forward"></i> Find early-reorder item
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Low-stock alerts feed the manual PRS workflow. -->
+
+            <div id="bulkActionBar" class="hidden mb-4 rounded-lg border border-primary/30 bg-primary/10 p-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="text-sm font-medium">
+                            <span id="bulkSelectedCount">0</span> selected for validation
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="btn btn-ghost btn-sm" onclick="clearSelection()">Clear</button>
+                        <button id="bulkCreateBtn" class="btn btn-primary btn-sm" onclick="bulkCreatePRs()">
+                            <i class="fas fa-file-signature"></i>
+                            <span id="bulkCreateBtnLabel">Confirm Counts</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Table (dense, sortable, with row checkboxes for bulk action) -->
+            <div class="card bg-base-100 border border-base-300" id="alertsSection">
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr class="bg-base-200/50 text-base-content/70">
+                                <th class="w-12">
+                                    <input type="checkbox" id="selectAllCheckbox" class="checkbox checkbox-xs checkbox-primary" onchange="toggleSelectAll(this.checked)" aria-label="Select all orderable alerts">
+                                </th>
+                                <th class="cursor-pointer hover:bg-base-300/50 select-none" onclick="setSort('name')">
+                                    Item <span class="sort-indicator" data-col="name"></span>
+                                </th>
+                                <th class="cursor-pointer hover:bg-base-300/50 select-none" onclick="setSort('urgency')">
+                                    Status <span class="sort-indicator" data-col="urgency"></span>
+                                </th>
+                                <th class="cursor-pointer hover:bg-base-300/50 select-none text-right" onclick="setSort('stock')">
+                                    Current Stock <span class="sort-indicator" data-col="stock"></span>
+                                </th>
+                                <th class="text-right">Start Buying At</th>
+                                <th class="cursor-pointer hover:bg-base-300/50 select-none text-right" onclick="setSort('qty')">
+                                    Suggested Refill <span class="sort-indicator" data-col="qty"></span>
+                                </th>
+                                <th class="cursor-pointer hover:bg-base-300/50 select-none text-center" onclick="setSort('lead')">
+                                    Lead Time <span class="sort-indicator" data-col="lead"></span>
+                                </th>
+                                <th class="w-36 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alertsTable">
+                            <tr>
+                                <td colspan="8" class="text-center py-12">
+                                    <span class="loading loading-spinner loading-md text-primary"></span>
+                                    <p class="text-base-content/60 mt-2 text-sm">Loading reorder alerts…</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Bulk PR shelf-count confirmation -->
+    <dialog id="bulkAuditModal" class="modal">
+        <div class="modal-box w-11/12 max-w-5xl">
+            <button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="closeBulkAuditModal()" aria-label="Close">✕</button>
+            <h3 class="font-bold text-lg">Confirm what is actually on the shelf</h3>
+            <p class="text-sm text-base-content/60 mt-1">
+                Check the safe, usable quantity of each selected item. Do not include expired or held batches. Purchasing will see the confirmed shortages automatically.
+            </p>
+
+            <div class="alert alert-info py-2 mt-4 text-sm">
+                <i class="fas fa-clipboard-check"></i>
+                <span>If your count is lower, explain the difference. If it is higher, use the button beside that item to record the missing stock first.</span>
+            </div>
+
+            <div class="overflow-x-auto border border-base-300 rounded-lg mt-4" style="max-height:55vh">
+                <table class="table table-sm">
+                    <thead class="bg-base-200 sticky top-0 z-10">
+                        <tr>
+                            <th>Item</th>
+                            <th class="w-32 text-right">Usable balance</th>
+                            <th class="w-40">Usable amount confirmed</th>
+                            <th>Reason if different</th>
+                            <th class="w-32 text-right">Confirmed shortage</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulkAuditRows"></tbody>
+                </table>
+            </div>
+
+            <p id="bulkAuditError" class="text-sm text-error mt-3 hidden"></p>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="closeBulkAuditModal()">Cancel</button>
+                <button type="button" id="bulkAuditSubmitBtn" class="btn btn-primary" onclick="submitBulkAuditedPR()">
+                    <i class="fas fa-file-signature"></i>
+                    Confirm Stock Check
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button onclick="closeBulkAuditModal()">close</button></form>
+    </dialog>
+
+    <!-- Warehouse exception: recommend an early reorder for an unusual upcoming need. -->
+    <dialog id="warehouseEarlyReorderModal" class="modal">
+        <div class="modal-box max-w-xl">
+            <button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="closeWarehouseEarlyReorderModal()" aria-label="Close">✕</button>
+            <h3 class="font-bold text-lg"><i class="fas fa-forward text-info mr-2"></i>Recommend an early reorder</h3>
+            <p class="text-sm text-base-content/60 mt-1">
+                Use this when Warehouse knows about unusual upcoming demand that the recent usage record cannot show yet. Purchasing will decide whether to order it.
+            </p>
+
+            <div class="alert alert-info py-2 mt-4 text-sm">
+                <i class="fas fa-circle-info"></i>
+                <span>This is a recommendation, not a Purchase Order and not a separate PRS.</span>
+            </div>
+
+            <div class="rounded-lg border border-base-300 bg-base-200/40 p-3 mt-4">
+                <div class="font-semibold" id="warehouseEarlyItemName">—</div>
+                <div class="text-xs text-base-content/60 mt-1" id="warehouseEarlyItemSummary">—</div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                <label class="form-control">
+                    <span class="label-text font-medium mb-1">Usable amount counted *</span>
+                    <div class="join">
+                        <input id="warehouseEarlyCount" type="number" min="0" step="0.001" class="input input-bordered join-item w-full" oninput="updateWarehouseEarlyReorderLimit()">
+                        <span id="warehouseEarlyCountUnit" class="join-item flex items-center px-3 bg-base-200 border border-base-300">units</span>
+                    </div>
+                    <span class="text-xs text-base-content/55 mt-1">Confirm what is physically usable now.</span>
+                </label>
+                <label class="form-control">
+                    <span class="label-text font-medium mb-1">Suggested purchase amount *</span>
+                    <div class="join">
+                        <input id="warehouseEarlyQuantity" type="number" min="0.001" step="0.001" class="input input-bordered join-item w-full">
+                        <span id="warehouseEarlyQuantityUnit" class="join-item flex items-center px-3 bg-base-200 border border-base-300">units</span>
+                    </div>
+                    <span id="warehouseEarlyQuantityHelp" class="text-xs text-base-content/55 mt-1">—</span>
+                </label>
+            </div>
+
+            <label class="form-control mt-4">
+                <span class="label-text font-medium mb-1">Why recommend ordering before it becomes low? *</span>
+                <textarea id="warehouseEarlyReason" class="textarea textarea-bordered h-24" minlength="10" maxlength="500" placeholder="Example: A larger production run is scheduled for Friday."></textarea>
+                <span class="text-xs text-base-content/55 mt-1">Write the real event Warehouse knows about. Minimum 10 characters.</span>
+            </label>
+
+            <label id="warehouseEarlyAuditReasonWrap" class="form-control mt-4 hidden">
+                <span class="label-text font-medium mb-1">Why is the shelf count lower than the system? *</span>
+                <input id="warehouseEarlyAuditReason" type="text" class="input input-bordered" maxlength="255" placeholder="Example: Damaged container set aside">
+            </label>
+
+            <p id="warehouseEarlyError" class="text-sm text-error mt-3 hidden"></p>
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost" onclick="closeWarehouseEarlyReorderModal()">Cancel</button>
+                <button type="button" id="warehouseEarlySubmitBtn" class="btn btn-info" onclick="submitWarehouseEarlyReorder()">
+                    <i class="fas fa-paper-plane"></i> Send recommendation to Purchasing
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button onclick="closeWarehouseEarlyReorderModal()">close</button></form>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <dialog id="stockOutcomeDialog" class="modal">
+        <div class="modal-box max-w-md">
+            <button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" onclick="document.getElementById('stockOutcomeDialog').close()">✕</button>
+            <h3 id="stockOutcomeTitle" class="font-bold text-lg">Stock confirmation status</h3>
+            <div id="stockOutcomeState" class="badge badge-outline mt-3"></div>
+            <p id="stockOutcomeReason" class="text-sm text-base-content/70 mt-4"></p>
+            <div class="alert alert-info text-sm mt-4">
+                <i class="fas fa-circle-info"></i>
+                <span>Warehouse confirms stock; Purchasing decides whether to order. If a closed item is needed again, Purchasing can reopen it.</span>
+            </div>
+            <div class="modal-action">
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('stockOutcomeDialog').close()">OK</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Scripts -->
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_raw,general_manager"></script>
+    <script src="../../../js/purchasing/purchasing.service.js"></script>
+    <script src="../../../js/warehouse/raw.service.js?v=20260825-2"></script>
+    <script>window.WAREHOUSE_RAW_ACTIVE_PAGE = "reorder_alerts";</script>
+    <script src="../../../js/warehouse/raw-sidebar.js?v=20260727a"></script>
+    <script src="../../../js/warehouse/sidebar.stats.js?v=20260727a"></script>
+
+
+    <script>
+        let allAlerts = [];
+        let filteredAlerts = [];
+        let categories = new Set();
+        let createdReorderPRs = new Set();
+        let pendingReorderPRs = new Map();
+        let bulkAuditAlerts = [];
+        let warehouseEarlyReorderAlert = null;
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        function setSidebarUser(user) {
+            if (!user) return;
+            const first = user.first_name || '';
+            const last = user.last_name || '';
+            const nameEl = document.getElementById('sidebarUserName');
+            const initEl = document.getElementById('userInitials');
+            if (nameEl) {
+                nameEl.textContent = `${first} ${last}`.trim() || user.username || 'Warehouse Staff';
+            }
+            if (initEl) {
+                const initials = ((first[0] || '') + (last[0] || '')).toUpperCase()
+                    || (user.username || 'WR').slice(0, 2).toUpperCase();
+                initEl.textContent = initials || 'WR';
+            }
+            if (window.WarehouseRawSidebar && typeof WarehouseRawSidebar.fillUser === 'function') {
+                WarehouseRawSidebar.fillUser();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (typeof AuthService !== 'undefined' && AuthService.requireAuth && !AuthService.requireAuth()) {
+                return;
+            }
+            if (typeof AuthService !== 'undefined' && !AuthService.isAuthenticated()) {
+                window.location.href = (typeof APP_BASE === 'string' ? APP_BASE : '/HighlandFreshAppV4') + '/html/login.html';
+                return;
+            }
+
+            setSidebarUser(AuthService.getCurrentUser());
+
+            await loadAlerts();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', debounce(filterAlerts, 300));
+            document.getElementById('statusFilter').addEventListener('change', filterAlerts);
+            document.getElementById('categoryFilter').addEventListener('change', filterAlerts);
+            document.getElementById('showOkItems').addEventListener('change', loadAlerts);
+        }
+
+        async function showWarehouseEarlyReorderCandidates() {
+            const showOk = document.getElementById('showOkItems');
+            const status = document.getElementById('statusFilter');
+            showOk.checked = true;
+            await loadAlerts();
+            status.value = 'OK';
+            filterAlerts();
+            document.getElementById('alertsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            showToast('Choose an OK item and click Recommend early reorder.', 'info');
+        }
+
+        async function loadAlerts() {
+            const showOk = document.getElementById('showOkItems').checked;
+
+            try {
+                const response = await api.get('/warehouse/raw/ingredients.php', {
+                    params: { action: 'reorder_alerts', include_ok: showOk ? '1' : '0' }
+                });
+
+                if (response?.success) {
+                    allAlerts = (response.data?.alerts || []).map(a => ({
+                        ...a,
+                        // Collapse the old Critical tier into Low Stock. The
+                        // backend still emits CRITICAL; the frontend treats
+                        // every low-inventory item as Low Stock so ordering
+                        // starts at the reorder point, not at minimum stock.
+                        stock_status: a.stock_status === 'CRITICAL' ? 'LOW' : a.stock_status
+                    }));
+                    await loadPendingReorderPRs();
+                    const summary = response.data?.summary || {};
+                    // Fold the legacy critical count into low so the Low Stock
+                    // card reflects every item that needs a Purchase Request.
+                    const lowTotal = (summary.low || 0) + (summary.critical || 0);
+
+                    // Update summary cards
+                    document.getElementById('outOfStockCount').textContent = summary.out_of_stock || 0;
+                    document.getElementById('lowCount').textContent = lowTotal;
+                    document.getElementById('okCount').textContent = summary.ok || 0;
+
+                    // Show alert banner if needed
+                    const totalAlerts = (summary.out_of_stock || 0) + lowTotal;
+
+                    // Drive the gradient hero ("X ingredients need attention").
+                    // Same numbers as the stat cards but presented as a
+                    // primary call-to-action with a bulk PR button.
+                    updateReorderHero();
+                    const banner = document.getElementById('alertBanner');
+                    if (totalAlerts > 0) {
+                        banner.classList.remove('hidden');
+                        document.getElementById('alertBannerText').textContent =
+                            `${totalAlerts} item(s) need attention. Order now to avoid production delays.`;
+                    } else {
+                        banner.classList.add('hidden');
+                    }
+
+                    // Build category filter
+                    categories.clear();
+                    allAlerts.forEach(a => { if (a.category_name) categories.add(a.category_name); });
+                    const catFilter = document.getElementById('categoryFilter');
+                    catFilter.innerHTML = '<option value="">All Categories</option>' +
+                        Array.from(categories).sort().map(c => `<option value="${c}">${c}</option>`).join('');
+
+                    filterAlerts();
+                } else {
+                    throw new Error('Failed to load reorder alerts');
+                }
+            } catch (error) {
+                console.error('Failed to load alerts:', error);
+                showToast('Failed to load reorder alerts', 'error');
+                
+                // Show error state instead of permanent loading
+                document.getElementById('alertsTable').innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-12">
+                            <i class="fas fa-exclamation-triangle text-4xl text-error mb-3"></i>
+                            <h3 class="font-semibold">Failed to Load</h3>
+                            <p class="text-base-content/60">Could not fetch reorder alerts. Please try again.</p>
+                            <button class="btn btn-primary btn-sm mt-4" onclick="loadAlerts()">
+                                <i class="fas fa-sync mr-2"></i>Retry
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function filterAlerts() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const status = document.getElementById('statusFilter').value;
+            const category = document.getElementById('categoryFilter').value;
+
+            filteredAlerts = allAlerts.filter(a => {
+                if (search && !a.item_name.toLowerCase().includes(search) && !a.item_code.toLowerCase().includes(search)) return false;
+                if (status && a.stock_status !== status) return false;
+                if (category && a.category_name !== category) return false;
+                return true;
+            });
+
+            renderAlerts();
+        }
+
+        // Small HTML escaper used by the table row renderer to prevent
+        // ingredient names / unit text from breaking the markup.
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function finiteNumber(value) {
+            const n = parseFloat(value);
+            return Number.isFinite(n) ? n : null;
+        }
+
+        function getParLevel(alert) {
+            const maxStock = finiteNumber(alert.maximum_stock);
+            const reorderPoint = finiteNumber(alert.reorder_point) || 0;
+            return maxStock && maxStock > 0 ? maxStock : reorderPoint * 2;
+        }
+
+        function getOrderQty(alert) {
+            const apiQty = finiteNumber(alert.qty_to_reorder);
+            if (apiQty !== null) {
+                return Math.max(0, apiQty);
+            }
+            const stock = finiteNumber(alert.current_stock) || 0;
+            return Math.max(0, getParLevel(alert) - stock);
+        }
+
+        function pendingPRKey(itemType, itemId) {
+            return `${itemType || 'ingredient'}:${String(itemId)}`;
+        }
+
+        async function loadPendingReorderPRs() {
+            pendingReorderPRs.clear();
+            try {
+                const response = await api.get('/warehouse/raw/stock_validations.php', {
+                    params: { action: 'open_item_refs' }
+                });
+                (response?.data || []).forEach(ref => {
+                    if (!ref.item_id) return;
+                    const key = pendingPRKey(ref.item_type, ref.item_id);
+                    if (!pendingReorderPRs.has(key)) {
+                        pendingReorderPRs.set(key, {
+                            ...ref,
+                            pr_number: ref.validation_number,
+                            pr_id: null
+                        });
+                    }
+                });
+            } catch (error) {
+                console.warn('Could not load current stock confirmations:', error);
+            }
+        }
+
+        function getPendingPR(alert) {
+            return pendingReorderPRs.get(pendingPRKey(alert.item_type || 'ingredient', alert.item_id));
+        }
+
+        function hasCoveredPR(alert) {
+            return createdReorderPRs.has(String(alert.item_id)) || Boolean(getPendingPR(alert));
+        }
+
+        function rememberPendingPR(alert, prInfo) {
+            if (!alert || !prInfo?.duplicate_pr_number) return;
+            pendingReorderPRs.set(pendingPRKey(alert.item_type || 'ingredient', alert.item_id), {
+                item_type: alert.item_type || 'ingredient',
+                item_id: alert.item_id,
+                pr_id: prInfo.duplicate_pr_id || null,
+                pr_number: prInfo.duplicate_pr_number,
+                status: 'pending'
+            });
+        }
+
+        function openPendingPR(ref) {
+            const dialog = document.getElementById('stockOutcomeDialog');
+            const title = document.getElementById('stockOutcomeTitle');
+            const state = document.getElementById('stockOutcomeState');
+            const reason = document.getElementById('stockOutcomeReason');
+            title.textContent = ref?.item_name || 'Stock confirmation status';
+            if (ref?.purchasing_decision === 'closed_without_order') {
+                state.textContent = 'Closed without order';
+                state.className = 'badge badge-error badge-outline mt-3';
+                reason.textContent = `Purchasing reason: ${ref.purchasing_decision_reason || 'No reason shown.'}`;
+            } else if (ref?.purchasing_decision === 'deferred') {
+                state.textContent = `Deferred until ${ref.deferred_until || 'the saved date'}`;
+                state.className = 'badge badge-warning badge-outline mt-3';
+                reason.textContent = `Purchasing reason: ${ref.purchasing_decision_reason || 'No reason shown.'}`;
+            } else {
+                state.textContent = 'Waiting for Purchasing';
+                state.className = 'badge badge-warning badge-outline mt-3';
+                reason.textContent = 'Warehouse has finished the physical count. Purchasing has not made a decision yet.';
+            }
+            if (!dialog.open) dialog.showModal();
+        }
+
+        // Sort state for click-to-sort column headers. Default is "urgency
+        // desc" so the most urgent (Out) shows first on page load.
+        // `column` is one of 'name' | 'urgency' | 'stock' | 'qty' | 'lead'.
+        let currentSort = { column: 'urgency', direction: 'desc' };
+
+        // Set of selected item IDs (as strings, since the values come from the
+        // API as integers or strings depending on the endpoint). Used to
+        // drive the bulk action bar and the "select all" checkbox.
+        let selectedItemIds = new Set();
+
+        // Click-to-sort handler. Toggles direction when re-clicking the same
+        // column; switches column otherwise.
+        function setSort(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = 'asc';
+            }
+            renderAlerts();
+        }
+
+        // Updates the small arrow next to each column header to show the
+        // current sort state. Called from renderAlerts after every sort change.
+        function updateSortIndicators() {
+            document.querySelectorAll('.sort-indicator').forEach(el => {
+                const col = el.dataset.col;
+                if (col === currentSort.column) {
+                    el.textContent = currentSort.direction === 'asc' ? ' ↑' : ' ↓';
+                    el.classList.add('text-primary', 'font-bold');
+                } else {
+                    el.textContent = '';
+                    el.classList.remove('text-primary', 'font-bold');
+                }
+            });
+        }
+
+        // Bulk selection handlers
+        function toggleItemSelection(id, checked) {
+            const key = String(id);
+            if (checked) selectedItemIds.add(key);
+            else selectedItemIds.delete(key);
+            updateBulkActionBar();
+            syncSelectAllCheckbox();
+        }
+
+        function toggleSelectAll(checked) {
+            selectedItemIds.clear();
+            if (checked) {
+                // Select every alert currently rendered. (We include already-
+                // PR-created ones so the user can decide to re-issue if
+                // they want — the per-row button still gets disabled.)
+                filteredAlerts
+                    .filter(a => a.stock_status !== 'OK' && getOrderQty(a) > 0 && !hasCoveredPR(a))
+                    .forEach(a => selectedItemIds.add(String(a.item_id)));
+            }
+            updateBulkActionBar();
+            // Re-render to update per-row checkbox state.
+            renderAlerts();
+        }
+
+        function clearSelection() {
+            selectedItemIds.clear();
+            updateBulkActionBar();
+            renderAlerts();
+        }
+
+        // Sync the "select all" header checkbox to reflect current row state.
+        function syncSelectAllCheckbox() {
+            const cb = document.getElementById('selectAllCheckbox');
+            if (!cb) return;
+            const selectable = filteredAlerts.filter(a => a.stock_status !== 'OK' && getOrderQty(a) > 0 && !hasCoveredPR(a));
+            const total = selectable.length;
+            const selected = selectable.filter(a => selectedItemIds.has(String(a.item_id))).length;
+            cb.checked = total > 0 && selected === total;
+            cb.indeterminate = selected > 0 && selected < total;
+            cb.disabled = total === 0;
+        }
+
+        // Show / hide the bulk action bar and update its label.
+        function updateBulkActionBar() {
+            const bar = document.getElementById('bulkActionBar');
+            const countEl = document.getElementById('bulkSelectedCount');
+            const btn = document.getElementById('bulkCreateBtn');
+            const labelEl = document.getElementById('bulkCreateBtnLabel');
+            if (!bar || !countEl || !btn || !labelEl) return;
+            const n = selectedItemIds.size;
+            countEl.textContent = n;
+            labelEl.textContent = n === 1 ? `Confirm Count` : `Confirm Counts (${n} items)`;
+            btn.disabled = n === 0;
+            if (n > 0) bar.classList.remove('hidden');
+            else bar.classList.add('hidden');
+        }
+
+        // Drives the hero's "X ingredients need attention" + breakdown.
+        // Also toggles hero visibility based on whether any alert exists.
+        function updateReorderHero() {
+            const hero = document.getElementById('reorderHero');
+            const totalEl = document.getElementById('reorderHeroTotal');
+            const breakdownEl = document.getElementById('reorderHeroBreakdown');
+            const ctaLabelEl = document.getElementById('reorderHeroCtaLabel');
+            if (!hero) return;
+
+            // Count only actionable alerts (Out / Low / Order Soon), not OK. Critical items
+            // were folded into Low at ingest.
+            const actionable = allAlerts.filter(a => a.stock_status !== 'OK');
+            const out = allAlerts.filter(a => a.stock_status === 'OUT_OF_STOCK').length;
+            const low = allAlerts.filter(a => a.stock_status === 'LOW').length;
+            const orderSoon = allAlerts.filter(a => a.stock_status === 'ORDER_SOON').length;
+            const total = out + low + orderSoon;
+
+            if (total === 0) {
+                hero.classList.add('hidden');
+                return;
+            }
+            hero.classList.remove('hidden');
+            if (totalEl) totalEl.textContent = total;
+            // Build the breakdown. Use real numbers so the user can scan
+            // exactly what to act on.
+            const parts = [];
+            if (out) parts.push(`${out} out of stock`);
+            if (low) parts.push(`${low} low`);
+            if (orderSoon) parts.push(`${orderSoon} order soon`);
+            const pendingCount = actionable.filter(a => getOrderQty(a) > 0 && hasCoveredPR(a)).length;
+            if (pendingCount) parts.push(`${pendingCount} already pending`);
+            if (breakdownEl) breakdownEl.textContent = parts.join(' · ');
+            // The CTA count is the number of items that can actually have a
+            // PR created — those with a positive orderable quantity
+            // (below par). Items flagged Low but already at par (qty == 0)
+            // are skipped by bulkCreatePRs, so showing the raw actionable
+            // total here would mislead the user into expecting more to be
+            // created than actually are.
+            const orderableCount = actionable.filter(a => {
+                return getOrderQty(a) > 0 && !hasCoveredPR(a);
+            }).length;
+            if (ctaLabelEl) {
+                ctaLabelEl.textContent = orderableCount === 1
+                    ? `Confirm Shelf Counts`
+                    : `Confirm Shelf Counts (${orderableCount} items)`;
+            }
+        }
+
+        // Bulk-create PRs for all selected items, plus any actionable items
+        // when the hero CTA is clicked (selecting all then creating).
+        //
+        // The previous implementation called startPurchaseRequest() in a loop,
+        // but that function NAVIGATES to purchase_requests.html — so the first
+        // iteration broke out of the loop and only one PR got created. This
+        // version calls the API directly (the same PurchasingService endpoint
+        // that the per-row modal uses on submit) so the loop completes and
+        // every selected item becomes a separate PR. After all PRs are
+        // created, the user is redirected to the PR list so they can review.
+        async function bulkCreatePRs() {
+            // Compute the orderable quantity for an alert using the same
+            // par-level rule as the row renderer: max_stock if set, else
+            // reorder_point. Returns 0 when at/above par — those items are
+            // shown as "—" in the table and their Start PR button is
+            // disabled, so the bulk path must skip them too (the backend
+            // rejects quantity <= 0 with "requested quantity must be greater
+            // than zero").
+            const orderableQty = getOrderQty;
+
+            // If nothing's selected (hero CTA path), default to "all actionable".
+            const targetAlerts = selectedItemIds.size === 0
+                ? allAlerts.filter(a => a.stock_status !== 'OK' && !hasCoveredPR(a))
+                : Array.from(selectedItemIds)
+                    .map(id => allAlerts.find(a => String(a.item_id) === id))
+                    .filter(a => a && !hasCoveredPR(a));
+
+            if (targetAlerts.length === 0) {
+                const coveredCount = allAlerts.filter(a => a.stock_status !== 'OK' && getOrderQty(a) > 0 && hasCoveredPR(a)).length;
+                showToast(
+                    coveredCount > 0
+                        ? 'All low-stock items are already confirmed and waiting for Purchasing.'
+                        : 'No actionable items to process',
+                    'info'
+                );
+                return;
+            }
+
+            // Split out items that are flagged Low/Out but are already at/above
+            // par (qty == 0). The backend cannot create a PR with qty 0, so we
+            // surface them as skipped instead of letting them show up as
+            // failures. This matches the per-row Start PR button, which is
+            // disabled for the same rows.
+            const skippable = targetAlerts.filter(a => orderableQty(a) <= 0);
+            const orderable = targetAlerts.filter(a => orderableQty(a) > 0);
+
+            if (orderable.length === 0) {
+                const names = skippable.map(a => a.item_name || a.item_code).join(', ');
+                showToast(`No items need ordering (all at/above par): ${names}`, 'warning');
+                return;
+            }
+            if (skippable.length > 0) {
+                const names = skippable.map(a => a.item_name || a.item_code).join(', ');
+                showToast(`Skipping ${skippable.length} already at/above par: ${names}`, 'info');
+            }
+
+            openBulkAuditModal(orderable);
+        }
+
+        function displayAuditNumber(value) {
+            return Number(value || 0).toLocaleString('en-PH', { maximumFractionDigits: 3 });
+        }
+
+        function openBulkAuditModal(orderable) {
+            bulkAuditAlerts = [...orderable];
+            const rows = document.getElementById('bulkAuditRows');
+            const error = document.getElementById('bulkAuditError');
+            if (error) {
+                error.textContent = '';
+                error.classList.add('hidden');
+            }
+            rows.innerHTML = bulkAuditAlerts.map(alert => {
+                const id = Number(alert.item_id);
+                const saved = finiteNumber(alert.current_stock) || 0;
+                const unit = alert.unit_of_measure || 'units';
+                const forecastSummary = alert.stock_status === 'ORDER_SOON'
+                    ? `<div class="text-xs text-info mt-1"><i class="fas fa-chart-line mr-1"></i>${displayAuditNumber(alert.average_daily_issue_30d)} ${escapeHtml(unit)}/day · ${displayAuditNumber(alert.supplier_lead_days)}-day delivery · projected ${displayAuditNumber(alert.projected_stock_at_delivery)} ${escapeHtml(unit)} at delivery</div>`
+                    : '';
+                return `
+                    <tr data-audit-item-id="${id}">
+                        <td>
+                            <div class="font-semibold">${escapeHtml(alert.item_name || 'Unnamed item')}</div>
+                            <div class="text-xs text-base-content/50 font-mono">${escapeHtml(alert.item_code || '')}</div>
+                            ${forecastSummary}
+                        </td>
+                        <td class="text-right font-mono">${displayAuditNumber(saved)} <span class="text-xs text-base-content/55">${escapeHtml(unit)}</span></td>
+                        <td>
+                            <input type="number" class="input input-bordered input-sm w-full bulk-audit-count" min="0" step="0.001"
+                                placeholder="Count it" data-item-id="${id}" data-saved-stock="${saved}" oninput="updateBulkAuditRow(this)">
+                            <p class="bulk-audit-count-help text-xs text-base-content/50 mt-1">Required</p>
+                        </td>
+                        <td>
+                            <input type="text" class="input input-bordered input-sm w-full bulk-audit-reason" maxlength="255"
+                                placeholder="Needed only when lower" disabled>
+                        </td>
+                        <td class="bulk-audit-request text-right font-mono text-base-content/45">—</td>
+                    </tr>`;
+            }).join('');
+            document.getElementById('bulkAuditSubmitBtn').disabled = false;
+            document.getElementById('bulkAuditModal').showModal();
+            rows.querySelector('.bulk-audit-count')?.focus();
+        }
+
+        function closeBulkAuditModal() {
+            const modal = document.getElementById('bulkAuditModal');
+            if (modal?.open) modal.close();
+            bulkAuditAlerts = [];
+        }
+
+        function updateBulkAuditRow(input) {
+            const row = input.closest('tr');
+            const alert = bulkAuditAlerts.find(item => String(item.item_id) === String(input.dataset.itemId));
+            if (!row || !alert) return;
+
+            const counted = finiteNumber(input.value);
+            const saved = finiteNumber(alert.current_stock) || 0;
+            const unit = alert.unit_of_measure || 'units';
+            const reason = row.querySelector('.bulk-audit-reason');
+            const help = row.querySelector('.bulk-audit-count-help');
+            const request = row.querySelector('.bulk-audit-request');
+            input.classList.remove('input-error', 'input-success');
+
+            if (counted === null || counted < 0) {
+                reason.disabled = true;
+                reason.required = false;
+                request.textContent = '—';
+                help.className = 'bulk-audit-count-help text-xs text-error mt-1';
+                help.textContent = 'Enter zero or a positive count.';
+                return;
+            }
+
+            if (counted > saved + 0.0005) {
+                input.classList.add('input-error');
+                reason.disabled = true;
+                reason.required = false;
+                const isIngredient = (alert.item_type || 'ingredient') === 'ingredient';
+                const restricted = finiteNumber(alert.restricted_stock) || 0;
+                request.innerHTML = isIngredient && restricted > 0.0005
+                    ? '<span class="text-warning font-semibold">Exclude held stock</span>'
+                    : isIngredient
+                        ? `<button type="button" class="btn btn-warning btn-xs whitespace-nowrap" onclick="recordStockCountFromAudit(${Number(alert.item_id)}, ${counted})"><i class="fas fa-paper-plane"></i> Send count to GM</button>`
+                    : 'Use stock correction';
+                help.className = 'bulk-audit-count-help text-xs text-error mt-1';
+                help.textContent = restricted > 0.0005
+                    ? `${displayAuditNumber(restricted)} ${unit} is expired or held. Confirm only the safe amount; resolve held batches from Ingredients.`
+                    : `Higher than ${displayAuditNumber(saved)} ${unit}. Send the physical count directly to the GM.`;
+                return;
+            }
+
+            input.classList.add('input-success');
+            const differs = Math.abs(counted - saved) > 0.0005;
+            reason.disabled = !differs;
+            reason.required = differs;
+            if (!differs) reason.value = '';
+            const replenishmentTarget = saved + getOrderQty(alert);
+            const qty = Math.max(0, replenishmentTarget - counted);
+            request.innerHTML = `<strong class="text-primary">${displayAuditNumber(qty)}</strong> <span class="text-xs text-base-content/55">${escapeHtml(unit)}</span>`;
+            help.className = 'bulk-audit-count-help text-xs text-base-content/55 mt-1';
+            help.textContent = differs
+                ? `Usable balance is ${displayAuditNumber(saved)} ${unit}; explain the shortage.`
+                : 'Matches the usable balance.';
+        }
+
+        function recordStockCountFromAudit(itemId, counted) {
+            const url = new URL('ingredients.html', window.location.href);
+            url.searchParams.set('adjust_stock', String(itemId));
+            url.searchParams.set('counted', String(counted));
+            window.location.href = url.toString();
+        }
+
+        async function submitBulkAuditedPR() {
+            const error = document.getElementById('bulkAuditError');
+            const items = [];
+            let earliestNeededBy = null;
+
+            for (let index = 0; index < bulkAuditAlerts.length; index++) {
+                const alert = bulkAuditAlerts[index];
+                const row = document.querySelector(`#bulkAuditRows tr[data-audit-item-id="${Number(alert.item_id)}"]`);
+                const countInput = row?.querySelector('.bulk-audit-count');
+                const reasonInput = row?.querySelector('.bulk-audit-reason');
+                const counted = finiteNumber(countInput?.value);
+                const saved = finiteNumber(alert.current_stock) || 0;
+                const reason = reasonInput?.value.trim() || '';
+
+                const fail = message => {
+                    error.textContent = `Line ${index + 1}: ${message}`;
+                    error.classList.remove('hidden');
+                    countInput?.classList.add('input-error');
+                    countInput?.focus();
+                };
+                if (counted === null || counted < 0) {
+                    fail('enter the quantity you physically counted on the shelf.');
+                    return;
+                }
+                if (counted > saved + 0.0005) {
+                    const restricted = finiteNumber(alert.restricted_stock) || 0;
+                    fail(restricted > 0.0005
+                        ? 'confirm only safe, usable stock. Expired or held batches are handled separately in Ingredients.'
+                        : 'the count is higher than the usable balance. Send the physical count to the GM beside this item first.');
+                    return;
+                }
+                if (Math.abs(counted - saved) > 0.0005 && !reason) {
+                    fail('explain why the shelf count is lower than the saved balance.');
+                    reasonInput?.focus();
+                    return;
+                }
+
+                const replenishmentTarget = saved + getOrderQty(alert);
+                const qty = Math.max(0, replenishmentTarget - counted);
+                if (qty <= 0) {
+                    fail('this count is already at the replenishment target, so no order is needed.');
+                    return;
+                }
+                const neededBy = new Date();
+                neededBy.setDate(neededBy.getDate() + parseInt((alert.stock_status === 'ORDER_SOON' ? alert.supplier_lead_days : alert.lead_time_days) || 7, 10));
+                if (!earliestNeededBy || neededBy < earliestNeededBy) earliestNeededBy = neededBy;
+
+                items.push({
+                    ingredient_id: parseInt(alert.item_id, 10),
+                    mro_item_id: null,
+                    item_description: alert.item_name || '',
+                    quantity: qty,
+                    unit: alert.unit_of_measure || 'units',
+                    estimated_unit_price: parseFloat(alert.unit_cost) || 0,
+                    purpose: alert.stock_status === 'ORDER_SOON' ? 'System early-reorder forecast' : 'Stock below reorder point',
+                    recommendation_type: alert.stock_status === 'ORDER_SOON' ? 'early_reorder' : 'low_stock',
+                    audited_stock: counted,
+                    audit_reason: reason || null,
+                    notes: `Usable stock confirmed from Reorder Alerts. Usable balance: ${saved} ${alert.unit_of_measure || ''}. Confirmed: ${counted} ${alert.unit_of_measure || ''}.`
+                });
+            }
+
+            error.textContent = '';
+            error.classList.add('hidden');
+            const payload = {
+                notes: `${items.length} stock need${items.length === 1 ? '' : 's'} physically counted by Warehouse.`,
+                items
+            };
+
+            const heroCta = document.getElementById('reorderHeroCta');
+            const bulkBtn = document.getElementById('bulkCreateBtn');
+            const submitBtn = document.getElementById('bulkAuditSubmitBtn');
+            if (heroCta) heroCta.disabled = true;
+            if (bulkBtn) bulkBtn.disabled = true;
+            submitBtn.disabled = true;
+            showToast(`Saving ${items.length} confirmed shelf count${items.length === 1 ? '' : 's'}…`, 'info');
+
+            try {
+                const token = localStorage.getItem('highland_token');
+                const response = await fetch(API_BASE_URL + '/warehouse/raw/stock_validations.php?action=validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const res = await response.json();
+
+                if (response.ok && (res.success || res.data?.success)) {
+                    bulkAuditAlerts.forEach(alert => createdReorderPRs.add(String(alert.item_id)));
+                    showToast(`Stock check confirmed for ${items.length} item${items.length === 1 ? '' : 's'}. Purchasing can now view the shortage${items.length === 1 ? '' : 's'}.`, 'success');
+                    selectedItemIds.clear();
+                    document.getElementById('bulkAuditModal').close();
+                    bulkAuditAlerts = [];
+                    updateBulkActionBar();
+                    renderAlerts();
+                    await loadAlerts();
+                } else {
+                    const errMsg = res.message || `HTTP ${response.status}`;
+                    error.textContent = errMsg;
+                    error.classList.remove('hidden');
+                    console.error('[bulk] API error:', errMsg, res);
+                }
+            } catch (e) {
+                const msg = e?.message || 'Network error';
+                error.textContent = `Could not save the shelf confirmation: ${msg}`;
+                error.classList.remove('hidden');
+                console.error('[bulk] FAILED:', msg, e);
+            } finally {
+                if (heroCta) heroCta.disabled = false;
+                submitBtn.disabled = false;
+                updateBulkActionBar();
+            }
+        }
+
+        function openWarehouseEarlyReorder(itemId) {
+            const alert = allAlerts.find(item => Number(item.item_id) === Number(itemId));
+            if (!alert) {
+                showToast('That stock item could not be found. Refresh and try again.', 'error');
+                return;
+            }
+            if (alert.stock_status !== 'OK') {
+                showToast('This item is already low or has an automatic warning. Use Validate instead.', 'info');
+                return;
+            }
+            if (hasCoveredPR(alert)) {
+                showToast('This item is already waiting for a Purchasing decision.', 'info');
+                return;
+            }
+
+            const current = finiteNumber(alert.current_stock) || 0;
+            const unit = alert.unit_of_measure || 'units';
+            const target = getParLevel(alert);
+            const onOrder = finiteNumber(alert.on_order_quantity) || 0;
+            const availableRoom = Math.max(0, target - current - onOrder);
+            if (availableRoom <= 0.0005) {
+                showToast('This item has no room for an early reorder after current stock and open orders.', 'warning');
+                return;
+            }
+
+            warehouseEarlyReorderAlert = alert;
+            document.getElementById('warehouseEarlyItemName').textContent = `${alert.item_name || 'Stock item'} (${alert.item_code || 'no code'})`;
+            document.getElementById('warehouseEarlyItemSummary').textContent = `${displayAuditNumber(current)} ${unit} usable · restocking target ${displayAuditNumber(target)} ${unit}${onOrder > 0 ? ` · ${displayAuditNumber(onOrder)} ${unit} already ordered` : ''}`;
+            document.getElementById('warehouseEarlyCount').value = String(current);
+            document.getElementById('warehouseEarlyCount').max = String(current);
+            document.getElementById('warehouseEarlyCountUnit').textContent = unit;
+            document.getElementById('warehouseEarlyQuantityUnit').textContent = unit;
+            document.getElementById('warehouseEarlyQuantity').value = displayAuditNumber(availableRoom).replace(/,/g, '');
+            document.getElementById('warehouseEarlyReason').value = '';
+            document.getElementById('warehouseEarlyAuditReason').value = '';
+            document.getElementById('warehouseEarlyError').textContent = '';
+            document.getElementById('warehouseEarlyError').classList.add('hidden');
+            updateWarehouseEarlyReorderLimit();
+            document.getElementById('warehouseEarlyReorderModal').showModal();
+            document.getElementById('warehouseEarlyCount').focus();
+        }
+
+        function updateWarehouseEarlyReorderLimit() {
+            if (!warehouseEarlyReorderAlert) return;
+            const saved = finiteNumber(warehouseEarlyReorderAlert.current_stock) || 0;
+            const counted = finiteNumber(document.getElementById('warehouseEarlyCount').value);
+            const target = getParLevel(warehouseEarlyReorderAlert);
+            const onOrder = finiteNumber(warehouseEarlyReorderAlert.on_order_quantity) || 0;
+            const unit = warehouseEarlyReorderAlert.unit_of_measure || 'units';
+            const usable = counted === null ? saved : counted;
+            const availableRoom = Math.max(0, target - usable - onOrder);
+            const quantity = document.getElementById('warehouseEarlyQuantity');
+            quantity.max = String(availableRoom);
+            document.getElementById('warehouseEarlyQuantityHelp').textContent = `Maximum ${displayAuditNumber(availableRoom)} ${unit}, so current stock and open orders stay within the restocking target.`;
+            document.getElementById('warehouseEarlyAuditReasonWrap').classList.toggle('hidden', !(counted !== null && counted < saved - 0.0005));
+        }
+
+        function closeWarehouseEarlyReorderModal() {
+            const modal = document.getElementById('warehouseEarlyReorderModal');
+            if (modal?.open) modal.close();
+            warehouseEarlyReorderAlert = null;
+        }
+
+        async function submitWarehouseEarlyReorder() {
+            const alert = warehouseEarlyReorderAlert;
+            if (!alert) return;
+            const error = document.getElementById('warehouseEarlyError');
+            const submitBtn = document.getElementById('warehouseEarlySubmitBtn');
+            const saved = finiteNumber(alert.current_stock) || 0;
+            const counted = finiteNumber(document.getElementById('warehouseEarlyCount').value);
+            const quantity = finiteNumber(document.getElementById('warehouseEarlyQuantity').value);
+            const reason = document.getElementById('warehouseEarlyReason').value.trim();
+            const auditReason = document.getElementById('warehouseEarlyAuditReason').value.trim();
+            const target = getParLevel(alert);
+            const reorderAt = Math.max(finiteNumber(alert.reorder_point) || 0, finiteNumber(alert.minimum_stock) || 0);
+            const onOrder = finiteNumber(alert.on_order_quantity) || 0;
+            const availableRoom = counted === null ? 0 : Math.max(0, target - counted - onOrder);
+
+            const fail = message => {
+                error.textContent = message;
+                error.classList.remove('hidden');
+            };
+            if (counted === null || counted < 0 || counted > saved + 0.0005) {
+                fail(`Enter a usable shelf count between 0 and ${displayAuditNumber(saved)} ${alert.unit_of_measure || 'units'}.`);
+                return;
+            }
+            if (counted < saved - 0.0005 && !auditReason) {
+                fail('Explain why the shelf count is lower than the system balance.');
+                return;
+            }
+            if (counted <= reorderAt + 0.0005) {
+                fail('The physical count shows this item is already low. Close this window and use the normal Validate action.');
+                return;
+            }
+            if (quantity === null || quantity <= 0 || quantity > availableRoom + 0.0005) {
+                fail(`Enter a suggested amount from 0.001 to ${displayAuditNumber(availableRoom)} ${alert.unit_of_measure || 'units'}.`);
+                return;
+            }
+            if (reason.length < 10 || reason.length > 500) {
+                fail('Explain the unusual upcoming demand in 10 to 500 characters.');
+                return;
+            }
+
+            error.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Sending…';
+            try {
+                const token = localStorage.getItem('highland_token');
+                const response = await fetch(API_BASE_URL + '/warehouse/raw/stock_validations.php?action=validate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({
+                        notes: 'Warehouse early-reorder recommendation for Purchasing review.',
+                        items: [{
+                            ingredient_id: Number(alert.item_id),
+                            mro_item_id: null,
+                            item_description: alert.item_name || '',
+                            quantity,
+                            unit: alert.unit_of_measure || 'units',
+                            recommendation_type: 'warehouse_early_reorder',
+                            forecast_reason: reason,
+                            audited_stock: counted,
+                            audit_reason: auditReason || null
+                        }]
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok || !result.success) {
+                    fail(result.message || `Could not send the recommendation (HTTP ${response.status}).`);
+                    return;
+                }
+                showToast('Early-reorder recommendation sent to Purchasing.', 'success');
+                closeWarehouseEarlyReorderModal();
+                await loadAlerts();
+            } catch (requestError) {
+                fail(requestError?.message || 'Could not send the recommendation.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send recommendation to Purchasing';
+            }
+        }
+
+        function renderAlerts() {
+            const tbody = document.getElementById('alertsTable');
+            if (!tbody) return;
+
+            if (filteredAlerts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-12 text-base-content/60">
+                            <i class="fas fa-check-circle text-4xl text-success/30 mb-2"></i>
+                            <h3 class="font-semibold mt-2">All Clear!</h3>
+                            <p class="text-sm">No reorder alerts at this time.</p>
+                        </td>
+                    </tr>
+                `;
+                updateSortIndicators();
+                syncSelectAllCheckbox();
+                return;
+            }
+
+            // Sort. Default urgency desc puts Out -> Low -> Order Soon -> OK.
+            // Higher number = more urgent.
+            const urgencyRank = (a) => {
+                switch (a.stock_status) {
+                    case 'OUT_OF_STOCK': return 3;
+                    case 'LOW':         return 2;
+                    case 'ORDER_SOON':  return 1;
+                    case 'OK':          return 0;
+                    default:            return -1;
+                }
+            };
+            const stockNum = (a) => parseFloat(a.current_stock) || 0;
+            const qtyNum   = getOrderQty;
+            const leadNum = (a) => parseInt(a.lead_time_days) || 0;
+
+            const dir = currentSort.direction === 'asc' ? 1 : -1;
+            const sorted = [...filteredAlerts].sort((a, b) => {
+                let av, bv;
+                switch (currentSort.column) {
+                    case 'urgency': av = urgencyRank(a); bv = urgencyRank(b); break;
+                    case 'stock':   av = stockNum(a);   bv = stockNum(b);   break;
+                    case 'qty':     av = qtyNum(a);     bv = qtyNum(b);     break;
+                    case 'lead':    av = leadNum(a);    bv = leadNum(b);    break;
+                    case 'name':
+                    default:        av = (a.item_name || '').toLowerCase(); bv = (b.item_name || '').toLowerCase();
+                }
+                if (av < bv) return -1 * dir;
+                if (av > bv) return  1 * dir;
+                return 0;
+            });
+
+            updateSortIndicators();
+
+            tbody.innerHTML = sorted.map(alert => {
+                const stock = parseFloat(alert.current_stock) || 0;
+                const reorderPt = parseFloat(alert.reorder_point) || 0;
+                const parLevel = getParLevel(alert);
+                const qtyToOrder = getOrderQty(alert);
+                const pendingPR = getPendingPR(alert);
+                const hasCreatedPR = createdReorderPRs.has(String(alert.item_id));
+                const hasCoveredPRForRow = hasCreatedPR || Boolean(pendingPR);
+                const incomingCoversNeed = alert.incoming_covers_need === true
+                    || Number(alert.incoming_covers_need || 0) === 1;
+                const itemIdStr = String(alert.item_id);
+                const isChecked = selectedItemIds.has(itemIdStr);
+
+                // Status styling. The badge class + label live in separate
+                // maps so the Status column can render a real DaisyUI badge
+                // (no inline HTML, no risk of title-attribute HTML leakage)
+                // with whitespace-nowrap so status text never gets clipped on
+                // narrow columns.
+                const statusBadgeClass = {
+                    'OUT_OF_STOCK': 'badge-ghost',
+                    'LOW':          'badge-warning',
+                    'ORDER_SOON':   'badge-info',
+                    'OK':           'badge-success'
+                };
+                const statusText = {
+                    'OUT_OF_STOCK': 'OUT',
+                    'LOW':          'LOW',
+                    'ORDER_SOON':   'ORDER SOON',
+                    'OK':           'OK'
+                };
+                let statusBadge, statusDot, barColor, avatarColor, avatarIcon;
+                switch (alert.stock_status) {
+                    case 'OUT_OF_STOCK':
+                        statusBadge = '<span class="badge badge-ghost badge-sm">OUT</span>';
+                        statusDot = 'bg-base-300';
+                        barColor = 'bg-base-300';
+                        avatarColor = 'bg-error/10 text-error';
+                        avatarIcon = 'fa-times-circle';
+                        break;
+                    case 'LOW':
+                        statusBadge = '<span class="badge badge-warning badge-sm">LOW</span>';
+                        statusDot = 'bg-warning';
+                        barColor = 'bg-warning';
+                        avatarColor = 'bg-warning/10 text-warning';
+                        avatarIcon = 'fa-exclamation-triangle';
+                        break;
+                    case 'ORDER_SOON':
+                        statusBadge = '<span class="badge badge-info badge-sm">ORDER SOON</span>';
+                        statusDot = 'bg-info';
+                        barColor = 'bg-info';
+                        avatarColor = 'bg-info/10 text-info';
+                        avatarIcon = 'fa-chart-line';
+                        break;
+                    case 'OK':
+                    default:
+                        statusBadge = '<span class="badge badge-success badge-sm">OK</span>';
+                        statusDot = 'bg-success';
+                        barColor = 'bg-success';
+                        avatarColor = 'bg-success/10 text-success';
+                        avatarIcon = 'fa-check-circle';
+                        break;
+                }
+
+                // Stock progress bar. Capped at 100% to keep the bar from
+                // overflowing when current > max.
+                const pct = parLevel > 0 ? Math.min(100, (stock / parLevel) * 100) : 0;
+                const leadDays = parseInt(alert.stock_status === 'ORDER_SOON' ? alert.supplier_lead_days : alert.lead_time_days) || 7;
+                // Lead time color: red if > 7 days (urgency multiplier), yellow 4-7, green <= 3
+                let leadBadge = 'badge-ghost';
+                if (leadDays <= 3) leadBadge = 'badge-success';
+                else if (leadDays <= 7) leadBadge = 'badge-warning';
+                else leadBadge = 'badge-error';
+
+                // PR action. Pending rows should take Warehouse Raw to the PR
+                // they already created instead of becoming a dead-end label.
+                const canCreate = alert.stock_status !== 'OK' && qtyToOrder > 0 && !hasCoveredPRForRow;
+                const earlyReorderRoom = Math.max(0, parLevel - stock - (finiteNumber(alert.on_order_quantity) || 0));
+                const canRecommendEarly = alert.stock_status === 'OK' && earlyReorderRoom > 0.0005 && !hasCoveredPRForRow;
+                const isAtTarget = alert.stock_status === 'OK' && earlyReorderRoom <= 0.0005 && !hasCoveredPRForRow;
+                const isWaitingDelivery = incomingCoversNeed && !hasCoveredPRForRow;
+                const actionDisabled = !canCreate && !pendingPR && !canRecommendEarly;
+                const actionHandler = pendingPR
+                    ? `openPendingPR(${JSON.stringify({
+                        status: pendingPR.status || 'pending',
+                        item_name: alert.item_name || 'Stock item',
+                        purchasing_decision: pendingPR.purchasing_decision || 'pending',
+                        deferred_until: pendingPR.deferred_until || '',
+                        purchasing_decision_reason: pendingPR.purchasing_decision_reason || ''
+                    }).replace(/"/g, '&quot;')})`
+                    : (canRecommendEarly
+                        ? `openWarehouseEarlyReorder(${alert.item_id})`
+                        : `startPurchaseRequest(${alert.item_id}, this)`);
+                const purchasingDecision = pendingPR?.purchasing_decision || 'pending';
+                const btnClass = canRecommendEarly
+                    ? 'btn-outline btn-info'
+                    : isWaitingDelivery
+                    ? 'btn-outline btn-success'
+                    : isAtTarget
+                    ? 'btn-ghost'
+                    : purchasingDecision === 'closed_without_order'
+                    ? 'btn-outline btn-error'
+                    : (pendingPR ? 'btn-outline btn-warning' : (hasCreatedPR ? 'btn-success' : 'btn-primary'));
+                const btnIcon = canRecommendEarly
+                    ? 'fa-forward'
+                    : isWaitingDelivery
+                    ? 'fa-truck'
+                    : isAtTarget
+                    ? 'fa-check'
+                    : purchasingDecision === 'closed_without_order'
+                    ? 'fa-circle-xmark'
+                    : (purchasingDecision === 'deferred' ? 'fa-calendar-day' : (pendingPR ? 'fa-hourglass-half' : (hasCreatedPR ? 'fa-check' : 'fa-file-signature')));
+                const btnTitle = canRecommendEarly
+                    ? 'Recommend an early reorder for an unusual upcoming need'
+                    : isWaitingDelivery
+                    ? 'An active Purchase Order already covers this refill. Wait for delivery.'
+                    : isAtTarget
+                    ? 'Current stock and open orders already reach the restocking target'
+                    : pendingPR
+                    ? `${pendingPR.pr_number || 'This item'} is already confirmed`
+                    : (hasCreatedPR ? 'Shelf count confirmed' : 'Confirm shelf count');
+                const btnLabel = canRecommendEarly
+                    ? 'Recommend early reorder'
+                    : isWaitingDelivery
+                    ? 'On order'
+                    : isAtTarget
+                    ? 'At target'
+                    : purchasingDecision === 'closed_without_order'
+                    ? 'Closed by Purchasing'
+                    : (purchasingDecision === 'deferred' ? `Deferred to ${pendingPR.deferred_until || 'later'}` : (pendingPR ? 'Waiting for Purchasing' : (hasCreatedPR ? 'Confirmed' : 'Validate')));
+
+                const safeName = escapeHtml(alert.item_name || 'Unnamed');
+                const safeCode = escapeHtml(alert.item_code || '');
+                const safeUnit = escapeHtml(alert.unit_of_measure || '');
+
+                return `
+                    <tr class="hover:bg-base-200/50">
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" class="checkbox checkbox-xs checkbox-primary" ${isChecked ? 'checked' : ''} ${canCreate ? '' : 'disabled'} onchange="toggleItemSelection(${alert.item_id}, this.checked)" aria-label="Select ${safeName}">
+                                <span class="inline-block w-2.5 h-2.5 rounded-full ${statusDot}" title="${escapeHtml(alert.stock_status || '')}"></span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl ${avatarColor} flex items-center justify-center flex-shrink-0">
+                                    <i class="fas ${avatarIcon} text-sm"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-semibold text-sm truncate">${safeName}</div>
+                                    <div class="text-xs text-base-content/50 font-mono">${safeCode}</div>
+                                    ${alert.stock_status === 'ORDER_SOON' ? `<div class="text-[11px] text-info mt-0.5">Uses about ${Number(alert.average_daily_issue_30d || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} ${safeUnit}/day · ${Number(alert.projected_stock_at_delivery || 0).toLocaleString(undefined, { maximumFractionDigits: 3 })} ${safeUnit} projected at delivery</div>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="badge ${statusBadgeClass[alert.stock_status] || ''} badge-sm whitespace-nowrap">${escapeHtml(statusText[alert.stock_status] || alert.stock_status || '')}</span></td>
+                        <td class="text-right">
+                            <div class="font-mono font-bold ${stock <= 0 ? 'text-error' : ''}">${stock.toLocaleString()} <span class="text-xs font-normal text-base-content/60">${safeUnit}</span></div>
+                            <div class="w-20 h-1 bg-base-200 rounded-full overflow-hidden mt-1 ml-auto">
+                                <div class="h-full ${barColor} rounded-full" style="width: ${pct}%"></div>
+                            </div>
+                            <div class="text-[10px] text-base-content/50 mt-0.5">${pct.toFixed(0)}% of restocking target</div>
+                        </td>
+                        <td class="text-right text-sm text-base-content/70">${reorderPt.toLocaleString()} <span class="text-xs text-base-content/50">${safeUnit}</span></td>
+                        <td class="text-right">
+                            ${isWaitingDelivery
+                                ? '<span class="badge badge-success badge-outline badge-sm whitespace-nowrap"><i class="fas fa-truck mr-1"></i>Covered by PO</span>'
+                                : qtyToOrder > 0
+                                ? `<span class="font-mono font-bold text-primary">${qtyToOrder.toLocaleString()}</span> <span class="text-xs text-base-content/50">${safeUnit}</span>`
+                                : '<span class="text-base-content/40">—</span>'}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge ${leadBadge} badge-sm">${leadDays}d</span>
+                        </td>
+                        <td class="text-right" onclick="event.stopPropagation()">
+                            <div class="flex gap-1 justify-end items-center">
+                                <a href="ingredients.html?id=${alert.item_id}" class="btn btn-ghost btn-xs btn-square" title="View details">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <button class="btn ${btnClass} btn-xs" onclick="${actionHandler}" title="${escapeHtml(btnTitle)}" ${actionDisabled ? 'disabled' : ''}>
+                                    <i class="fas ${btnIcon}"></i>
+                                    <span class="hidden lg:inline">${btnLabel}</span>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            syncSelectAllCheckbox();
+            updateBulkActionBar();
+        }
+
+        function getStatusBadge(status) {
+            switch (status) {
+                case 'OUT_OF_STOCK': return '<span class="badge badge-ghost">OUT</span>';
+                case 'LOW': return '<span class="badge badge-warning">LOW</span>';
+                case 'ORDER_SOON': return '<span class="badge badge-info">ORDER SOON</span>';
+                case 'OK': return '<span class="badge badge-success">OK</span>';
+                default: return '<span class="badge">' + status + '</span>';
+            }
+        }
+
+        function getRowClass(status) {
+            switch (status) {
+                case 'OUT_OF_STOCK': return 'status-out';
+                case 'LOW': return 'status-low';
+                default: return '';
+            }
+        }
+
+        // Click handler for the Low Stock summary card: filter the table to
+        // low-stock rows and scroll to it so the user can immediately start
+        // Purchase Request Slips. This is the "Low Stock prompts the PRS workflow"
+        // entry point — no separate Critical stage to wait for.
+        function focusLowStock() {
+            const filter = document.getElementById('statusFilter');
+            if (filter) {
+                filter.value = 'LOW';
+            }
+            filterAlerts();
+            document.getElementById('alertsSection')?.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function scrollToAlerts() {
+            document.getElementById('alertsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function startPurchaseRequest(itemId, button) {
+            const alert = allAlerts.find(a => String(a.item_id) === String(itemId));
+            if (!alert) {
+                showToast('Could not find this reorder alert. Please refresh and try again.', 'error');
+                return;
+            }
+
+            const stock = parseFloat(alert.current_stock) || 0;
+            const reorderPoint = parseFloat(alert.reorder_point) || 0;
+            const pendingPR = getPendingPR(alert);
+            if (pendingPR) {
+                showToast(`${alert.item_name} is already confirmed under ${pendingPR.pr_number}.`, 'info');
+                return;
+            }
+            const qty = getOrderQty(alert);
+            if (qty <= 0) {
+                showToast(`${alert.item_name} does not need reordering right now.`, 'info');
+                return;
+            }
+
+            openBulkAuditModal([alert]);
+        }
+
+        function exportReport() {
+            // Simple CSV export
+            const headers = ['Status', 'Item Code', 'Item Name', 'Category', 'Current Stock', 'Start Buying At', 'Restocking Target', 'Suggested Refill', 'Lead Time (days)'];
+            const rows = filteredAlerts.map(a => [
+                a.stock_status,
+                a.item_code,
+                a.item_name,
+                a.category_name || '',
+                a.current_stock,
+                a.reorder_point,
+                getParLevel(a),
+                getOrderQty(a),
+                a.lead_time_days || 7
+            ]);
+
+            let csv = headers.join(',') + '\n' + rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `reorder_alerts_${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Report exported successfully', 'success');
+        }
+
+        // Helpers
+        function debounce(fn, wait) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; }
+        function showToast(msg, type = 'info') {
+            const c = document.getElementById('toastContainer');
+            const cls = { success: 'alert-success', error: 'alert-error', warning: 'alert-warning', info: 'alert-info' }[type];
+            const t = document.createElement('div');
+            t.className = `alert ${cls} shadow-lg`;
+            const text = document.createElement('span');
+            text.textContent = String(msg ?? '');
+            t.appendChild(text);
+            c.appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+    </script>
+</body>
+
+</html>

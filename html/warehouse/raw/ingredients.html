@@ -1,0 +1,2714 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ingredients - Warehouse Raw | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .bento-card {
+            @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: oklch(var(--b2));
+        }
+
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: oklch(var(--bc) / 0.2);
+            border-radius: 3px;
+        }
+
+        .sidebar-transition {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ---------- Professional Modal System ---------- */
+        .pro-modal {
+            background: transparent;
+            padding: 0;
+            border: none;
+            max-width: none;
+            max-height: none;
+            margin: 0;
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .pro-modal::backdrop {
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
+
+        .pro-modal[open] {
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .pro-modal[open] .pro-modal-card {
+            animation: proModalIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes proModalIn {
+            from {
+                opacity: 0;
+                transform: translateY(16px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .pro-modal-card {
+            background: #ffffff;
+            border-radius: 1rem;
+            box-shadow:
+                0 25px 50px -12px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(0, 0, 0, 0.04);
+            width: 100%;
+            max-height: calc(100vh - 2rem);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        [data-theme="emerald"] .pro-modal-card {
+            background: oklch(var(--b1));
+        }
+
+        .pro-modal-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid oklch(var(--b3));
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            flex-shrink: 0;
+        }
+
+        .pro-modal-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.625rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            flex-shrink: 0;
+        }
+
+        .pro-modal-title {
+            font-size: 1.0625rem;
+            font-weight: 700;
+            line-height: 1.25;
+            color: oklch(var(--bc));
+            margin: 0;
+        }
+
+        .pro-modal-subtitle {
+            font-size: 0.8125rem;
+            color: oklch(var(--bc) / 0.6);
+            margin: 0.125rem 0 0 0;
+        }
+
+        .pro-modal-body {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .pro-modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid oklch(var(--b3));
+            background: oklch(var(--b2) / 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+
+        .pro-close {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: oklch(var(--bc) / 0.6);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            margin-left: auto;
+        }
+
+        .pro-close:hover {
+            background: oklch(var(--b3));
+            color: oklch(var(--bc));
+        }
+
+        /* Detail modal stat tiles */
+        .detail-stat {
+            background: oklch(var(--b2) / 0.5);
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.625rem;
+            padding: 0.875rem;
+        }
+
+        .detail-stat-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: oklch(var(--bc) / 0.55);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .detail-stat-value {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: oklch(var(--bc));
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .detail-stat-value--xl {
+            font-size: 1.75rem;
+        }
+
+        /* Batch row */
+        .batch-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.875rem 1rem;
+            background: oklch(var(--b2) / 0.5);
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.625rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.15s ease;
+        }
+
+        .batch-row:hover {
+            border-color: oklch(var(--p) / 0.4);
+            background: oklch(var(--p) / 0.04);
+        }
+
+        .batch-code {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: oklch(var(--bc));
+        }
+
+        .batch-meta {
+            font-size: 0.75rem;
+            color: oklch(var(--bc) / 0.55);
+            margin-top: 0.125rem;
+        }
+
+        .batch-qty {
+            font-weight: 700;
+            font-size: 0.9375rem;
+            color: oklch(var(--bc));
+        }
+
+        /* Section header inside modals */
+        .pro-section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: oklch(var(--bc) / 0.7);
+            margin: 0 0 0.75rem 0;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px dashed oklch(var(--b3));
+        }
+
+        /* Form fields in modals */
+        .pro-field {
+            margin-bottom: 1rem;
+        }
+
+        .pro-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: oklch(var(--bc));
+            margin-bottom: 0.375rem;
+        }
+
+        .pro-label-hint {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: oklch(var(--bc) / 0.55);
+        }
+
+        .pro-help {
+            font-size: 0.75rem;
+            color: oklch(var(--bc) / 0.55);
+            margin-top: 0.375rem;
+            line-height: 1.4;
+        }
+
+        .pro-input,
+        .pro-select,
+        .pro-textarea {
+            width: 100%;
+            padding: 0.625rem 0.875rem;
+            font-size: 0.9375rem;
+            font-family: inherit;
+            color: oklch(var(--bc));
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.5rem;
+            transition: all 0.15s ease;
+            outline: none;
+        }
+
+        .pro-input:focus,
+        .pro-select:focus,
+        .pro-textarea:focus {
+            border-color: oklch(var(--p));
+            box-shadow: 0 0 0 3px oklch(var(--p) / 0.12);
+        }
+
+        .pro-input:read-only {
+            background: oklch(var(--b2));
+            color: oklch(var(--bc) / 0.7);
+        }
+
+        .pro-input-prefix {
+            position: relative;
+        }
+
+        .pro-input-prefix-icon {
+            position: absolute;
+            left: 0.875rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: oklch(var(--bc) / 0.5);
+            font-size: 0.875rem;
+            pointer-events: none;
+        }
+
+        .pro-input-prefix .pro-input {
+            padding-left: 2.5rem;
+        }
+
+        .pro-input-suffix {
+            position: absolute;
+            right: 0.875rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: oklch(var(--bc) / 0.6);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            pointer-events: none;
+            background: oklch(var(--b1));
+            padding-left: 0.5rem;
+        }
+
+        .pro-input-suffix-wrap {
+            position: relative;
+        }
+
+        .pro-input-suffix-wrap .pro-input {
+            padding-right: 4rem;
+        }
+
+        /* Ingredient hero (detail modal) */
+        .ingredient-hero {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: linear-gradient(135deg, oklch(var(--p) / 0.08), oklch(var(--p) / 0.02));
+            border: 1px solid oklch(var(--p) / 0.15);
+            border-radius: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .ingredient-hero-icon {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 0.75rem;
+            background: oklch(var(--p));
+            color: oklch(var(--pc));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+
+        .ingredient-hero-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: oklch(var(--bc));
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .ingredient-hero-code {
+            font-family: ui-monospace, SFMono-Regular, monospace;
+            font-size: 0.8125rem;
+            color: oklch(var(--bc) / 0.6);
+            margin-top: 0.125rem;
+        }
+
+        /* Stock progress bar in detail */
+        .stock-bar-wrap {
+            background: oklch(var(--b2));
+            border-radius: 999px;
+            height: 0.5rem;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .stock-bar-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+
+        /* Empty state inside modals */
+        .pro-empty {
+            text-align: center;
+            padding: 2.5rem 1rem;
+            color: oklch(var(--bc) / 0.55);
+        }
+
+        .pro-empty i {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            display: block;
+            color: oklch(var(--bc) / 0.2);
+        }
+
+        /* Info banner inside modals */
+        .pro-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            border-radius: 0.625rem;
+            margin-bottom: 1.25rem;
+            font-size: 0.875rem;
+        }
+
+        /* The component's display rule must not override Tailwind's hidden
+           utility or the native hidden attribute. */
+        .pro-banner.hidden,
+        .pro-banner[hidden] {
+            display: none;
+        }
+
+        .pro-banner-icon {
+            font-size: 1rem;
+            margin-top: 0.0625rem;
+            flex-shrink: 0;
+        }
+
+        .pro-banner--info {
+            background: oklch(var(--in) / 0.1);
+            color: oklch(var(--inc));
+            border: 1px solid oklch(var(--in) / 0.2);
+        }
+
+        .pro-banner--warning {
+            background: oklch(var(--wa) / 0.1);
+            color: oklch(var(--wac));
+            border: 1px solid oklch(var(--wa) / 0.2);
+        }
+
+        .pro-banner--success {
+            background: oklch(var(--su) / 0.1);
+            color: oklch(var(--suc));
+            border: 1px solid oklch(var(--su) / 0.2);
+        }
+
+        .pro-banner-title {
+            font-weight: 700;
+            margin: 0 0 0.125rem 0;
+        }
+
+        .pro-banner-text {
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .pro-banner-text small {
+            opacity: 0.85;
+        }
+
+        /* Stock summary in issue modal */
+        .stock-summary {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .stock-summary-tile {
+            background: oklch(var(--b2) / 0.5);
+            border: 1px solid oklch(var(--b3));
+            border-radius: 0.625rem;
+            padding: 0.875rem 1rem;
+        }
+
+        .stock-summary-tile-label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: oklch(var(--bc) / 0.55);
+            margin: 0;
+        }
+
+        .stock-summary-tile-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: oklch(var(--bc));
+            margin: 0.125rem 0 0 0;
+        }
+
+        /* Quick amount buttons for issue modal */
+        .quick-amounts {
+            display: flex;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .quick-amount-btn {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.625rem;
+            border-radius: 999px;
+            border: 1px solid oklch(var(--b3));
+            background: oklch(var(--b1));
+            color: oklch(var(--bc) / 0.7);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .quick-amount-btn:hover {
+            border-color: oklch(var(--p));
+            color: oklch(var(--p));
+            background: oklch(var(--p) / 0.05);
+        }
+
+        /* Button styles */
+        .btn-pro {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5625rem 1.125rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: inherit;
+            line-height: 1;
+        }
+
+        .btn-pro:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-pro--primary {
+            background: oklch(var(--p));
+            color: oklch(var(--pc));
+        }
+
+        .btn-pro--primary:hover:not(:disabled) {
+            filter: brightness(0.95);
+            box-shadow: 0 4px 12px -2px oklch(var(--p) / 0.4);
+        }
+
+        .btn-pro--warning {
+            background: oklch(var(--wa));
+            color: oklch(var(--wac));
+        }
+
+        .btn-pro--warning:hover:not(:disabled) {
+            filter: brightness(0.95);
+            box-shadow: 0 4px 12px -2px oklch(var(--wa) / 0.4);
+        }
+
+        .btn-pro--info {
+            background: oklch(var(--in));
+            color: oklch(var(--inc));
+        }
+
+        .btn-pro--info:hover:not(:disabled) {
+            filter: brightness(0.95);
+            box-shadow: 0 4px 12px -2px oklch(var(--in) / 0.4);
+        }
+
+        .btn-pro--success {
+            background: oklch(var(--su));
+            color: oklch(var(--suc));
+            border-color: oklch(var(--su));
+        }
+
+        .btn-pro--success:hover:not(:disabled) {
+            filter: brightness(0.95);
+            box-shadow: 0 4px 12px -2px oklch(var(--su) / 0.4);
+        }
+
+        .btn-pro--ghost {
+            background: transparent;
+            color: oklch(var(--bc) / 0.7);
+            border-color: oklch(var(--b3));
+        }
+
+        .btn-pro--ghost:hover:not(:disabled) {
+            background: oklch(var(--b2));
+            color: oklch(var(--bc));
+        }
+
+        /* 2-col layout for action buttons in footer */
+        .footer-group {
+            display: flex;
+            gap: 0.5rem;
+            margin-left: auto;
+        }
+
+        /* Settings modal helpers */
+        .computed-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.25rem 0.625rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: oklch(var(--p) / 0.1);
+            color: oklch(var(--p));
+            border-radius: 999px;
+            margin-top: 0.5rem;
+        }
+
+        /* Modal size variants */
+        .pro-modal-card--sm {
+            max-width: 28rem;
+        }
+
+        .pro-modal-card--md {
+            max-width: 36rem;
+        }
+
+        .pro-modal-card--lg {
+            max-width: 56rem;
+        }
+    </style>
+</head>
+
+<body class="bg-base-200 min-h-screen">
+
+    <!-- Mobile Backdrop -->
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar (same as dashboard) -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <!-- Populated by js/warehouse/raw-sidebar.js -->
+    </aside>
+
+<!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i
+                        class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold">Ingredients Inventory</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <div class="tooltip tooltip-bottom" data-tip="Stock is added automatically when a PO delivery is received">
+                    <span class="btn btn-ghost btn-sm btn-disabled gap-1 opacity-60">
+                        <i class="fas fa-lock text-xs"></i>
+                        <span class="hidden sm:inline text-xs">Stock via PO only</span>
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Page Content -->
+        <main class="flex-1 p-4 lg:p-6">
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div class="bento-card card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                                <i class="fas fa-box-open text-primary"></i>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold" id="totalIngredients">0</p>
+                                <p class="text-xs text-base-content/60">Total Items</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
+                                <i class="fas fa-check-circle text-success"></i>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold" id="inStockCount">0</p>
+                                <p class="text-xs text-base-content/60">In Stock</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                                <i class="fas fa-exclamation-triangle text-warning"></i>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold" id="lowStockCount">0</p>
+                                <p class="text-xs text-base-content/60">Low / Out Ingredients</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bento-card card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-error/10 flex items-center justify-center">
+                                <i class="fas fa-clock text-error"></i>
+                            </div>
+                            <div>
+                                <p class="text-2xl font-bold" id="expiringCount">0</p>
+                                <p class="text-xs text-base-content/60">Expiring Soon</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="openingStockTaskAlert" class="alert alert-info mb-4 hidden">
+                <i class="fas fa-clipboard-check"></i>
+                <div class="flex-1">
+                    <h3 class="font-bold" id="openingStockTaskTitle">Opening stock needs counting</h3>
+                    <p class="text-sm" id="openingStockTaskText"></p>
+                    <div class="flex flex-wrap gap-2 mt-2" id="openingStockTaskActions"></div>
+                </div>
+            </div>
+
+            <!-- Inventory Tabs -->
+            <div class="tabs tabs-boxed mb-4" id="inventoryTabs">
+                <button class="tab tab-active" data-view="inventory">Inventory</button>
+                <button class="tab" data-view="expired">Expired/Spoiled</button>
+            </div>
+
+            <!-- Inventory View -->
+            <div id="inventoryView">
+                <!-- Filters -->
+                <div class="card bg-base-100 border border-base-300 mb-6">
+                    <div class="card-body p-4">
+                        <!-- Category Tabs -->
+                        <div class="flex flex-wrap gap-2 mb-4" id="categoryTabs">
+                            <button class="btn btn-sm btn-primary" data-category="all">All</button>
+                        </div>
+
+                        <!-- Search & Filters -->
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <label class="input input-bordered input-sm flex items-center gap-2 flex-1">
+                                <i class="fas fa-search text-base-content/40"></i>
+                                <input type="text" id="searchInput" placeholder="Search ingredients..." class="grow" />
+                            </label>
+                            <select class="select select-bordered select-sm w-full md:w-48" id="stockFilter">
+                                <option value="">All Stock Levels</option>
+                                <option value="ok">In Stock</option>
+                                <option value="low">Low Stock</option>
+                                <option value="out">Out of Stock</option>
+                            </select>
+                            <select class="select select-bordered select-sm w-full md:w-40" id="sortBy">
+                                <option value="name">Sort by Name</option>
+                                <option value="stock_asc">Stock: Low → High</option>
+                                <option value="stock_desc">Stock: High → Low</option>
+                                <option value="expiry">Expiring Soon</option>
+                            </select>
+                            <button class="btn btn-ghost btn-sm" onclick="loadIngredients()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ingredients Table -->
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr class="bg-base-200/50 text-base-content/70">
+                                    <th class="w-10"></th>
+                                    <th class="cursor-pointer hover:bg-base-300/50 select-none" onclick="setSort('name')">
+                                        Ingredient <span class="sort-indicator" data-col="name"></span>
+                                    </th>
+                                    <th class="cursor-pointer hover:bg-base-300/50 select-none" onclick="setSort('stock')">
+                                        Usable Stock <span class="sort-indicator" data-col="stock"></span>
+                                    </th>
+                                    <th class="cursor-pointer hover:bg-base-300/50 select-none" onclick="setSort('status')">
+                                        Status <span class="sort-indicator" data-col="status"></span>
+                                    </th>
+                                    <th class="cursor-pointer hover:bg-base-300/50 select-none" onclick="setSort('expiry')">
+                                        Next Expiry <span class="sort-indicator" data-col="expiry"></span>
+                                    </th>
+                                    <th class="w-12 text-right"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ingredientsTableBody">
+                                <tr>
+                                    <td colspan="6" class="text-center py-12">
+                                        <span class="loading loading-spinner loading-md text-primary"></span>
+                                        <p class="text-base-content/60 mt-2 text-sm">Loading ingredients…</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Expired View -->
+            <div id="expiredView" class="hidden">
+                <div class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold"><i class="fas fa-skull-crossbones text-error mr-2"></i>Expired/Spoiled Items</h3>
+                            <button class="btn btn-ghost btn-sm" onclick="loadExpiredBatches()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr class="bg-base-200">
+                                        <th>Batch</th>
+                                        <th>Ingredient</th>
+                                        <th>Qty</th>
+                                        <th>Expired</th>
+                                        <th>Days Over</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expiredTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-8 text-base-content/60">
+                                            Loading expired batches...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Receive Stock Modal REMOVED: Stock now added via PO receiving only -->
+
+    <!-- Detail Modal -->
+    <dialog id="detailModal" class="pro-modal pro-modal--lg">
+        <div class="pro-modal-card pro-modal-card--lg">
+            <div class="pro-modal-header">
+                <div class="pro-modal-icon bg-primary/10 text-primary">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="pro-modal-title" id="detailModalTitle">Ingredient Details</h3>
+                    <p class="pro-modal-subtitle">Complete batch & stock overview</p>
+                </div>
+                <button class="pro-close" onclick="document.getElementById('detailModal').close()" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="pro-modal-body" id="detailModalBody">
+                <div class="text-center py-12">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <p class="text-base-content/60 mt-3">Loading ingredient details…</p>
+                </div>
+            </div>
+            <div class="pro-modal-footer" id="detailModalFooter">
+                <button class="btn-pro btn-pro--ghost" onclick="document.getElementById('detailModal').close()">
+                    <i class="fas fa-xmark"></i> Close
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Found/unrecorded stock request. The GM must approve before stock changes. -->
+    <dialog id="openingStockModal" class="pro-modal pro-modal--md">
+        <div class="pro-modal-card pro-modal-card--md">
+            <div class="pro-modal-header">
+                <div class="pro-modal-icon" style="background: oklch(var(--su) / 0.12); color: oklch(var(--su));">
+                    <i class="fas fa-box-open"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="pro-modal-title" id="openingStockModalTitle">Report Unrecorded Supplier Delivery</h3>
+                    <p class="pro-modal-subtitle" id="openingStockIngredientName">Delivery exception</p>
+                </div>
+                <button class="pro-close" onclick="document.getElementById('openingStockModal').close()" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="openingStockForm" onsubmit="submitOpeningStock(event)">
+                <input type="hidden" id="openingStockIngredientId">
+                <input type="hidden" id="openingStockIsPerishable">
+                <input type="hidden" id="openingStockHeldBatchId">
+                <input type="hidden" id="openingStockHeldQuantity">
+                <input type="hidden" id="openingStockMaximum">
+                <input type="hidden" id="openingStockUnit">
+                <div class="pro-modal-body space-y-4">
+                    <div class="pro-banner pro-banner--warning">
+                        <i class="fas fa-user-check pro-banner-icon"></i>
+                        <div>
+                            <p class="pro-banner-title" id="openingStockBannerTitle">This is not a normal stock adjustment</p>
+                            <p class="pro-banner-text" id="openingStockBannerText"><small>Use this only when a supplier delivery physically arrived but was never recorded through Receive Deliveries. Purchasing and QC may need to verify the delivery before the GM decides.</small></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="pro-field">
+                            <label class="pro-label" id="openingStockCurrentLabel">Stock currently on file</label>
+                            <input class="pro-input" id="openingStockCurrent" readonly>
+                        </div>
+                        <div class="pro-field">
+                            <label class="pro-label">Counted on shelf <span class="text-error">*</span></label>
+                            <div class="pro-input-suffix-wrap">
+                                <input type="number" class="pro-input" id="openingStockCounted" min="0.01" step="0.01" required>
+                                <span class="pro-input-suffix" id="openingStockCountedUnit"></span>
+                            </div>
+                            <p class="text-xs text-success mt-1" id="openingStockDifference"></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="pro-field">
+                            <label class="pro-label">What happened? <span class="text-error">*</span></label>
+                            <select class="pro-select" id="openingStockSourceType" required onchange="syncOpeningStockFields()">
+                                <option value="">Choose delivery problem…</option>
+                                <option value="opening_balance">Opening stock already on site</option>
+                                <option value="unrecorded_delivery">Supplier delivery not recorded</option>
+                            </select>
+                        </div>
+                        <div class="pro-field hidden" id="openingStockSupplierGroup">
+                            <label class="pro-label">Supplier <span class="text-error">*</span></label>
+                            <select class="pro-select" id="openingStockSupplier" onchange="populateOpeningStockDocuments()">
+                                <option value="">Choose supplier…</option>
+                            </select>
+                        </div>
+                    </div>
+                    <input type="hidden" id="openingStockReference">
+                    <div class="pro-banner pro-banner--info" id="openingStockAutomaticReference" hidden>
+                        <i class="fas fa-wand-magic-sparkles pro-banner-icon"></i>
+                        <div>
+                            <p class="pro-banner-title">Reference created automatically</p>
+                            <p class="pro-banner-text"><small>The system will give this opening count its own tracking number.</small></p>
+                        </div>
+                    </div>
+                    <div class="pro-field hidden" id="openingStockDocumentGroup">
+                        <label class="pro-label">Which saved order matches this delivery? <span class="text-error">*</span></label>
+                        <select class="pro-select" id="openingStockDocument" onchange="syncOpeningStockDocument()">
+                            <option value="">Choose a saved order…</option>
+                        </select>
+                        <p class="text-xs text-base-content/60 mt-1">Choosing the saved order fills its reference and price automatically.</p>
+                    </div>
+                    <div class="pro-field hidden" id="openingStockManualReferenceGroup">
+                        <label class="pro-label">Document number <span class="text-error">*</span></label>
+                        <input class="pro-input" id="openingStockManualReference" maxlength="100"
+                            placeholder="Type the delivery receipt or invoice number">
+                        <p class="text-xs text-warning mt-1">Use this only when the delivery document is not in the saved list.</p>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="pro-field">
+                            <label class="pro-label">Received date <span class="text-error">*</span></label>
+                            <input type="date" class="pro-input" id="openingStockReceivedDate" required>
+                        </div>
+                        <div class="pro-field" id="openingStockLotGroup">
+                            <label class="pro-label">Lot / batch number <span class="text-error opening-required-mark">*</span></label>
+                            <input class="pro-input" id="openingStockLot" maxlength="50" placeholder="Printed on package">
+                            <p class="text-xs text-base-content/60 mt-1" id="openingStockLotHelp">Copy it from the package or supplier document. Missing or unreadable lots must be held and reported to QC.</p>
+                        </div>
+                        <div class="pro-field" id="openingStockExpiryGroup">
+                            <label class="pro-label">Expiry date <span class="text-error opening-required-mark">*</span></label>
+                            <input type="date" class="pro-input" id="openingStockExpiry">
+                        </div>
+                    </div>
+                    <div class="pro-field">
+                        <label class="pro-label" id="openingStockReasonLabel">Why was this supplier delivery not recorded? <span class="text-error">*</span></label>
+                        <textarea class="pro-textarea" id="openingStockReason" maxlength="500" rows="3" required
+                            placeholder="Example: Delivery was unloaded, but its receiving record was not completed."></textarea>
+                    </div>
+                </div>
+                <div class="pro-modal-footer">
+                    <button type="button" class="btn-pro btn-pro--ghost" onclick="document.getElementById('openingStockModal').close()">Cancel</button>
+                    <button type="submit" class="btn-pro btn-pro--success" id="openingStockSubmitBtn">
+                        <i class="fas fa-paper-plane"></i> Send Delivery for Checks
+                    </button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <!-- Adjust Modal -->
+    <dialog id="adjustModal" class="pro-modal pro-modal--sm">
+        <div class="pro-modal-card pro-modal-card--sm">
+            <div class="pro-modal-header">
+                <div class="pro-modal-icon" style="background: oklch(var(--in) / 0.12); color: oklch(var(--in));">
+                    <i class="fas fa-sliders-h"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="pro-modal-title" id="adjustModalTitle">Full Stock Count</h3>
+                    <p class="pro-modal-subtitle" id="adjustModalSubtitle">Count every batch for this ingredient</p>
+                </div>
+                <button class="pro-close" onclick="document.getElementById('adjustModal').close()" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="adjustForm" onsubmit="submitAdjust(event)">
+                <input type="hidden" id="adjustIngredientId">
+                <input type="hidden" id="adjustScope" value="ingredient">
+                <input type="hidden" id="adjustBatchId">
+
+                <div class="pro-modal-body">
+                    <div class="pro-banner pro-banner--warning">
+                        <i class="fas fa-triangle-exclamation pro-banner-icon"></i>
+                        <div>
+                            <p class="pro-banner-title">Count first, then send it to the GM</p>
+                            <p class="pro-banner-text"><small>Stock will not change yet. Higher and lower counts both go directly from Warehouse to the GM—no Purchasing or QC step.</small></p>
+                        </div>
+                    </div>
+
+                    <div class="pro-banner pro-banner--info hidden" id="adjustBatchBanner">
+                        <i class="fas fa-layer-group pro-banner-icon"></i>
+                        <div>
+                            <p class="pro-banner-title">Counting one batch</p>
+                            <p class="pro-banner-text" id="adjustBatchBannerText"><small>Only the selected batch will change after GM approval.</small></p>
+                        </div>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label" id="adjustCurrentLabel">Current Stock on File</label>
+                        <div class="pro-input-suffix-wrap">
+                            <input type="text" class="pro-input" id="adjustCurrentStock" readonly>
+                        </div>
+                    </div>
+
+                    <div class="stock-summary">
+                        <div class="stock-summary-tile">
+                            <p class="stock-summary-tile-label" id="adjustNewLabel">New Quantity</p>
+                            <p class="stock-summary-tile-value text-info" id="adjustNewDisplay">—</p>
+                        </div>
+                        <div class="stock-summary-tile">
+                            <p class="stock-summary-tile-label">Difference</p>
+                            <p class="stock-summary-tile-value text-base-content/40" id="adjustDiff">—</p>
+                        </div>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label"><span>New Quantity <span class="text-error">*</span></span></label>
+                        <div class="pro-input-suffix-wrap">
+                            <input type="number" class="pro-input" id="adjustNewQuantity" step="0.01" min="0"
+                                required>
+                            <span class="pro-input-suffix" id="adjustUnitSuffix"></span>
+                        </div>
+                    </div>
+
+                    <div class="pro-field">
+                        <label class="pro-label"><span>Reason <span class="text-error">*</span></span></label>
+                        <select class="pro-select" id="adjustReason" required>
+                            <option value="">Select reason…</option>
+                            <option value="Misplaced stock recovered">Misplaced stock recovered</option>
+                            <option value="Unused material returned by Production">Unused material returned by Production</option>
+                            <option value="Physical count correction">Physical count correction</option>
+                            <option value="System record correction">System record correction</option>
+                            <option value="other">Other (specify)</option>
+                        </select>
+                        <p class="pro-help">For damaged or spoiled stock, use Spoilage &amp; Waste instead.</p>
+                    </div>
+
+                    <div class="pro-banner pro-banner--warning hidden" id="adjustAllocationPreview">
+                        <i class="fas fa-list-check pro-banner-icon"></i>
+                        <div>
+                            <p class="pro-banner-title">If approved, the oldest usable lot(s) will be reduced</p>
+                            <div class="pro-banner-text mt-1" id="adjustAllocationList"></div>
+                            <p class="pro-banner-text mt-1"><small>If you know the exact affected lot, cancel and use <strong>Count Batch</strong> beside that lot instead.</small></p>
+                        </div>
+                    </div>
+
+                    <div class="pro-field hidden" id="adjustOtherReasonGroup">
+                        <label class="pro-label">Specify Reason</label>
+                        <textarea class="pro-textarea" id="adjustOtherReason" placeholder="Describe the reason for adjustment…"
+                            rows="2"></textarea>
+                    </div>
+                </div>
+
+                <div class="pro-modal-footer">
+                    <button type="button" class="btn-pro btn-pro--ghost"
+                        onclick="document.getElementById('adjustModal').close()">Cancel</button>
+                    <button type="submit" class="btn-pro btn-pro--info" id="saveAdjustmentBtn">
+                        <i class="fas fa-paper-plane"></i> Send to GM
+                    </button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <!-- Settings Modal -->
+    <dialog id="settingsModal" class="pro-modal pro-modal--md">
+        <div class="pro-modal-card pro-modal-card--md">
+            <div class="pro-modal-header">
+                <div class="pro-modal-icon bg-primary/10 text-primary">
+                    <i class="fas fa-sliders"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="pro-modal-title">Stock Settings</h3>
+                    <p class="pro-modal-subtitle">General Manager configuration</p>
+                </div>
+                <button class="pro-close" onclick="document.getElementById('settingsModal').close()" aria-label="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="settingsForm" onsubmit="submitSettings(event)">
+                <input type="hidden" id="settingsIngredientId">
+
+                <div class="pro-modal-body">
+                    <div class="pro-banner pro-banner--info">
+                        <i class="fas fa-circle-info pro-banner-icon"></i>
+                        <div>
+                            <p class="pro-banner-title" id="settingsIngredientName">-</p>
+                            <p class="pro-banner-text"><small><strong>Safety Buffer:</strong> try not to go below it. <strong>Start Buying At:</strong> begin ordering at this level. <strong>Restocking Target:</strong> refill toward this amount.</small></p>
+                        </div>
+                    </div>
+
+                    <h4 class="pro-section-header">
+                        <i class="fas fa-bell"></i> Stock Levels
+                    </h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="pro-field">
+                            <label class="pro-label">
+                                <span>Safety Buffer <span class="text-error">*</span></span>
+                                <span class="pro-label-hint">Avoid going below</span>
+                            </label>
+                            <div class="pro-input-suffix-wrap">
+                                <input type="number" class="pro-input" id="settingsMinStock" step="0.01" min="0"
+                                    required>
+                                <span class="pro-input-suffix" id="settingsMinUnit"></span>
+                            </div>
+                            <p class="pro-help">Try not to let usable stock fall below this amount.</p>
+                        </div>
+
+                        <div class="pro-field">
+                            <label class="pro-label">
+                                <span>Lead Time <span class="text-error">*</span></span>
+                                <span class="pro-label-hint">Days</span>
+                            </label>
+                            <input type="number" class="pro-input" id="settingsLeadTime" step="1" min="1" max="90"
+                                required>
+                            <p class="pro-help">Days for the supplier to deliver after ordering.</p>
+                        </div>
+                    </div>
+
+                    <h4 class="pro-section-header">
+                        <i class="fas fa-bullseye"></i> Buying and Restocking
+                    </h4>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div class="pro-field">
+                            <label class="pro-label">
+                                <span>Start Buying At</span>
+                                <span class="pro-label-hint">Optional override</span>
+                            </label>
+                            <div class="pro-input-suffix-wrap">
+                                <input type="number" class="pro-input" id="settingsReorderPoint" step="0.01" min="0"
+                                    placeholder="Auto-calculated">
+                                <span class="pro-input-suffix" id="settingsReorderUnit"></span>
+                            </div>
+                            <p class="pro-help">
+                                Start purchasing when usable stock reaches this number. Leave blank to use Safety Buffer × 1.5.
+                                <span class="computed-pill" id="settingsReorderAuto" style="display:none">
+                                    <i class="fas fa-calculator"></i>
+                                    <span>—</span>
+                                </span>
+                            </p>
+                        </div>
+
+                        <div class="pro-field">
+                            <label class="pro-label">
+                                <span>Restocking Target</span>
+                                <span class="pro-label-hint">Refill up to</span>
+                            </label>
+                            <div class="pro-input-suffix-wrap">
+                                <input type="number" class="pro-input" id="settingsMaxStock" step="0.01" min="0"
+                                    placeholder="Optional">
+                                <span class="pro-input-suffix" id="settingsMaxUnit"></span>
+                            </div>
+                            <p class="pro-help">Suggested order = Restocking Target − usable stock already available.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pro-modal-footer">
+                    <button type="button" class="btn-pro btn-pro--ghost"
+                        onclick="document.getElementById('settingsModal').close()">Cancel</button>
+                    <button type="submit" class="btn-pro btn-pro--primary">
+                        <i class="fas fa-floppy-disk"></i> Save Settings
+                    </button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Scripts -->
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_raw,general_manager"></script>
+    <script src="../../../js/ui/dialogs.js"></script>
+    <script src="../../../js/warehouse/raw.service.js?v=20260827-2"></script>
+    <script src="../../../js/warehouse/sidebar.stats.js"></script>
+    <script>window.WAREHOUSE_RAW_ACTIVE_PAGE = "ingredients";</script>
+    <script src="../../../js/warehouse/raw-sidebar.js?v=20260727a"></script>
+
+
+    <script>
+        let ingredients = [];
+        let adjustIngredientContext = null;
+        let categories = [];
+        let expiredBatches = [];
+        let openingStockOptions = null;
+        let currentFilter = { category: 'all', search: '', stock: '', sort: 'name' };
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../../login.html';
+                return;
+            }
+
+            const user = AuthService.getCurrentUser();
+            document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+            document.getElementById('userInitials').textContent = (user.first_name[0] + user.last_name[0]).toUpperCase();
+
+            // Check for URL filter
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('filter') === 'low_stock') {
+                currentFilter.stock = 'low';
+                document.getElementById('stockFilter').value = 'low';
+            }
+
+            await Promise.all([loadCategories(), loadIngredients()]);
+            setupEventListeners();
+
+            // A higher shelf count is an internal stock variance. Older links used
+            // record_unlisted; keep them working but route them to the direct GM flow.
+            const adjustmentIngredientId = parseInt(urlParams.get('adjust_stock') || urlParams.get('record_unlisted') || '0', 10);
+            if (adjustmentIngredientId > 0) {
+                const counted = parseFloat(urlParams.get('counted') || '');
+                const ingredient = ingredients.find(item => Number(item.id) === adjustmentIngredientId);
+                if (ingredient) {
+                    await openAdjustModal(
+                        ingredient.id,
+                        ingredient.ingredient_name,
+                        parseFloat(ingredient.current_stock || 0),
+                        ingredient.unit_of_measure || 'unit',
+                        Number.isFinite(counted) ? counted : null
+                    );
+                }
+            }
+        });
+
+        // loadSuppliers removed: stock receiving now happens through PO workflow
+
+        function setupTabNavigation() {
+            const tabs = document.getElementById('inventoryTabs');
+            tabs.querySelectorAll('button').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.querySelectorAll('button').forEach(t => t.classList.remove('tab-active'));
+                    tab.classList.add('tab-active');
+                    switchView(tab.dataset.view);
+                });
+            });
+        }
+
+        function setupEventListeners() {
+            setupTabNavigation();
+
+            document.getElementById('searchInput').addEventListener('input', debounce(() => {
+                currentFilter.search = document.getElementById('searchInput').value;
+                renderIngredients();
+            }, 300));
+
+            document.getElementById('stockFilter').addEventListener('change', (e) => {
+                currentFilter.stock = e.target.value;
+                renderIngredients();
+            });
+
+            document.getElementById('sortBy').addEventListener('change', (e) => {
+                currentFilter.sort = e.target.value;
+                renderIngredients();
+            });
+
+            // receiveIngredientId listener removed: stock receiving now through PO workflow
+
+            document.getElementById('adjustReason').addEventListener('change', (e) => {
+                document.getElementById('adjustOtherReasonGroup').classList.toggle('hidden', e.target.value !== 'other');
+            });
+        }
+
+        function switchView(view) {
+            const inventoryView = document.getElementById('inventoryView');
+            const expiredView = document.getElementById('expiredView');
+
+            inventoryView.classList.toggle('hidden', view !== 'inventory');
+            expiredView.classList.toggle('hidden', view !== 'expired');
+
+            if (view === 'expired') {
+                loadExpiredBatches();
+            }
+        }
+
+        async function loadExpiredBatches() {
+            const tableBody = document.getElementById('expiredTableBody');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-8 text-base-content/60">Loading expired batches...</td>
+                </tr>
+            `;
+
+            try {
+                const response = await WarehouseRawService.getExpiredIngredients();
+                if (response.success) {
+                    expiredBatches = response.data.expired_batches || [];
+                    renderExpiredBatches();
+                } else {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-8 text-error">Failed to load expired batches</td>
+                        </tr>
+                    `;
+                }
+            } catch (e) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-error">Failed to load expired batches</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function renderExpiredBatches() {
+            const tableBody = document.getElementById('expiredTableBody');
+
+            if (!expiredBatches.length) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-base-content/60">No expired batches found</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tableBody.innerHTML = expiredBatches.map(b => {
+                const qty = parseFloat(b.remaining_quantity || 0);
+                const days = parseInt(b.days_expired, 10) || 0;
+                const unit = b.unit_of_measure || '';
+                const status = b.status || '-';
+                const expiredDate = b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : '-';
+
+                return `
+                    <tr>
+                        <td><span class="font-mono text-xs">${escapeHtml(b.batch_code || '-')}</span></td>
+                        <td>
+                            <div class="font-semibold">${escapeHtml(b.ingredient_name || '-')}</div>
+                            <div class="text-xs text-base-content/60">${escapeHtml(b.ingredient_code || '-')}</div>
+                        </td>
+                        <td>${qty.toLocaleString()} ${unit}</td>
+                        <td>${expiredDate}</td>
+                        <td class="text-error font-semibold">${days}d</td>
+                        <td><span class="badge badge-error badge-outline badge-sm">${status}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function loadCategories() {
+            try {
+                const response = await WarehouseRawService.getIngredientCategories();
+                if (response.success) {
+                    categories = response.data.categories || response.data || [];
+                    renderCategoryTabs();
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        function renderCategoryTabs() {
+            const container = document.getElementById('categoryTabs');
+            const icons = { sugar: 'fa-cubes', powder: 'fa-mortar-pestle', flavor: 'fa-flask', culture: 'fa-microscope', enzyme: 'fa-dna', packaging: 'fa-box', additive: 'fa-vial' };
+
+            let html = '<button class="btn btn-sm btn-primary" data-category="all">All</button>';
+            if (Array.isArray(categories)) {
+                categories.forEach(cat => {
+                    const slug = (cat.category_code || '').toLowerCase().replace('cat-', '');
+                    html += `<button class="btn btn-sm btn-ghost" data-category="${cat.id}"><i class="fas ${icons[slug] || 'fa-tag'}"></i> ${cat.category_name || cat.name}</button>`;
+                });
+            }
+            container.innerHTML = html;
+
+            container.querySelectorAll('button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    container.querySelectorAll('button').forEach(b => b.classList.replace('btn-primary', 'btn-ghost'));
+                    btn.classList.replace('btn-ghost', 'btn-primary');
+                    currentFilter.category = btn.dataset.category;
+                    renderIngredients();
+                });
+            });
+        }
+
+        async function loadIngredients() {
+            try {
+                const response = await WarehouseRawService.getIngredients();
+                if (response.success) {
+                    ingredients = response.data.ingredients || response.data || [];
+                    updateStats();
+                    renderIngredients();
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Failed to load ingredients', 'error');
+            }
+        }
+
+        // LOW rule (shared with backend StockRule): LOW when current_stock <=
+        // COALESCE(reorder_point, minimum_stock * 1.5). Used by the stats
+        // card, the filter dropdown, and the per-row badge so the page agrees
+        // with the Reorder Alerts page and the dashboards.
+        const lowStockReorderOf = (i) => {
+            const r = parseFloat(i.reorder_point);
+            const m = parseFloat(i.minimum_stock) || 0;
+            return (Number.isFinite(r) && r > 0) ? r : (m * 1.5);
+        };
+
+        function updateStats() {
+            const total = ingredients.length;
+            const inStock = ingredients.filter(i => parseFloat(i.current_stock) > lowStockReorderOf(i)).length;
+            const lowStock = ingredients.filter(i => parseFloat(i.current_stock) <= lowStockReorderOf(i)).length;
+            const expiring = ingredients.filter(i => i.nearest_expiry && daysUntil(i.nearest_expiry) <= 7 && daysUntil(i.nearest_expiry) >= 0).length;
+
+            document.getElementById('totalIngredients').textContent = total;
+            document.getElementById('inStockCount').textContent = inStock;
+            document.getElementById('lowStockCount').textContent = lowStock;
+            document.getElementById('expiringCount').textContent = expiring;
+
+            const pendingOpening = ingredients.filter(i =>
+                i.initial_stock_route === 'opening_stock' && i.onboarding_status === 'pending_count'
+            );
+            const underReview = ingredients.filter(i =>
+                i.initial_stock_route === 'opening_stock' && i.onboarding_status === 'under_review'
+            );
+            const alert = document.getElementById('openingStockTaskAlert');
+            const actions = document.getElementById('openingStockTaskActions');
+            if (!pendingOpening.length && !underReview.length) {
+                alert.classList.add('hidden');
+                actions.innerHTML = '';
+            } else {
+                document.getElementById('openingStockTaskTitle').textContent = pendingOpening.length
+                    ? `${pendingOpening.length} new material${pendingOpening.length === 1 ? '' : 's'} need an opening count`
+                    : 'Opening stock is under review';
+                document.getElementById('openingStockTaskText').textContent = pendingOpening.length
+                    ? 'Admin confirmed that physical stock already exists. Count it and record its source, lot, and expiry; do not estimate the quantity.'
+                    : `${underReview.length} opening-stock record${underReview.length === 1 ? ' is' : 's are'} waiting for the required checks and GM decision.`;
+                actions.innerHTML = pendingOpening.slice(0, 5).map(item => `
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openOpeningStockModal(${Number(item.id)})">
+                        <i class="fas fa-scale-balanced"></i> Count ${escapeHtml(item.ingredient_name)}
+                    </button>
+                `).join('');
+                alert.classList.remove('hidden');
+            }
+        }
+
+
+        // Small HTML escaper used by the table row renderer to prevent
+        // ingredient names / unit text / pack labels from breaking the markup
+        // if they contain <, >, &, ", or '.
+        function escapeHtml(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Sort state for click-to-sort column headers. `column` is one of
+        // 'name' | 'stock' | 'status' | 'expiry'. `direction` is 'asc' | 'desc'.
+        // Default is name asc (matches the old dropdown default).
+        let currentSort = { column: 'name', direction: 'asc' };
+
+        // Click-to-sort handler for the table column headers. Toggles direction
+        // when the same column is re-clicked, otherwise switches column and
+        // resets to a sensible default direction (stock/expiry default desc —
+        // "show me the lowest / most urgent first").
+        function setSort(column) {
+            if (currentSort.column === column) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.column = column;
+                currentSort.direction = (column === 'stock' || column === 'expiry' || column === 'status') ? 'asc' : 'asc';
+            }
+            renderIngredients();
+        }
+
+        // Updates the small arrow next to each column header to show the
+        // current sort state. Called from renderIngredients after every sort
+        // change so the indicator stays in sync.
+        function updateSortIndicators() {
+            document.querySelectorAll('.sort-indicator').forEach(el => {
+                const col = el.dataset.col;
+                if (col === currentSort.column) {
+                    el.textContent = currentSort.direction === 'asc' ? ' ↑' : ' ↓';
+                    el.classList.add('text-primary', 'font-bold');
+                } else {
+                    el.textContent = '';
+                    el.classList.remove('text-primary', 'font-bold');
+                }
+            });
+        }
+
+        function renderIngredients() {
+            const tbody = document.getElementById('ingredientsTableBody');
+            if (!tbody) return;
+
+            // Filter
+            let filtered = [...ingredients];
+            if (currentFilter.category !== 'all') filtered = filtered.filter(i => i.category_id == currentFilter.category);
+            if (currentFilter.search) {
+                const s = currentFilter.search.toLowerCase();
+                filtered = filtered.filter(i => (i.ingredient_name || '').toLowerCase().includes(s) || (i.ingredient_code || '').toLowerCase().includes(s));
+            }
+            if (currentFilter.stock) {
+                filtered = filtered.filter(i => {
+                    const stock = parseFloat(i.current_stock);
+                    const reorder = lowStockReorderOf(i);
+                    switch (currentFilter.stock) {
+                        case 'ok': return stock > reorder;
+                        case 'low': return stock > 0 && stock <= reorder;
+                        case 'out': return stock <= 0;
+                        default: return true;
+                    }
+                });
+            }
+
+            // Sort. We compute a numeric "rank" per status (Out=0, Low=1, OK=2)
+            // so sorting by Status puts the urgent ones first when asc, OK ones
+            // last. Below minimum and below reorder are both Low Stock.
+            const statusRank = (i) => {
+                const stock = parseFloat(i.current_stock);
+                if (stock <= 0) return 0;
+                if (stock <= lowStockReorderOf(i)) return 1;
+                return 2;
+            };
+            const expiryTime = (i) => i.nearest_expiry ? new Date(i.nearest_expiry).getTime() : Number.POSITIVE_INFINITY;
+            const stockNum = (i) => parseFloat(i.current_stock) || 0;
+
+            const dir = currentSort.direction === 'asc' ? 1 : -1;
+            filtered.sort((a, b) => {
+                let av, bv;
+                switch (currentSort.column) {
+                    case 'stock':   av = stockNum(a);   bv = stockNum(b);   break;
+                    case 'status':  av = statusRank(a); bv = statusRank(b); break;
+                    case 'expiry':  av = expiryTime(a); bv = expiryTime(b); break;
+                    case 'name':
+                    default:        av = (a.ingredient_name || '').toLowerCase(); bv = (b.ingredient_name || '').toLowerCase();
+                }
+                if (av < bv) return -1 * dir;
+                if (av > bv) return  1 * dir;
+                return 0;
+            });
+
+            // Sync the legacy <select id="sortBy"> if it's still in the DOM (it's
+            // still in the toolbar but no longer the primary sort control).
+            const sortByEl = document.getElementById('sortBy');
+            if (sortByEl) {
+                const mapping = { name: 'name', stock: 'stock_asc', status: 'name', expiry: 'expiry' };
+                sortByEl.value = mapping[currentSort.column] || 'name';
+            }
+            updateSortIndicators();
+
+            if (!filtered.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-base-content/60">
+                    <i class="fas fa-box-open text-4xl text-base-content/20 mb-2"></i>
+                    <h3 class="font-semibold mt-2">No ingredients found</h3>
+                    <p class="text-sm">Try adjusting your filters</p>
+                </td></tr>`;
+                return;
+            }
+
+            // Category styling. Maps the API's category_slug to a colored
+            // avatar + icon for the row. Falls back to a generic additive
+            // style so an unknown category still looks intentional.
+            const catColors = { sugar: 'bg-amber-500/10 text-amber-600', powder: 'bg-purple-500/10 text-purple-600', flavor: 'bg-blue-500/10 text-blue-600', culture: 'bg-emerald-500/10 text-emerald-600', enzyme: 'bg-red-500/10 text-red-600', packaging: 'bg-slate-500/10 text-slate-600', additive: 'bg-pink-500/10 text-pink-600', raw_milk: 'bg-sky-500/10 text-sky-600' };
+            const catIcons = { sugar: 'fa-cubes', powder: 'fa-mortar-pestle', flavor: 'fa-flask', culture: 'fa-microscope', enzyme: 'fa-dna', packaging: 'fa-box', additive: 'fa-vial', raw_milk: 'fa-tint' };
+
+            tbody.innerHTML = filtered.map(ing => {
+                const stock = parseFloat(ing.current_stock) || 0;
+                const min = parseFloat(ing.minimum_stock) || 0;
+                const reorderRaw = parseFloat(ing.reorder_point);
+                const reorder = (Number.isFinite(reorderRaw) && reorderRaw >= min && reorderRaw > 0)
+                    ? reorderRaw
+                    : (min * 1.5);
+                const maxRaw = parseFloat(ing.maximum_stock);
+                const max = (Number.isFinite(maxRaw) && maxRaw > reorder) ? maxRaw : (reorder * 2);
+                const unit = ing.unit_of_measure || 'units';
+                const targetPct = (stock / Math.max(max, 1)) * 100;
+                const barPct = Math.min(100, targetPct);
+
+                // Status row style + label. Par-level denominator for the bar
+                // uses maximum_stock if set, else 2x the reorder threshold
+                // (reorder_point, falling back to minimum_stock * 1.5).
+                let statusText, statusBadge, statusDot, barColor;
+                if (stock <= 0)        { statusText = 'Out'; statusBadge = 'badge-error';   statusDot = 'bg-error'; barColor = 'bg-error'; }
+                else if (stock <= reorder) { statusText = 'Low'; statusBadge = 'badge-warning'; statusDot = 'bg-warning';  barColor = 'bg-warning'; }
+                else                   { statusText = 'OK';  statusBadge = 'badge-success'; statusDot = 'bg-success';  barColor = 'bg-success'; }
+
+                const slug = ing.category_slug || 'additive';
+                const avatarColor = catColors[slug] || catColors.additive;
+                const avatarIcon = catIcons[slug] || 'fa-tag';
+
+                // Pack size sub-line. Only shown if a pack size is set on the
+                // ingredient (the new pack size feature from earlier).
+                let packSubLine = '';
+                if (ing.pack_size_value && ing.pack_size_unit) {
+                    const label = ing.pack_label || `${ing.pack_size_value} ${ing.pack_size_unit}`;
+                    packSubLine = `<div class="text-[10px] text-base-content/50 mt-0.5">Pack: ${escapeHtml(String(label))}</div>`;
+                }
+                const onFile = parseFloat(ing.current_stock_on_file);
+                const needsStockCheck = Boolean(ing.needs_stock_check);
+                const restrictedStock = parseFloat(ing.restricted_stock) || 0;
+                const untraceableStock = parseFloat(ing.untraceable_batch_stock) || 0;
+                const expiredStock = parseFloat(ing.expired_batch_stock) || 0;
+                const otherHeldStock = Math.max(0, restrictedStock - untraceableStock - expiredStock);
+                const stockNotices = [];
+                if (needsStockCheck) {
+                    stockNotices.push(`<div class="text-[10px] text-warning font-semibold mt-1"><i class="fas fa-triangle-exclamation mr-1"></i>On file: ${Number.isFinite(onFile) ? onFile.toLocaleString() : '0'} ${escapeHtml(unit)} - check balance</div>`);
+                }
+                if (untraceableStock > 0.0005) {
+                    stockNotices.push(`<div class="text-[10px] text-error font-semibold mt-1"><i class="fas fa-barcode mr-1"></i>${untraceableStock.toLocaleString()} ${escapeHtml(unit)} held - supplier lot missing</div>`);
+                }
+                if (expiredStock > 0.0005) {
+                    stockNotices.push(`<div class="text-[10px] text-error font-semibold mt-1"><i class="fas fa-calendar-xmark mr-1"></i>${expiredStock.toLocaleString()} ${escapeHtml(unit)} expired or expires today</div>`);
+                }
+                if (otherHeldStock > 0.0005) {
+                    stockNotices.push(`<div class="text-[10px] text-warning font-semibold mt-1"><i class="fas fa-lock mr-1"></i>${otherHeldStock.toLocaleString()} ${escapeHtml(unit)} held for review</div>`);
+                }
+                if (stock > max + 0.0005) {
+                    stockNotices.push(`<div class="text-[10px] text-info font-semibold mt-1"><i class="fas fa-arrow-up mr-1"></i>${(stock - max).toLocaleString()} ${escapeHtml(unit)} above the restocking target</div>`);
+                }
+                const needsOpeningCount = ing.initial_stock_route === 'opening_stock' && ing.onboarding_status === 'pending_count';
+                const openingUnderReview = ing.initial_stock_route === 'opening_stock' && ing.onboarding_status === 'under_review';
+                if (needsOpeningCount) {
+                    stockNotices.push('<div class="text-[10px] text-info font-semibold mt-1"><i class="fas fa-clipboard-check mr-1"></i>Opening stock count required</div>');
+                } else if (openingUnderReview) {
+                    stockNotices.push('<div class="text-[10px] text-info font-semibold mt-1"><i class="fas fa-hourglass-half mr-1"></i>Opening stock under review</div>');
+                }
+                const stockCheckSubLine = stockNotices.join('');
+
+                // Expiry cell. Shows "— " if no batches, "12d left" if upcoming,
+                // "expired" if past. Driven by daysUntil() which is defined
+                // elsewhere in the file.
+                let expiryCell = '<span class="text-base-content/40">—</span>';
+                if (ing.nearest_expiry) {
+                    const days = daysUntil(ing.nearest_expiry);
+                    if (days < 0) {
+                        expiryCell = `<span class="text-error font-semibold">expired ${Math.abs(days)}d ago</span>`;
+                    } else if (days <= 7) {
+                        expiryCell = `<span class="text-warning font-semibold">${days}d left</span>`;
+                    } else {
+                        expiryCell = `<span class="text-base-content/70">${days}d left</span>`;
+                    }
+                }
+
+                // Action menu. We use stopPropagation on the <details> so
+                // clicking it doesn't also open the row's detail modal. The
+                // "View" item is redundant with row-click but is kept for
+                // discoverability + a11y (not all users know rows are clickable).
+                const safeName = escapeHtml(ing.ingredient_name || ing.name || 'Ingredient');
+                return `
+                    <tr class="${needsStockCheck ? 'bg-warning/5' : ''} hover:bg-base-200/50 cursor-pointer" onclick="openDetailModal(${ing.id})">
+                        <td><span class="inline-block w-2.5 h-2.5 rounded-full ${statusDot}" title="${statusText}"></span></td>
+                        <td>
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl ${avatarColor} flex items-center justify-center flex-shrink-0">
+                                    <i class="fas ${avatarIcon} text-sm"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="font-semibold text-sm truncate">${safeName}</div>
+                                    <div class="text-xs text-base-content/50 font-mono">${escapeHtml(ing.ingredient_code || ing.code || '')}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="font-mono font-bold text-base">${stock.toLocaleString()} <span class="text-xs font-normal text-base-content/60">${escapeHtml(unit)}</span></div>
+                            <div class="w-24 h-1 bg-base-200 rounded-full overflow-hidden mt-1">
+                                <div class="h-full ${barColor} rounded-full" style="width: ${barPct}%"></div>
+                            </div>
+                            <div class="text-[10px] text-base-content/50 mt-0.5">${targetPct.toFixed(0)}% of restocking target (${max.toLocaleString()})</div>
+                            <div class="text-[10px] text-base-content/60 mt-0.5">
+                                Buy at ${reorder.toLocaleString()} · safety buffer ${min.toLocaleString()} ${escapeHtml(unit)}
+                            </div>
+                            ${stockCheckSubLine}
+                            ${packSubLine}
+                        </td>
+                        <td><span class="badge ${statusBadge} badge-sm">${statusText}</span></td>
+                        <td class="text-sm">${expiryCell}</td>
+                        <td class="text-right" onclick="event.stopPropagation()">
+                            <details class="dropdown dropdown-end">
+                                <summary class="btn btn-ghost btn-xs btn-square list-none cursor-pointer">
+                                    <i class="fas fa-ellipsis-vertical"></i>
+                                </summary>
+                                <ul class="dropdown-content menu menu-sm bg-base-100 rounded-box border border-base-300 z-10 w-44 shadow-lg p-1">
+                                    <li><a onclick="openDetailModal(${ing.id})"><i class="fas fa-eye w-4"></i> View Details</a></li>
+                                    ${needsOpeningCount ? `<li><a class="text-primary font-semibold" onclick="openOpeningStockModal(${ing.id})"><i class="fas fa-scale-balanced w-4"></i> Record Opening Stock</a></li>` : ''}
+                                </ul>
+                            </details>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+
+        async function openDetailModal(id) {
+            document.getElementById('detailModal').showModal();
+            document.getElementById('detailModalBody').innerHTML = '<div class="text-center py-8"><span class="loading loading-spinner loading-lg"></span></div>';
+
+            try {
+                const [response] = await Promise.all([
+                    WarehouseRawService.getIngredient(id),
+                    loadOpeningStockOptions(id).catch(() => ({ pending_requests: [] }))
+                ]);
+                if (response.success) {
+                    // API returns {ingredient: {...}, batches: [...]}
+                    const data = response.data;
+                    const ing = data.ingredient || data;
+                    ing.batches = data.batches || [];
+                    renderDetailModal(ing);
+                }
+            } catch (e) {
+                console.error('Failed to load ingredient details:', e);
+                showToast('Failed to load details', 'error');
+                document.getElementById('detailModal').close();
+            }
+        }
+
+        function renderDetailModal(ing) {
+            // Use correct field names from API
+            const name = ing.ingredient_name || ing.name || 'Unknown';
+            const code = ing.ingredient_code || ing.code || '-';
+            const stock = parseFloat(ing.current_stock) || 0;
+            const unit = ing.unit_of_measure || 'units';
+            const minStock = parseFloat(ing.minimum_stock) || 0;
+            const reorderRaw = parseFloat(ing.reorder_point);
+            const hasInvalidReorder = Number.isFinite(reorderRaw) && reorderRaw > 0 && reorderRaw < minStock;
+            const reorder = (Number.isFinite(reorderRaw) && reorderRaw >= minStock && reorderRaw > 0)
+                ? reorderRaw
+                : (minStock * 1.5);
+            const maxRaw = parseFloat(ing.maximum_stock);
+            const hasInvalidMax = Number.isFinite(maxRaw) && maxRaw > 0 && maxRaw <= reorder;
+            const maxStock = (Number.isFinite(maxRaw) && maxRaw > reorder) ? maxRaw : (reorder * 2);
+            const batches = ing.batches || [];
+            const batchStockRaw = parseFloat(ing.batch_stock);
+            const batchStock = Number.isFinite(batchStockRaw)
+                ? batchStockRaw
+                : batches.reduce((sum, b) => sum + (parseFloat(b.remaining_quantity || b.quantity_remaining) || 0), 0);
+            const accountedStock = parseFloat(ing.accounted_batch_stock) || 0;
+            const expiredStock = parseFloat(ing.expired_batch_stock) || 0;
+            const untraceableStock = parseFloat(ing.untraceable_batch_stock) || 0;
+            const restrictedStock = parseFloat(ing.restricted_stock) || 0;
+            const heldStock = Math.max(0, restrictedStock - expiredStock - untraceableStock);
+            const missingBatchStock = parseFloat(ing.missing_batch_stock) || 0;
+            const batchStockSurplus = parseFloat(ing.batch_stock_surplus) || 0;
+            const unexplainedBatchSurplus = Number.isFinite(parseFloat(ing.unexplained_batch_surplus))
+                ? parseFloat(ing.unexplained_batch_surplus)
+                : Math.max(0, batchStockSurplus - restrictedStock);
+            const hasMissingBatch = missingBatchStock > 0.0005;
+            const hasBatchSurplus = unexplainedBatchSurplus > 0.0005;
+            const pendingRequests = (openingStockOptions?.pending_requests || [])
+                .filter(request => String(request.ingredient_id) === String(ing.id));
+
+            // Stock status for hero bar
+            const stockPct = maxStock > 0 ? Math.min(100, (batchStock / maxStock) * 100) : 0;
+            let stockColor = 'bg-success';
+            if (batchStock <= 0) stockColor = 'bg-error';
+            else if (batchStock <= reorder) stockColor = 'bg-warning';
+
+            // Pick an icon for the hero
+            const catSlug = ing.category_slug || 'additive';
+            const catIcons = { sugar: 'fa-cubes', powder: 'fa-mortar-pestle', flavor: 'fa-flask', culture: 'fa-microscope', enzyme: 'fa-dna', packaging: 'fa-box', additive: 'fa-vial' };
+            const heroIcon = catIcons[catSlug] || 'fa-box-open';
+
+            // Hero HTML
+            const heroHtml = `
+                <div class="ingredient-hero">
+                    <div class="ingredient-hero-icon">
+                        <i class="fas ${heroIcon}"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="ingredient-hero-name">${escapeHtml(name)}</h3>
+                        <div class="ingredient-hero-code">${escapeHtml(code)} · ${escapeHtml(ing.category_name || 'Uncategorized')}</div>
+                        <div class="mt-2 flex items-center gap-2">
+                            <div class="stock-bar-wrap flex-1">
+                                <div class="stock-bar-fill ${stockColor}" style="width: ${stockPct}%"></div>
+                            </div>
+                            <span class="text-xs font-semibold text-base-content/60">${stockPct.toFixed(0)}% of restocking target</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Batches HTML
+            let batchesHtml = batches.length ? batches.map(b => {
+                const days = daysUntil(b.expiry_date);
+                // V4.0 — null days means the batch has no expiry (non-perishable).
+                // Show "No expiry" in a neutral ghost badge and hide the
+                // Record Waste link, since you can't waste something that
+                // doesn't expire. The "expired/today/Nd" labels only apply
+                // to batches that actually have an expiry date.
+                const hasExpiry = days !== null;
+                const expClass  = !hasExpiry ? 'badge-ghost'    : days <= 0 ? 'badge-error'   : days <= 7 ? 'badge-warning' : 'badge-ghost';
+                const expLabel  = !hasExpiry ? 'No expiry'      : days < 0 ? 'EXPIRED'        : days === 0 ? 'EXPIRES TODAY - BLOCKED' : `${days}d`;
+                const remaining = parseFloat(b.remaining_quantity || b.quantity_remaining) || 0;
+                const isExpired = Number(b.is_expired) === 1 || (hasExpiry && days <= 0);
+                const isUsable = Number(b.is_usable) === 1;
+                const traceabilityIssue = Number(b.has_traceability_issue) === 1;
+                const stateLabel = isExpired
+                    ? 'Expired - blocked'
+                    : traceabilityIssue
+                        ? 'Held - supplier lot missing'
+                        : isUsable ? 'Usable' : 'Held - blocked';
+                const stateClass = isExpired || traceabilityIssue ? 'text-error' : isUsable ? 'text-success' : 'text-warning';
+                // Expired and near-expiry batches with stock can be closed
+                // through the waste record while their receiving history stays intact.
+                const wasteHref = remaining > 0 && !traceabilityIssue
+                    ? `waste.html?item_type=ingredient&item_id=${ing.id}&batch_id=${b.id}&reason_category=${hasExpiry && days <= 0 ? 'expired' : 'damaged'}`
+                    : null;
+                const canRecordLot = traceabilityIssue
+                    && ['warehouse_raw', 'general_manager'].includes(AuthService.getCurrentUser()?.role || '');
+                const batchPending = pendingRequests.find(request =>
+                    String(request.held_batch_id || '') === String(b.id)
+                );
+                const batchPendingStep = batchPending ? openingStockReviewStep(batchPending) : null;
+                const batchCountPending = pendingRequests.find(request =>
+                    String(request.request_purpose || '') === 'stock_adjustment'
+                    && String(request.adjustment_scope || 'ingredient') === 'batch'
+                    && String(request.source_batch_id || '') === String(b.id)
+                );
+                const canCountBatch = isUsable
+                    && String(b.qc_status || '') === 'approved'
+                    && (AuthService.getCurrentUser()?.role || '') === 'warehouse_raw';
+                return `
+                    <div class="batch-row">
+                        <div class="min-w-0 flex-1">
+                            <p class="batch-code">${escapeHtml(b.batch_code || b.batch_number || 'No batch #')}</p>
+                            <p class="batch-meta">Received ${formatDate(b.received_date)}</p>
+                            <p class="text-[10px] font-semibold ${stateClass}">${stateLabel}</p>
+                        </div>
+                        <div class="text-right flex flex-col items-end gap-1 flex-shrink-0">
+                            <p class="batch-qty">${remaining.toLocaleString()} <span class="text-xs font-normal text-base-content/60">${unit}</span></p>
+                            <span class="badge ${expClass} badge-xs">${expLabel} · ${formatDate(b.expiry_date)}</span>
+                            ${wasteHref ? `
+                            <a class="text-xs text-error hover:underline font-semibold inline-flex items-center gap-1 mt-1" href="${wasteHref}">
+                                <i class="fas fa-trash-alt text-[10px]"></i> Record Waste
+                            </a>
+                            ` : ''}
+                            ${canCountBatch && !batchCountPending ? `
+                            <button type="button" class="btn btn-info btn-xs mt-1"
+                                onclick="openBatchCountModal(${ing.id}, ${b.id})">
+                                <i class="fas fa-clipboard-check"></i> Count Batch
+                            </button>
+                            ` : ''}
+                            ${canCountBatch && batchCountPending ? `
+                            <span class="badge badge-info badge-sm mt-1">
+                                <i class="fas fa-hourglass-half mr-1"></i>Waiting for GM
+                            </span>
+                            ` : ''}
+                            ${canRecordLot && !batchPending ? `
+                            <button type="button" class="btn btn-success btn-xs mt-1"
+                                onclick="openOpeningStockModal(${ing.id}, ${batchStock + remaining}, ${b.id}, ${remaining})">
+                                <i class="fas fa-barcode"></i> Record Lot Details
+                            </button>
+                            ` : ''}
+                            ${canRecordLot && batchPending ? `
+                            <span class="badge badge-warning badge-sm mt-1">
+                                <i class="fas fa-hourglass-half mr-1"></i>${escapeHtml(batchPendingStep.label)}
+                            </span>
+                            ` : ''}
+                        </div>
+                    </div>`;
+            }).join('') : '<div class="pro-empty"><i class="fas fa-layer-group"></i><p>No batches in stock</p></div>';
+
+            const reorderPoint = ing.reorder_point || (minStock * 1.5).toFixed(1);
+            const thresholdConfigBanner = hasInvalidReorder || hasInvalidMax ? `
+                <div class="alert alert-warning mb-4 py-3">
+                    <i class="fas fa-sliders"></i>
+                    <span>
+                        Stock thresholds need correction. Minimum must be at or below the reorder point, and par must be above it.
+                        Until corrected, the stock bar and reorder quantity use an effective par of
+                        <strong>${maxStock.toLocaleString()} ${escapeHtml(unit)}</strong>.
+                    </span>
+                </div>
+            ` : '';
+            const expiredBanner = expiredStock > 0.0005 ? `
+                <div class="alert alert-error mb-4 py-3">
+                    <i class="fas fa-calendar-xmark"></i>
+                    <span>
+                        ${expiredStock.toLocaleString()} ${escapeHtml(unit)} is physically present but expired. It is blocked from production.
+                        Confirm the quantity on the shelf, then use <strong>Record Waste</strong> on the expired batch.
+                    </span>
+                </div>
+            ` : '';
+            const heldBanner = heldStock > 0.0005 ? `
+                <div class="alert alert-warning mb-4 py-3">
+                    <i class="fas fa-lock"></i>
+                    <span>${heldStock.toLocaleString()} ${escapeHtml(unit)} is held or under quarantine and cannot be issued until it is cleared.</span>
+                </div>
+            ` : '';
+            const traceabilityBanner = untraceableStock > 0.0005 ? `
+                <div class="alert alert-error mb-4 py-3">
+                    <i class="fas fa-barcode"></i>
+                    <span>
+                        ${untraceableStock.toLocaleString()} ${escapeHtml(unit)} is held because its real supplier lot is missing.
+                        It cannot be issued to Production. Use <strong>Record Lot Details</strong> after checking the package or supplier document; Purchasing, QC, and GM will review it.
+                    </span>
+                </div>
+            ` : '';
+            const reviewBanner = pendingRequests.map(request => {
+                const step = openingStockReviewStep(request);
+                return `
+                    <div class="alert ${step.alertClass} mb-4 py-3">
+                        <i class="fas ${step.icon}"></i>
+                        <div>
+                            <strong>${escapeHtml(request.request_code)}</strong>
+                            <p>${escapeHtml(step.message)}</p>
+                        </div>
+                    </div>`;
+            }).join('');
+            const missingBatchBanner = hasMissingBatch ? `
+                <div class="alert alert-warning mb-4 py-2">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span>
+                        ${missingBatchStock.toLocaleString()} ${escapeHtml(unit)} is on the item file but has no physical batch record.
+                        Check the shelf count before repairing this record.
+                    </span>
+                </div>
+            ` : '';
+            const surplusBanner = hasBatchSurplus ? `
+                <div class="alert alert-warning mb-4 py-2">
+                    <i class="fas fa-scale-balanced"></i>
+                    <span>Physical batches exceed the item file by ${unexplainedBatchSurplus.toLocaleString()} ${escapeHtml(unit)}. Check the shelf count before issuing.</span>
+                </div>
+            ` : '';
+
+            document.getElementById('detailModalTitle').textContent = name;
+            document.getElementById('detailModalBody').innerHTML = `
+                ${heroHtml}
+                ${thresholdConfigBanner}
+                ${expiredBanner}
+                ${traceabilityBanner}
+                ${reviewBanner}
+                ${heldBanner}
+                ${missingBatchBanner}
+                ${surplusBanner}
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    <div class="detail-stat">
+                        <p class="detail-stat-label">Stock on File</p>
+                        <p class="detail-stat-value detail-stat-value--xl">${stock.toLocaleString()}</p>
+                        <p class="text-xs text-base-content/55 mt-0.5">${unit}</p>
+                    </div>
+                    <div class="detail-stat">
+                        <p class="detail-stat-label">Usable Stock</p>
+                        <p class="detail-stat-value">${batchStock.toLocaleString()}</p>
+                        <p class="text-xs text-base-content/55 mt-0.5">${unit}</p>
+                    </div>
+                    <div class="detail-stat">
+                        <p class="detail-stat-label">Start Buying At</p>
+                        <p class="detail-stat-value">${parseFloat(reorderPoint).toLocaleString()}</p>
+                        <p class="text-xs text-base-content/55 mt-0.5">${unit}</p>
+                    </div>
+                    <div class="detail-stat">
+                        <p class="detail-stat-label">Safety Buffer</p>
+                        <p class="detail-stat-value">${minStock.toLocaleString()}</p>
+                        <p class="text-xs text-base-content/55 mt-0.5">${unit}</p>
+                    </div>
+                    <div class="detail-stat">
+                        <p class="detail-stat-label">Restocking Target</p>
+                        <p class="detail-stat-value">${maxStock.toLocaleString()}</p>
+                        <p class="text-xs text-base-content/55 mt-0.5">${unit}</p>
+                    </div>
+                </div>
+
+                <h4 class="pro-section-header">
+                    <i class="fas fa-layer-group text-primary"></i> Physical batches
+                    <span class="ml-auto text-base font-normal normal-case tracking-normal text-base-content/55">${batches.length} batch${batches.length === 1 ? '' : 'es'}</span>
+                </h4>
+                <div class="scrollbar-thin">${batchesHtml}</div>
+            `;
+
+            // Escape the name for use in onclick
+            const escapedName = name.replace(/'/g, "\\'");
+            const canRepairStock = hasMissingBatch
+                && Number(ing.is_perishable) !== 1
+                && ['warehouse_raw', 'general_manager'].includes(AuthService.getCurrentUser()?.role || '');
+            const hasTraceabilityHold = untraceableStock > 0.0005;
+            const currentRole = AuthService.getCurrentUser()?.role || '';
+            const canFullCount = currentRole === 'warehouse_raw'
+                && !hasTraceabilityHold
+                && expiredStock <= 0.0005;
+            const canConfigure = currentRole === 'general_manager';
+            const canUseWarehouseActions = ['warehouse_raw', 'general_manager'].includes(currentRole);
+
+            const specialActions = [
+                canFullCount ? `
+                    <button type="button" class="btn-pro btn-pro--success" onclick="openAdjustModal(${ing.id}, '${escapedName}', ${stock}, '${unit}')">
+                        <i class="fas fa-clipboard-check"></i> Full Stock Count
+                    </button>` : '',
+                canUseWarehouseActions && !hasTraceabilityHold ? `
+                    <button type="button" class="btn-pro btn-pro--warning" onclick="openOpeningStockModal(${ing.id})">
+                        <i class="fas fa-truck-ramp-box"></i> Unrecorded Delivery
+                    </button>` : '',
+                canRepairStock ? `
+                    <button type="button" class="btn-pro btn-pro--warning" onclick="repairIngredientStockRecords(${ing.id})">
+                        <i class="fas fa-screwdriver-wrench"></i> Repair Missing Batch
+                    </button>` : '',
+                canConfigure ? `
+                    <button type="button" class="btn-pro btn-pro--primary" onclick="openSettingsModal(${ing.id}, '${escapedName}', ${minStock}, ${ing.lead_time_days || 7}, ${ing.reorder_point || 'null'}, ${ing.maximum_stock || 'null'})">
+                        <i class="fas fa-sliders"></i> Stock Settings
+                    </button>` : ''
+            ].filter(Boolean).join('');
+
+            if (specialActions) {
+                document.getElementById('detailModalBody').insertAdjacentHTML('beforeend', `
+                    <details class="collapse collapse-arrow mt-4 border border-base-300 bg-base-100">
+                        <summary class="collapse-title min-h-0 py-3 text-sm font-bold">
+                            More Actions
+                            <span class="ml-2 text-xs font-normal text-base-content/50">Rare corrections and configuration</span>
+                        </summary>
+                        <div class="collapse-content">
+                            <div class="flex flex-wrap gap-2 pt-1">${specialActions}</div>
+                        </div>
+                    </details>
+                `);
+            }
+
+            document.getElementById('detailModalFooter').innerHTML = `
+                <button class="btn-pro btn-pro--ghost" onclick="document.getElementById('detailModal').close()">
+                    <i class="fas fa-xmark"></i> Close
+                </button>
+                <button class="btn-pro btn-pro--primary" onclick="window.location.href='requisitions.html'">
+                    <i class="fas fa-box-open"></i> Fulfill Request
+                </button>
+                <button class="btn-pro btn-pro--success" onclick="window.location.href='receive_deliveries.html'">
+                    <i class="fas fa-truck-ramp-box"></i> Receive Delivery
+                </button>
+            `;
+        }
+
+        async function repairIngredientStockRecords(id) {
+            const confirmed = await AppDialogs.confirm({
+                title: 'Repair Missing Batch',
+                message: 'Only continue after physically counting this material. Create a batch record for stock that is on the shelf but missing from the batch list?',
+                confirmText: 'Create Batch',
+                variant: 'warning',
+                icon: 'fa-screwdriver-wrench'
+            });
+            if (!confirmed) return;
+            try {
+                const res = await api.put('/warehouse/raw/ingredients.php', {
+                    action: 'repair_batches',
+                    ingredient_id: id
+                });
+                showToast(res?.message || 'FIFO batch fixed', 'success');
+                await loadIngredients();
+                await openDetailModal(id);
+            } catch (e) {
+                showToast(e?.response?.data?.message || e?.message || 'Failed to fix FIFO batch', 'error');
+            }
+        }
+
+        async function openBatchCountModal(ingredientId, batchId) {
+            try {
+                const response = await WarehouseRawService.getIngredient(ingredientId);
+                const detail = response?.data || {};
+                const ingredient = detail.ingredient || {};
+                const batch = (detail.batches || []).find(row => Number(row.id) === Number(batchId));
+                if (!batch || Number(batch.is_usable) !== 1 || String(batch.qc_status || '') !== 'approved') {
+                    showToast('That batch is no longer usable. Refresh the item and try again.', 'error');
+                    return;
+                }
+                await openAdjustModal(
+                    Number(ingredient.id),
+                    ingredient.ingredient_name,
+                    parseFloat(ingredient.current_stock || 0),
+                    ingredient.unit_of_measure || 'unit',
+                    null,
+                    {
+                        id: Number(batch.id),
+                        code: batch.batch_code || batch.supplier_batch_no || `Batch #${batch.id}`,
+                        supplierLot: batch.supplier_batch_no || '',
+                        remaining: parseFloat(batch.remaining_quantity || 0),
+                    }
+                );
+            } catch (error) {
+                console.error('Could not open batch count:', error);
+                showToast(error?.message || 'Could not load that batch', 'error');
+            }
+        }
+
+        function renderOverallAllocationPreview(quantityToRemove, batches, unit) {
+            const box = document.getElementById('adjustAllocationPreview');
+            const list = document.getElementById('adjustAllocationList');
+            let remaining = Math.max(0, Number(quantityToRemove) || 0);
+            if (remaining <= 0.0005) {
+                box.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            const rows = [];
+            for (const batch of batches || []) {
+                if (remaining <= 0.0005) break;
+                const before = Number(batch.remaining_quantity || 0);
+                const removed = Math.min(before, remaining);
+                if (removed > 0.0005) {
+                    rows.push(`<div><strong>${escapeHtml(batch.batch_code || batch.supplier_batch_no || `Batch #${batch.id}`)}</strong>: ${before.toLocaleString()} → ${(before - removed).toLocaleString()} ${escapeHtml(unit)}</div>`);
+                    remaining = Math.max(0, remaining - removed);
+                }
+            }
+            list.innerHTML = rows.join('') || '<div>No usable lot can cover this reduction. Recheck the stock records.</div>';
+            box.classList.remove('hidden');
+        }
+
+        async function openAdjustModal(id, name, current, unit, countedQuantity = null, batchContext = null) {
+            document.getElementById('adjustForm').reset();
+            document.getElementById('adjustIngredientId').value = id;
+            const adjustmentScope = batchContext ? 'batch' : 'ingredient';
+            let countOnFile = batchContext ? Number(batchContext.remaining) : Number(current);
+            document.getElementById('adjustModalTitle').textContent = batchContext ? 'Count Batch' : 'Full Stock Count';
+            document.getElementById('adjustModalSubtitle').textContent = batchContext
+                ? 'Count only the selected batch'
+                : 'Count every batch for this ingredient';
+            document.getElementById('adjustScope').value = adjustmentScope;
+            document.getElementById('adjustBatchId').value = batchContext?.id || '';
+            document.getElementById('adjustCurrentLabel').textContent = batchContext ? 'Quantity Recorded for This Batch' : 'Current Stock on File';
+            document.getElementById('adjustNewLabel').textContent = batchContext ? 'Counted in This Batch' : 'New Quantity';
+            document.getElementById('adjustCurrentStock').value = `${countOnFile.toLocaleString()} ${unit}`;
+            document.getElementById('adjustUnitSuffix').textContent = unit;
+            document.getElementById('adjustNewDisplay').textContent = `— ${unit}`;
+            document.getElementById('adjustDiff').textContent = `— ${unit}`;
+            document.getElementById('adjustBatchBanner').classList.toggle('hidden', !batchContext);
+            document.getElementById('adjustBatchBannerText').innerHTML = batchContext
+                ? `<small><strong>${escapeHtml(batchContext.code)}</strong>${batchContext.supplierLot ? ` · Supplier lot ${escapeHtml(batchContext.supplierLot)}` : ''}. Only this batch will change after GM approval.</small>`
+                : '<small>Only the selected batch will change after GM approval.</small>';
+            document.getElementById('adjustAllocationPreview').classList.add('hidden');
+            document.getElementById('adjustAllocationList').innerHTML = '';
+            document.getElementById('adjustOtherReasonGroup').classList.add('hidden');
+            document.getElementById('saveAdjustmentBtn').disabled = false;
+            document.getElementById('saveAdjustmentBtn').removeAttribute('title');
+            adjustIngredientContext = {
+                id,
+                scope: adjustmentScope,
+                current: countOnFile,
+                ingredientCurrent: Number(current),
+                batchId: batchContext?.id || null,
+                unit,
+                isPerishable: false,
+                batches: []
+            };
+
+            const detailModal = document.getElementById('detailModal');
+            if (detailModal.open) detailModal.close();
+            document.getElementById('adjustModal').showModal();
+
+            try {
+                const detailResponse = await WarehouseRawService.getIngredient(id);
+                const detail = detailResponse?.data || {};
+                const ingredient = detail.ingredient || {};
+                const actualCurrent = parseFloat(ingredient.current_stock ?? current);
+                const usableBatches = (detail.batches || []).filter(batch =>
+                    Number(batch.is_usable) === 1 && String(batch.qc_status || '') === 'approved'
+                );
+                let latestBatch = null;
+                if (adjustmentScope === 'batch') {
+                    latestBatch = usableBatches.find(batch => Number(batch.id) === Number(batchContext.id));
+                    if (!latestBatch) {
+                        throw new Error('That batch is no longer usable. Refresh the item and choose another batch.');
+                    }
+                    countOnFile = parseFloat(latestBatch.remaining_quantity || 0);
+                } else {
+                    countOnFile = actualCurrent;
+                }
+                adjustIngredientContext = {
+                    id,
+                    scope: adjustmentScope,
+                    current: countOnFile,
+                    ingredientCurrent: actualCurrent,
+                    batchId: latestBatch ? Number(latestBatch.id) : null,
+                    unit,
+                    isPerishable: Number(ingredient.is_perishable) === 1,
+                    batches: usableBatches
+                };
+                document.getElementById('adjustBatchId').value = latestBatch?.id || '';
+                document.getElementById('adjustCurrentStock').value = `${countOnFile.toLocaleString()} ${unit}`;
+            } catch (error) {
+                console.error('Could not load adjustment lots:', error);
+                showToast('Could not load the latest stock details. Close and try again.', 'error');
+            }
+
+            // Live diff preview
+            const newInput = document.getElementById('adjustNewQuantity');
+            const newDisplay = document.getElementById('adjustNewDisplay');
+            const diffDisplay = document.getElementById('adjustDiff');
+            newInput.oninput = () => {
+                const v = parseFloat(newInput.value);
+                if (isNaN(v) || v < 0) {
+                    newDisplay.textContent = `— ${unit}`;
+                    diffDisplay.textContent = `— ${unit}`;
+                    diffDisplay.classList.remove('text-success', 'text-error');
+                    diffDisplay.classList.add('text-base-content/40');
+                    renderOverallAllocationPreview(0, [], unit);
+                    document.getElementById('saveAdjustmentBtn').disabled = false;
+                    document.getElementById('saveAdjustmentBtn').removeAttribute('title');
+                    return;
+                }
+                newDisplay.textContent = `${v.toLocaleString()} ${unit}`;
+                const diff = v - countOnFile;
+                const sign = diff > 0 ? '+' : '';
+                diffDisplay.textContent = `${sign}${diff.toLocaleString()} ${unit}`;
+                diffDisplay.classList.remove('text-base-content/40');
+                diffDisplay.classList.toggle('text-success', diff > 0);
+                diffDisplay.classList.toggle('text-error', diff < 0);
+                if (adjustIngredientContext?.scope === 'ingredient' && diff < -0.0005) {
+                    renderOverallAllocationPreview(Math.abs(diff), adjustIngredientContext.batches, unit);
+                } else {
+                    renderOverallAllocationPreview(0, [], unit);
+                }
+            };
+            if (countedQuantity != null && Number.isFinite(Number(countedQuantity))) {
+                newInput.value = String(countedQuantity);
+                newInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+
+        async function submitAdjust(e) {
+            e.preventDefault();
+            const id = document.getElementById('adjustIngredientId').value;
+            const qty = document.getElementById('adjustNewQuantity').value;
+            let reason = document.getElementById('adjustReason').value;
+            if (reason === 'other') reason = document.getElementById('adjustOtherReason').value;
+            if (!reason) { showToast('Please provide a reason', 'error'); return; }
+            const adjustmentScope = document.getElementById('adjustScope').value || 'ingredient';
+            const sourceBatchId = adjustmentScope === 'batch'
+                ? document.getElementById('adjustBatchId').value
+                : null;
+            if (adjustmentScope === 'batch' && !sourceBatchId) {
+                showToast('The selected batch is missing. Close this form and choose Count Batch again.', 'error');
+                return;
+            }
+
+            const saveButton = document.getElementById('saveAdjustmentBtn');
+            const originalButtonHtml = saveButton.innerHTML;
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Sending…';
+
+            try {
+                const response = await WarehouseRawService.adjustIngredientStock(
+                    id,
+                    qty,
+                    reason,
+                    sourceBatchId || null,
+                    adjustmentScope
+                );
+                if (response.success) {
+                    showToast(response.message || 'Count sent to the GM', 'success');
+                    document.getElementById('adjustModal').close();
+                    try {
+                        await loadIngredients();
+                    } catch (e) {
+                        showToast('Sent, but failed to refresh list', 'warning');
+                    }
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('adjust_stock');
+                    url.searchParams.delete('record_unlisted');
+                    url.searchParams.delete('counted');
+                    history.replaceState({}, '', url);
+                } else {
+                    showToast(response.message || response.error || 'Failed to adjust stock', 'error');
+                }
+            } catch (e) {
+                console.error('Stock adjustment request failed:', e);
+                showToast(e?.message || 'Failed to send the count', 'error');
+            } finally {
+                saveButton.disabled = false;
+                saveButton.innerHTML = originalButtonHtml;
+            }
+        }
+
+        function localDateValue(date = new Date()) {
+            const offset = date.getTimezoneOffset();
+            return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 10);
+        }
+
+        async function loadOpeningStockOptions(ingredientId, heldBatchId = null) {
+            const response = await WarehouseRawService.getOpeningStockOptions(ingredientId, heldBatchId);
+            openingStockOptions = response.data || {};
+            const select = document.getElementById('openingStockSupplier');
+            select.innerHTML = '<option value="">Choose supplier…</option>' +
+                (openingStockOptions.suppliers || []).map(s =>
+                    `<option value="${Number(s.id)}">${escapeHtml(s.supplier_name)} (${escapeHtml(s.supplier_code || '')})</option>`
+                ).join('');
+            if (!(openingStockOptions.suppliers || []).length) {
+                select.innerHTML = '<option value="">No approved supplier is linked</option>';
+            }
+            populateOpeningStockDocuments();
+            return openingStockOptions;
+        }
+
+        function openingStockDocumentLabel(document) {
+            const status = String(document.status || '').replaceAll('_', ' ');
+            const price = Number(document.unit_price || 0);
+            const unit = document.unit || document.unit_of_measure || 'unit';
+            const priceText = price > 0 ? ` · ₱${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/${unit}` : '';
+            const remaining = Number(document.remaining_quantity || 0);
+            const balanceText = remaining > 0.0005
+                ? ` · ${remaining.toLocaleString()} ${unit} still open`
+                : ' · fully received (lot record only)';
+            return `PO ${document.po_number} · ${status}${balanceText}${priceText}`;
+        }
+
+        function populateOpeningStockDocuments() {
+            const supplierId = document.getElementById('openingStockSupplier').value;
+            const select = document.getElementById('openingStockDocument');
+            const documents = (openingStockOptions?.documents || [])
+                .filter(item => String(item.supplier_id) === String(supplierId));
+            select.innerHTML = '<option value="">Choose a saved order…</option>' +
+                documents.map(item => `<option value="${escapeHtml(item.reference)}">${escapeHtml(openingStockDocumentLabel(item))}</option>`).join('') +
+                '<option value="__manual__">Document not listed</option>';
+            select.value = '';
+            syncOpeningStockDocument();
+        }
+
+        function syncOpeningStockDocument() {
+            const sourceType = document.getElementById('openingStockSourceType').value;
+            const documentValue = document.getElementById('openingStockDocument').value;
+            const manual = sourceType === 'unrecorded_delivery' && documentValue === '__manual__';
+            const manualGroup = document.getElementById('openingStockManualReferenceGroup');
+            const manualInput = document.getElementById('openingStockManualReference');
+            manualGroup.classList.toggle('hidden', !manual);
+            manualInput.required = manual;
+            if (!manual) manualInput.value = '';
+            document.getElementById('openingStockReference').value = sourceType === 'opening_balance'
+                ? '__automatic__'
+                : (manual ? '' : documentValue);
+        }
+
+        async function openOpeningStockModal(ingredientId, countedQuantity = null, heldBatchId = null, heldBatchQuantity = null) {
+            const ingredient = ingredients.find(item => String(item.id) === String(ingredientId));
+            if (!ingredient) {
+                showToast('Ingredient was not found. Refresh the page and try again.', 'error');
+                return;
+            }
+            try {
+                const options = await loadOpeningStockOptions(ingredientId, heldBatchId);
+                const pending = (options.pending_requests || []).find(request => {
+                    if (String(request.ingredient_id) !== String(ingredientId)) return false;
+                    if (heldBatchId) return String(request.held_batch_id || '') === String(heldBatchId);
+                    return !request.held_batch_id;
+                });
+                if (pending) {
+                    const step = openingStockReviewStep(pending);
+                    showToast(`${pending.request_code}: ${step.message}`, step.toastType, 9000);
+                    return;
+                }
+            } catch (error) {
+                showToast(error?.message || 'Could not load the stock-intake form', 'error');
+                return;
+            }
+
+            const form = document.getElementById('openingStockForm');
+            form.reset();
+            const usableCurrent = parseFloat(ingredient.current_stock || 0);
+            const onFileCurrent = parseFloat(ingredient.current_stock_on_file);
+            const accountedCurrent = parseFloat(ingredient.accounted_batch_stock);
+            const current = heldBatchId
+                ? usableCurrent
+                : Math.max(
+                    Number.isFinite(onFileCurrent) ? onFileCurrent : 0,
+                    Number.isFinite(accountedCurrent) ? accountedCurrent : 0
+                );
+            const unit = ingredient.unit_of_measure || 'unit';
+            const isPerishable = Number(ingredient.is_perishable) === 1;
+            const isOnboardingCount = ingredient.initial_stock_route === 'opening_stock'
+                && ingredient.onboarding_status === 'pending_count'
+                && !heldBatchId;
+            const selectedHeldQuantity = parseFloat(heldBatchQuantity || 0);
+            document.getElementById('openingStockIngredientId').value = ingredient.id;
+            document.getElementById('openingStockIsPerishable').value = isPerishable ? '1' : '0';
+            document.getElementById('openingStockHeldBatchId').value = heldBatchId || '';
+            document.getElementById('openingStockHeldQuantity').value = selectedHeldQuantity || '';
+            document.getElementById('openingStockMaximum').value = ingredient.maximum_stock || '';
+            document.getElementById('openingStockUnit').value = unit;
+            document.getElementById('openingStockIngredientName').textContent = `${ingredient.ingredient_name} · ${isPerishable ? 'Perishable' : 'Non-perishable'}`;
+            document.getElementById('openingStockModalTitle').textContent = heldBatchId
+                ? 'Record Missing Supplier Lot'
+                : (isOnboardingCount ? 'Record Opening Stock' : 'Report Unrecorded Supplier Delivery');
+            document.getElementById('openingStockBannerTitle').textContent = heldBatchId
+                ? 'Correct one held supplier batch'
+                : (isOnboardingCount ? 'Count the physical stock — do not estimate' : 'This is not a normal stock adjustment');
+            document.getElementById('openingStockBannerText').innerHTML = heldBatchId
+                ? '<small>Use the package or supplier document to complete this held batch. Purchasing and QC verify the delivery evidence before the GM decides.</small>'
+                : (isOnboardingCount
+                    ? '<small>Admin registered this new material as stock already on site. Enter the shelf count and real lot/expiry facts. It remains unusable until the required reviews finish.</small>'
+                    : '<small>Use this only when a supplier delivery physically arrived but was never recorded through Receive Deliveries. For misplaced stock, returned materials, or a count correction, use Full Stock Count instead.</small>');
+            document.getElementById('openingStockCurrentLabel').textContent = heldBatchId ? 'Current usable stock' : 'Stock currently on file';
+            document.getElementById('openingStockCurrent').value = `${current.toLocaleString()} ${unit}`;
+            document.getElementById('openingStockCountedUnit').textContent = unit;
+            document.getElementById('openingStockCounted').value = countedQuantity != null ? countedQuantity : '';
+            document.getElementById('openingStockCounted').readOnly = Boolean(heldBatchId);
+            const today = localDateValue();
+            const tomorrowDate = new Date(`${today}T00:00:00`);
+            tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+            const tomorrow = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+            document.getElementById('openingStockReceivedDate').value = today;
+            document.getElementById('openingStockReceivedDate').max = today;
+            document.getElementById('openingStockExpiry').min = tomorrow;
+            document.getElementById('openingStockLot').required = isPerishable;
+            document.getElementById('openingStockExpiry').required = isPerishable;
+            document.getElementById('openingStockLotHelp').classList.toggle('hidden', !isPerishable);
+            document.querySelectorAll('.opening-required-mark').forEach(mark => mark.classList.toggle('hidden', !isPerishable));
+            const sourceTypeSelect = document.getElementById('openingStockSourceType');
+            sourceTypeSelect.disabled = isOnboardingCount;
+            sourceTypeSelect.value = isOnboardingCount ? 'opening_balance' : 'unrecorded_delivery';
+            document.getElementById('openingStockReasonLabel').innerHTML = isOnboardingCount
+                ? 'Where did this opening stock come from? <span class="text-error">*</span>'
+                : 'Why was this supplier delivery not recorded? <span class="text-error">*</span>';
+            document.getElementById('openingStockReason').placeholder = isOnboardingCount
+                ? 'Example: Existing storeroom stock counted during initial system setup.'
+                : 'Example: Delivery was unloaded, but its receiving record was not completed.';
+            syncOpeningStockFields();
+            if (heldBatchId && selectedHeldQuantity > 0.0005) {
+                document.getElementById('openingStockIngredientName').textContent = `${ingredient.ingredient_name} · Check the real details for this ${selectedHeldQuantity.toLocaleString()} ${unit} batch`;
+            }
+            updateOpeningStockDifference();
+            document.getElementById('openingStockCounted').oninput = updateOpeningStockDifference;
+            if (document.getElementById('detailModal').open) {
+                document.getElementById('detailModal').close();
+            }
+            document.getElementById('openingStockModal').showModal();
+        }
+
+        function syncOpeningStockFields() {
+            const sourceType = document.getElementById('openingStockSourceType').value;
+            const isDelivery = sourceType === 'unrecorded_delivery';
+            const isOpening = sourceType === 'opening_balance';
+            document.getElementById('openingStockSupplierGroup').classList.toggle('hidden', !isDelivery);
+            document.getElementById('openingStockSupplier').required = isDelivery;
+            document.getElementById('openingStockDocumentGroup').classList.toggle('hidden', !isDelivery);
+            document.getElementById('openingStockDocument').required = isDelivery;
+            document.getElementById('openingStockAutomaticReference').hidden = !isOpening;
+            if (!isDelivery) {
+                document.getElementById('openingStockSupplier').value = '';
+                document.getElementById('openingStockDocument').value = '';
+            }
+            document.getElementById('openingStockReference').value = isOpening ? '__automatic__' : '';
+            document.getElementById('openingStockManualReference').value = '';
+            populateOpeningStockDocuments();
+        }
+
+        function updateOpeningStockDifference() {
+            const ingredientId = document.getElementById('openingStockIngredientId').value;
+            const ingredient = ingredients.find(item => String(item.id) === String(ingredientId));
+            const heldBatchId = document.getElementById('openingStockHeldBatchId').value;
+            const usableCurrent = parseFloat(ingredient?.current_stock || 0);
+            const onFileCurrent = parseFloat(ingredient?.current_stock_on_file);
+            const accountedCurrent = parseFloat(ingredient?.accounted_batch_stock);
+            const current = heldBatchId
+                ? usableCurrent
+                : Math.max(
+                    Number.isFinite(onFileCurrent) ? onFileCurrent : 0,
+                    Number.isFinite(accountedCurrent) ? accountedCurrent : 0
+                );
+            const counted = parseFloat(document.getElementById('openingStockCounted').value);
+            const unit = document.getElementById('openingStockUnit').value;
+            const output = document.getElementById('openingStockDifference');
+            if (!Number.isFinite(counted) || counted <= current) {
+                output.className = 'text-xs text-error mt-1';
+                output.textContent = `Enter a count higher than ${current.toLocaleString()} ${unit}.`;
+                return;
+            }
+            output.className = 'text-xs text-success mt-1';
+            const held = parseFloat(document.getElementById('openingStockHeldQuantity').value || 0);
+            output.textContent = heldBatchId && held > 0.0005
+                ? `${held.toLocaleString()} ${unit} will stay held until Purchasing, QC, and GM approve these lot details.`
+                : `${(counted - current).toLocaleString()} ${unit} will be added only after GM approval.`;
+        }
+
+        async function submitOpeningStock(event) {
+            event.preventDefault();
+            const button = document.getElementById('openingStockSubmitBtn');
+            const original = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Sending…';
+            try {
+                const response = await WarehouseRawService.requestOpeningStock({
+                    ingredient_id: document.getElementById('openingStockIngredientId').value,
+                    held_batch_id: document.getElementById('openingStockHeldBatchId').value || null,
+                    counted_quantity: document.getElementById('openingStockCounted').value,
+                    source_type: document.getElementById('openingStockSourceType').value,
+                    supplier_id: document.getElementById('openingStockSupplier').value || null,
+                    source_reference: document.getElementById('openingStockDocument').value === '__manual__'
+                        ? document.getElementById('openingStockManualReference').value.trim()
+                        : document.getElementById('openingStockReference').value.trim(),
+                    supplier_batch_no: document.getElementById('openingStockLot').value.trim(),
+                    received_date: document.getElementById('openingStockReceivedDate').value,
+                    expiry_date: document.getElementById('openingStockExpiry').value || null,
+                    reason: document.getElementById('openingStockReason').value.trim(),
+                });
+                showToast(response.message || 'Sent for verification', 'success');
+                openingStockOptions = null;
+                document.getElementById('openingStockModal').close();
+                await loadIngredients();
+                const url = new URL(window.location.href);
+                url.searchParams.delete('record_unlisted');
+                url.searchParams.delete('counted');
+                history.replaceState({}, '', url);
+            } catch (error) {
+                showToast(error?.message || 'Could not submit found stock', 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = original;
+            }
+        }
+
+        function openSettingsModal(id, name, minStock, leadTime, reorderPoint, maxStock) {
+            // Try to get the unit from the detail modal context (best effort) — fall back to a sensible default
+            const unit = (() => {
+                const detailBody = document.getElementById('detailModalBody');
+                const m = detailBody && detailBody.textContent.match(/units|kg|g|ml|L|pcs|pack|bag|box|tin/i);
+                return m ? m[0] : '';
+            })();
+
+            document.getElementById('settingsMinUnit').textContent = unit;
+            document.getElementById('settingsReorderUnit').textContent = unit;
+            document.getElementById('settingsMaxUnit').textContent = unit;
+
+            document.getElementById('settingsIngredientId').value = id;
+            document.getElementById('settingsIngredientName').textContent = name;
+            document.getElementById('settingsMinStock').value = minStock;
+            document.getElementById('settingsLeadTime').value = leadTime;
+            document.getElementById('settingsReorderPoint').value = reorderPoint === 'null' || reorderPoint === null ? '' : reorderPoint;
+            document.getElementById('settingsMaxStock').value = maxStock === 'null' || maxStock === null ? '' : maxStock;
+
+            // Live "auto-calc" pill for reorder point (Min × 1.5)
+            const minInput = document.getElementById('settingsMinStock');
+            const reorderInput = document.getElementById('settingsReorderPoint');
+            const pill = document.getElementById('settingsReorderAuto');
+            const pillLabel = pill.querySelector('span');
+            const updatePill = () => {
+                const min = parseFloat(minInput.value);
+                if (isNaN(min) || min <= 0) { pill.style.display = 'none'; return; }
+                const computed = (min * 1.5).toFixed(2);
+                pillLabel.textContent = `Auto: ${computed} ${unit}`.trim();
+                if (reorderInput.value === '' || reorderInput.value === null) {
+                    pill.style.display = 'inline-flex';
+                } else {
+                    pill.style.display = 'none';
+                }
+            };
+            minInput.oninput = updatePill;
+            reorderInput.oninput = updatePill;
+            updatePill();
+
+            document.getElementById('detailModal').close();
+            document.getElementById('settingsModal').showModal();
+        }
+
+        async function submitSettings(e) {
+            e.preventDefault();
+            const id = document.getElementById('settingsIngredientId').value;
+            const minStock = document.getElementById('settingsMinStock').value;
+            const leadTime = document.getElementById('settingsLeadTime').value;
+            const reorderPoint = document.getElementById('settingsReorderPoint').value || null;
+            const maxStock = document.getElementById('settingsMaxStock').value || null;
+
+            const minimum = Number(minStock);
+            const reorder = reorderPoint === null ? minimum * 1.5 : Number(reorderPoint);
+            const maximum = maxStock === null ? null : Number(maxStock);
+            if (!Number.isFinite(minimum) || minimum < 0) {
+                showToast('Minimum stock must be zero or greater.', 'error');
+                document.getElementById('settingsMinStock').focus();
+                return;
+            }
+            if (reorderPoint !== null && (!Number.isFinite(reorder) || reorder <= 0 || reorder < minimum)) {
+                showToast('Reorder point must be at least the minimum stock level, or left blank for automatic calculation.', 'error');
+                document.getElementById('settingsReorderPoint').focus();
+                return;
+            }
+            if (maximum !== null && (!Number.isFinite(maximum) || maximum <= reorder)) {
+                showToast('Restocking target must be greater than the reorder point.', 'error');
+                document.getElementById('settingsMaxStock').focus();
+                return;
+            }
+
+            try {
+                const response = await api.put('/warehouse/raw/ingredients.php', {
+                    action: 'update_settings',
+                    ingredient_id: id,
+                    minimum_stock: minStock,
+                    lead_time_days: leadTime,
+                    reorder_point: reorderPoint,
+                    maximum_stock: maxStock
+                });
+
+                if (response.success) {
+                    showToast('Settings saved successfully', 'success');
+                    document.getElementById('settingsModal').close();
+                    loadIngredients();
+                } else {
+                    showToast(response.message || 'Failed to save settings', 'error');
+                }
+            } catch (e) {
+                console.error('Settings update error:', e);
+                showToast('Failed to save settings', 'error');
+            }
+        }
+
+        // Helpers
+        // V4.0 — daysUntil() now returns null when there's no expiry
+        // (non-perishables like Cellophane Wrap). Previously `new Date(null)`
+        // returned the Unix epoch and produced a huge negative day count,
+        // which made the UI label every null-expiry batch as "EXPIRED".
+        function formatDate(d) { return d ? new Date(d).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' }) : '-'; }
+        function daysUntil(d) {
+            if (!d) return null;
+            const date = new Date(d), today = new Date();
+            today.setHours(0, 0, 0, 0);
+            date.setHours(0, 0, 0, 0);
+            return Math.ceil((date - today) / 86400000);
+        }
+        function debounce(fn, wait) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); }; }
+        function openingStockReviewStep(request) {
+            if (String(request?.request_purpose || '') === 'stock_adjustment') {
+                return {
+                    label: 'GM decision',
+                    message: 'Warehouse sent this physical count directly to the GM. No Purchasing or QC step is required.',
+                    alertClass: 'alert-success',
+                    icon: 'fa-user-check',
+                    toastType: 'success'
+                };
+            }
+            const price = String(request?.price_status || 'pending');
+            const qc = String(request?.qc_status || 'pending');
+            if (!['matched_po', 'verified'].includes(price)) {
+                return {
+                    label: 'Purchasing check',
+                    message: 'Waiting for Purchasing to confirm the price.',
+                    alertClass: 'alert-warning',
+                    icon: 'fa-file-invoice-dollar',
+                    toastType: 'warning'
+                };
+            }
+            if (!['approved', 'not_required'].includes(qc)) {
+                return {
+                    label: 'QC check',
+                    message: 'The price is confirmed. Waiting for QC to check the lot and expiry.',
+                    alertClass: 'alert-info',
+                    icon: 'fa-shield-heart',
+                    toastType: 'info'
+                };
+            }
+            return {
+                label: 'Ready for GM',
+                message: 'Purchasing and QC are finished. It is now ready in GM → Pending Approvals → Unrecorded Delivery.',
+                alertClass: 'alert-success',
+                icon: 'fa-user-check',
+                toastType: 'success'
+            };
+        }
+
+        function showToast(msg, type = 'info', duration = 3000) {
+            const c = document.getElementById('toastContainer');
+            const cls = { success: 'alert-success', error: 'alert-error', warning: 'alert-warning', info: 'alert-info' }[type];
+            const message = String(msg || 'Something went wrong');
+            const duplicate = Array.from(c.children).find(el => el.dataset.toastMessage === message);
+            if (duplicate) return;
+            const t = document.createElement('div');
+            t.className = `alert ${cls} shadow-lg`;
+            t.dataset.toastMessage = message;
+            const span = document.createElement('span');
+            span.textContent = message;
+            t.appendChild(span);
+            c.appendChild(t);
+            setTimeout(() => t.remove(), duration);
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Sales Custodian | Highland Fresh</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+        .stat-value { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+        .money { font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+        @media (min-width: 1024px) { .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+        .kpi-cell { padding: 1rem 1.25rem; border-right: 1px solid oklch(var(--bc) / 0.08); border-bottom: 1px solid oklch(var(--bc) / 0.08); }
+        @media (min-width: 1024px) {
+            .kpi-cell { border-bottom: 0; }
+            .kpi-cell:last-child { border-right: 0; }
+        }
+        @media (max-width: 1023px) {
+            .kpi-cell:nth-child(2n) { border-right: 0; }
+            .kpi-cell:nth-last-child(-n+2) { border-bottom: 0; }
+        }
+        .kpi-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: oklch(var(--bc) / 0.5); }
+        .kpi-value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; margin-top: 0.25rem; }
+        .kpi-meta { font-size: 0.75rem; color: oklch(var(--bc) / 0.55); margin-top: 0.2rem; }
+        .section-title { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: oklch(var(--bc) / 0.5); }
+        .pipeline-row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid oklch(var(--bc) / 0.06); }
+        .pipeline-row:last-child { border-bottom: 0; }
+        .aging-row { display: grid; grid-template-columns: 4.5rem 1fr auto; gap: 0.75rem; align-items: center; padding: 0.4rem 0; }
+        .dash-table thead th {
+            font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em;
+            font-weight: 600; color: oklch(var(--bc) / 0.5); background: transparent;
+            border-bottom: 1px solid oklch(var(--bc) / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <!-- Canonical Sales navigation is mounted by js/sales/sidebar.js. -->
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6 min-h-14">
+            <div class="flex-none lg:hidden">
+                <button type="button" class="btn btn-ghost btn-square btn-sm" onclick="toggleSidebar()" aria-label="Menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <div class="flex-1 min-w-0">
+                <h1 class="text-base lg:text-lg font-bold">Dashboard</h1>
+                <p class="text-xs text-base-content/50 truncate" id="currentDate"></p>
+            </div>
+            <div class="flex-none flex items-center gap-1.5">
+                <a href="orders.html?status=pending" class="btn btn-ghost btn-sm hidden sm:inline-flex gap-1.5">
+                    Pending <span class="badge badge-sm badge-ghost" id="headerPendingHint">0</span>
+                </a>
+                <a href="order_inbox.html" class="btn btn-primary btn-sm gap-1.5">
+                    <i class="fas fa-inbox text-xs"></i> Customer PO Inbox
+                </a>
+                <label class="swap swap-rotate btn btn-ghost btn-sm btn-square" title="Theme">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-sm"></i>
+                    <i class="fas fa-moon swap-on text-sm"></i>
+                </label>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6 space-y-4 max-w-7xl w-full mx-auto">
+
+            <!-- Primary KPIs (single surface) -->
+            <section class="card bg-base-100 border border-base-300 overflow-hidden">
+                <div class="kpi-grid">
+                    <div class="kpi-cell">
+                        <p class="kpi-label">Today’s sales</p>
+                        <p class="kpi-value money text-base-content" id="todaySales">₱0.00</p>
+                        <p class="kpi-meta"><span id="todayOrderCount">0</span> orders today</p>
+                    </div>
+                    <div class="kpi-cell">
+                        <p class="kpi-label">Receivables</p>
+                        <p class="kpi-value money text-base-content" id="totalReceivables">₱0.00</p>
+                        <p class="kpi-meta"><span id="receivablesCount">0</span> accounts</p>
+                    </div>
+                    <div class="kpi-cell">
+                        <p class="kpi-label">Overdue</p>
+                        <p class="kpi-value money text-error" id="overdueAmount">₱0.00</p>
+                        <p class="kpi-meta"><span id="overdueCount" class="text-error/80">0</span> accounts · <a href="collections.html" class="link link-hover">Collect</a></p>
+                    </div>
+                    <div class="kpi-cell">
+                        <p class="kpi-label">Pending orders</p>
+                        <p class="kpi-value text-base-content" id="pendingOrders">0</p>
+                        <p class="kpi-meta"><a href="orders.html?status=pending" class="link link-hover">Review queue</a></p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Work row: orders + side metrics -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+
+                <!-- Recent orders (primary work surface) -->
+                <section class="card bg-base-100 border border-base-300 xl:col-span-2">
+                    <div class="card-body p-4 gap-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <h2 class="section-title m-0">Recent orders</h2>
+                            <a href="orders.html" class="btn btn-ghost btn-xs">All orders</a>
+                        </div>
+                        <div class="overflow-x-auto -mx-1">
+                            <table class="table table-sm dash-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order</th>
+                                        <th>Customer</th>
+                                        <th class="text-right">Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentOrdersTable">
+                                    <tr>
+                                        <td colspan="4" class="text-center py-10">
+                                            <span class="loading loading-spinner loading-sm text-primary"></span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Side: pipeline + aging -->
+                <div class="space-y-4">
+                    <section class="card bg-base-100 border border-base-300">
+                        <div class="card-body p-4 gap-1">
+                            <div class="flex items-center justify-between mb-1">
+                                <h2 class="section-title m-0">Pipeline</h2>
+                                <a href="orders.html" class="btn btn-ghost btn-xs">Open</a>
+                            </div>
+                            <div class="pipeline-row"><span class="text-sm text-base-content/70">Draft</span><span class="font-semibold stat-value text-sm" id="pipelineDraft">0</span></div>
+                            <div class="pipeline-row"><span class="text-sm text-base-content/70">Pending</span><span class="font-semibold stat-value text-sm" id="pipelinePending">0</span></div>
+                            <div class="pipeline-row"><span class="text-sm text-base-content/70">Approved</span><span class="font-semibold stat-value text-sm" id="pipelineApproved">0</span></div>
+                            <div class="pipeline-row"><span class="text-sm text-base-content/70">Preparing</span><span class="font-semibold stat-value text-sm" id="pipelinePreparing">0</span></div>
+                            <div class="pipeline-row"><span class="text-sm text-base-content/70">Dispatched</span><span class="font-semibold stat-value text-sm" id="pipelineDispatched">0</span></div>
+                            <div class="pipeline-row"><span class="text-sm text-base-content/70">Delivered</span><span class="font-semibold stat-value text-sm" id="pipelineDelivered">0</span></div>
+                        </div>
+                    </section>
+
+                    <section class="card bg-base-100 border border-base-300">
+                        <div class="card-body p-4 gap-2">
+                            <div class="flex items-center justify-between">
+                                <h2 class="section-title m-0">Receivables aging</h2>
+                                <a href="aging.html" class="btn btn-ghost btn-xs">Report</a>
+                            </div>
+                            <div class="flex h-2 rounded-full overflow-hidden bg-base-200 mb-1">
+                                <div class="bg-base-content/30 h-full" id="agingBar030" style="width: 25%"></div>
+                                <div class="bg-base-content/45 h-full" id="agingBar3160" style="width: 25%"></div>
+                                <div class="bg-base-content/60 h-full" id="agingBar6190" style="width: 25%"></div>
+                                <div class="bg-error h-full" id="agingBar91plus" style="width: 25%"></div>
+                            </div>
+                            <div class="aging-row">
+                                <span class="text-xs text-base-content/50">0–30d</span>
+                                <span class="text-xs text-base-content/45"><span id="aging030Count">0</span> accts</span>
+                                <span class="text-sm font-semibold money" id="aging030">₱0.00</span>
+                            </div>
+                            <div class="aging-row">
+                                <span class="text-xs text-base-content/50">31–60d</span>
+                                <span class="text-xs text-base-content/45"><span id="aging3160Count">0</span> accts</span>
+                                <span class="text-sm font-semibold money" id="aging3160">₱0.00</span>
+                            </div>
+                            <div class="aging-row">
+                                <span class="text-xs text-base-content/50">61–90d</span>
+                                <span class="text-xs text-base-content/45"><span id="aging6190Count">0</span> accts</span>
+                                <span class="text-sm font-semibold money" id="aging6190">₱0.00</span>
+                            </div>
+                            <div class="aging-row">
+                                <span class="text-xs text-error/80">91d+</span>
+                                <span class="text-xs text-base-content/45"><span id="aging91plusCount">0</span> accts</span>
+                                <span class="text-sm font-semibold money text-error" id="aging91plus">₱0.00</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Top balances -->
+            <section class="card bg-base-100 border border-base-300">
+                <div class="card-body p-4 gap-3">
+                    <div class="flex items-center justify-between gap-2">
+                        <h2 class="section-title m-0">Highest outstanding balances</h2>
+                        <a href="aging.html" class="btn btn-ghost btn-xs">Aging report</a>
+                    </div>
+                    <div id="topCustomersContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+                        <div class="flex items-center justify-center py-8 col-span-full">
+                            <span class="loading loading-spinner loading-sm text-primary"></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recalls (secondary; still actionable) -->
+            <section id="recallNotificationsSection" class="card bg-base-100 border border-base-300">
+                <div class="card-body p-4 gap-3">
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <h2 class="section-title m-0">Recall notifications</h2>
+                            <span class="badge badge-ghost badge-sm" id="recallsCountBadge">0</span>
+                        </div>
+                        <p class="text-xs text-base-content/50 m-0">Mark contacted after you call or email each location</p>
+                    </div>
+                    <div id="recallNotificationsList" class="space-y-3 max-h-80 overflow-y-auto scrollbar-thin">
+                        <div class="text-center py-6 text-base-content/40 text-sm">
+                            <span class="loading loading-spinner loading-sm"></span>
+                            <p class="mt-2">Loading…</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer footer-center p-3 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-xs text-base-content/50">(c) 2026 Highland Fresh Dairy</p>
+        </footer>
+    </div>
+    
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+    
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="sales_custodian,general_manager"></script>
+    <script src="../../js/sales/sidebar.js?v=20260828-salesnav1"></script>
+    <script src="../../js/sales/sales.service.js"></script>
+    
+    <script>
+        
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            const text = document.createElement('span');
+            text.textContent = String(message ?? '');
+            toast.appendChild(text);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, char => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[char]));
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-PH', { 
+                style: 'currency', 
+                currency: 'PHP' 
+            }).format(amount || 0);
+        }
+        
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-PH', {
+                month: 'short', day: 'numeric', year: 'numeric'
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    const first = user.first_name || '';
+                    const last = user.last_name || '';
+                    document.getElementById('sidebarUserName').textContent =
+                        `${first} ${last}`.trim() || user.username || 'Sales Custodian';
+                    document.getElementById('userInitials').textContent =
+                        ((first[0] || '') + (last[0] || '')).toUpperCase() || 'SC';
+                }
+                
+                document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-PH', {
+                    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
+                });
+                
+                await loadDashboardData();
+                await loadActiveRecalls();
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize dashboard', 'error');
+            }
+        });
+        
+        async function loadDashboardData() {
+            try {
+                // Load dashboard stats
+                const [statsRes, ordersRes, agingRes] = await Promise.all([
+                    SalesService.getDashboardStats(),
+                    SalesService.getRecentOrders(10),
+                    SalesService.getAgingSummary()
+                ]);
+                
+                // Update stats cards
+                const stats = statsRes.data || {};
+                document.getElementById('todaySales').textContent = formatCurrency(stats.today_credit_sales);
+                document.getElementById('todayOrderCount').textContent = stats.today_order_count || 0;
+                document.getElementById('totalReceivables').textContent = formatCurrency(stats.total_receivables);
+                document.getElementById('receivablesCount').textContent = stats.receivables_count || 0;
+                document.getElementById('overdueAmount').textContent = formatCurrency(stats.overdue_amount);
+                document.getElementById('overdueCount').textContent = stats.overdue_count || 0;
+                document.getElementById('pendingOrders').textContent = stats.pending_orders || 0;
+                const pendingN = stats.pending_orders || 0;
+                SalesSidebar.setBadge('pendingOrdersBadge', pendingN);
+                const headerPending = document.getElementById('headerPendingHint');
+                if (headerPending) headerPending.textContent = pendingN;
+                
+                // Update order pipeline
+                const pipeline = stats.pipeline || {};
+                document.getElementById('pipelineDraft').textContent = pipeline.draft || 0;
+                document.getElementById('pipelinePending').textContent = pipeline.pending || 0;
+                document.getElementById('pipelineApproved').textContent = pipeline.approved || 0;
+                document.getElementById('pipelinePreparing').textContent = pipeline.preparing || 0;
+                document.getElementById('pipelineDispatched').textContent = pipeline.dispatched || 0;
+                document.getElementById('pipelineDelivered').textContent = pipeline.delivered || 0;
+                
+                // Update aging summary
+                const aging = agingRes.data || {};
+                document.getElementById('aging030').textContent = formatCurrency(aging.bucket_0_30);
+                document.getElementById('aging030Count').textContent = aging.bucket_0_30_count || 0;
+                document.getElementById('aging3160').textContent = formatCurrency(aging.bucket_31_60);
+                document.getElementById('aging3160Count').textContent = aging.bucket_31_60_count || 0;
+                document.getElementById('aging6190').textContent = formatCurrency(aging.bucket_61_90);
+                document.getElementById('aging6190Count').textContent = aging.bucket_61_90_count || 0;
+                document.getElementById('aging91plus').textContent = formatCurrency(aging.bucket_91_plus);
+                document.getElementById('aging91plusCount').textContent = aging.bucket_91_plus_count || 0;
+                
+                // Update aging bar chart
+                const totalAging = (aging.bucket_0_30 || 0) + (aging.bucket_31_60 || 0) + 
+                                   (aging.bucket_61_90 || 0) + (aging.bucket_91_plus || 0);
+                if (totalAging > 0) {
+                    document.getElementById('agingBar030').style.width = ((aging.bucket_0_30 || 0) / totalAging * 100) + '%';
+                    document.getElementById('agingBar3160').style.width = ((aging.bucket_31_60 || 0) / totalAging * 100) + '%';
+                    document.getElementById('agingBar6190').style.width = ((aging.bucket_61_90 || 0) / totalAging * 100) + '%';
+                    document.getElementById('agingBar91plus').style.width = ((aging.bucket_91_plus || 0) / totalAging * 100) + '%';
+                }
+                
+                // Render recent orders
+                renderRecentOrders(ordersRes.data || []);
+                
+                // Use the same customer-aging result for both widgets. This
+                // avoids a duplicate request and guarantees matching balances.
+                const topCustomers = [...(aging.customers || [])]
+                    .filter(customer => Number(customer.total || 0) > 0)
+                    .sort((a, b) => Number(b.total || 0) - Number(a.total || 0))
+                    .slice(0, 5)
+                    .map(customer => ({
+                        id: Number(customer.id),
+                        name: customer.customer_name,
+                        customer_type: customer.customer_type,
+                        outstanding_balance: Number(customer.total || 0),
+                        days_overdue: customer.over_90 > 0 ? 91
+                            : customer.days_61_90 > 0 ? 61
+                                : customer.days_31_60 > 0 ? 31
+                                    : customer.days_1_30 > 0 ? 1 : 0
+                    }));
+                renderTopCustomers(topCustomers);
+                
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+                showToast('Failed to load dashboard data', 'error');
+            }
+        }
+        
+        function renderRecentOrders(orders) {
+            const tbody = document.getElementById('recentOrdersTable');
+            
+            if (!orders || orders.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-base-content/60">No recent orders</td></tr>`;
+                return;
+            }
+            
+            const statusBadges = {
+                'draft': 'badge-ghost',
+                'pending': 'badge-warning',
+                'approved': 'badge-info',
+                'preparing': 'badge-primary',
+                'dispatched': 'badge-accent',
+                'delivered': 'badge-success',
+                'cancelled': 'badge-error'
+            };
+            
+            tbody.innerHTML = orders.slice(0, 8).map(order => {
+                const orderId = Number.parseInt(order.id, 10);
+                const status = String(order.status || 'draft');
+                return `
+                <tr class="hover:bg-base-200/50 cursor-pointer" onclick="openRecentOrder(${Number.isFinite(orderId) ? orderId : 0})">
+                    <td class="font-mono text-xs font-semibold text-primary">${escapeHtml(order.order_number || `ORD-${orderId}`)}</td>
+                    <td>
+                        <div class="text-sm font-medium leading-tight">${escapeHtml(order.customer_name || 'Unknown')}</div>
+                        <div class="text-[11px] text-base-content/45">${formatDate(order.created_at)}</div>
+                    </td>
+                    <td class="text-right money text-sm font-semibold">${formatCurrency(order.total_amount)}</td>
+                    <td><span class="badge ${statusBadges[status] || 'badge-ghost'} badge-sm badge-outline">${escapeHtml(status)}</span></td>
+                </tr>
+            `;
+            }).join('');
+        }
+
+        function openRecentOrder(orderId) {
+            if (Number.isInteger(orderId) && orderId > 0) {
+                window.location.href = `orders.html?id=${orderId}`;
+            }
+        }
+        
+        function renderTopCustomers(customers) {
+            const container = document.getElementById('topCustomersContainer');
+            
+            if (!customers || customers.length === 0) {
+                container.innerHTML = `<p class="text-center py-6 text-sm text-base-content/50 col-span-full">No outstanding balances</p>`;
+                return;
+            }
+            
+            container.innerHTML = customers.map((c, i) => {
+                const customerId = Number.parseInt(c.id, 10);
+                const daysOverdue = Number(c.days_overdue || 0);
+                return `
+                <button type="button" class="text-left rounded-lg border border-base-300 p-3 hover:border-base-content/20 transition-colors"
+                     onclick="window.location.href='customers.html?id=${Number.isFinite(customerId) ? customerId : 0}'">
+                    <div class="flex items-start justify-between gap-2 mb-1">
+                        <span class="text-[11px] font-semibold text-base-content/40">#${i + 1}</span>
+                        ${daysOverdue > 0 ? `<span class="text-[10px] font-medium text-error">${daysOverdue}d overdue</span>` : ''}
+                    </div>
+                    <p class="font-medium text-sm truncate" title="${escapeHtml(c.name || '')}">${escapeHtml(c.name || 'Customer')}</p>
+                    <p class="text-[11px] text-base-content/45 truncate mb-2">${escapeHtml(c.customer_type || 'Customer')}</p>
+                    <p class="text-sm font-bold money ${daysOverdue > 0 ? 'text-error' : ''}">${formatCurrency(c.outstanding_balance)}</p>
+                </button>
+            `;
+            }).join('');
+        }
+        
+        // ==================== RECALL NOTIFICATION FUNCTIONS ====================
+        const RECALL_API = '../../api/qc/recalls.php';
+        
+        function scrollToRecalls() {
+            document.getElementById('recallNotificationsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        const classLabels = {
+            class_i: { label: 'Class I', badge: 'badge-error', icon: 'skull-crossbones', desc: 'Dangerous' },
+            class_ii: { label: 'Class II', badge: 'badge-warning', icon: 'exclamation-triangle', desc: 'May Cause Harm' },
+            class_iii: { label: 'Class III', badge: 'badge-info', icon: 'info-circle', desc: 'Unlikely Harm' }
+        };
+        
+        async function loadActiveRecalls() {
+            try {
+                const response = await api.get('/qc/recalls.php', {
+                    params: { action: 'active' }
+                });
+                
+                if (response.success) {
+                    const recalls = response.data || [];
+                    // Filter to only show recalls with pending notifications
+                    const recallsWithPendingNotifications = recalls.filter(r => 
+                        ['approved', 'in_progress'].includes(r.status)
+                    );
+                    
+                    // Count pending notifications
+                    let pendingCount = 0;
+                    for (const recall of recallsWithPendingNotifications) {
+                        const detailRes = await api.get('/qc/recalls.php', { params: { id: recall.id } });
+                        if (detailRes.success && detailRes.data.affected_locations) {
+                            recall.affected_locations = detailRes.data.affected_locations;
+                            pendingCount += recall.affected_locations.filter(l => !l.notification_sent).length;
+                        }
+                    }
+                    
+                    renderRecallNotifications(recallsWithPendingNotifications);
+                    document.getElementById('recallsCountBadge').textContent = pendingCount;
+                }
+            } catch (error) {
+                console.error('Error loading recalls:', error);
+                document.getElementById('recallNotificationsList').innerHTML = `
+                    <div class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-2xl mb-2"></i>
+                        <p>Failed to load recalls</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function renderRecallNotifications(recalls) {
+            const container = document.getElementById('recallNotificationsList');
+            
+            if (!recalls.length) {
+                container.innerHTML = `
+                    <div class="text-center py-6 text-sm text-base-content/50">
+                        No pending recall notifications
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = recalls.map(r => {
+                const cls = classLabels[r.recall_class] || { label: r.recall_class, badge: 'badge-ghost', icon: 'exclamation-triangle' };
+                const pendingLocations = (r.affected_locations || []).filter(l => !l.notification_sent);
+                const notifiedLocations = (r.affected_locations || []).filter(l => l.notification_sent);
+                
+                if (pendingLocations.length === 0) return '';
+                
+                return `
+                    <div class="rounded-lg border border-base-300 p-3">
+                        <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+                            <div class="min-w-0">
+                                <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                                    <span class="badge ${cls.badge} badge-sm">${cls.label}</span>
+                                    <code class="text-xs font-mono">${escapeHtml(r.recall_code)}</code>
+                                </div>
+                                <p class="font-semibold text-sm">${escapeHtml(r.product_name)}</p>
+                                <p class="text-xs text-base-content/50">Batch ${r.batch_code} · ${r.total_dispatched} units · ${notifiedLocations.length} notified</p>
+                            </div>
+                            <span class="badge badge-ghost badge-sm">${pendingLocations.length} to contact</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            ${pendingLocations.map(l => `
+                                <div class="flex flex-wrap items-center justify-between gap-2 py-2 px-2 rounded-md bg-base-200/60">
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium truncate">${escapeHtml(l.location_name)}</p>
+                                        <p class="text-[11px] text-base-content/50">${Number(l.units_dispatched) || 0} units${l.location_address ? ' · ' + escapeHtml(l.location_address) : ''}</p>
+                                    </div>
+                                    <div class="flex gap-1 shrink-0">
+                                        <button type="button" class="btn btn-xs btn-ghost" onclick="sendRecallNotification(${r.id}, ${l.id}, 'phone')">
+                                            <i class="fas fa-phone"></i> Called
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-ghost" onclick="sendRecallNotification(${r.id}, ${l.id}, 'email')">
+                                            <i class="fas fa-envelope"></i> Emailed
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function sendRecallNotification(recallId, locationId, method) {
+            try {
+                const response = await api.put(`/qc/recalls.php`, {
+                    id: recallId,
+                    action: 'send_notification',
+                    affected_location_id: locationId,
+                    notification_method: method
+                });
+                
+                if (response.success) {
+                    showToast(`Notification marked as sent (${method})`, 'success');
+                    await loadActiveRecalls();
+                } else {
+                    showToast(response.message || 'Failed to mark notification', 'error');
+                }
+            } catch (error) {
+                console.error('Error sending notification:', error);
+                showToast(error.message || 'Error sending notification', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

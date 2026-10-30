@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Old PRS History - Warehouse Raw | Highland Fresh</title>
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body{font-family:'Inter',sans-serif}
+        .sidebar-transition{transition:transform .3s cubic-bezier(.4,0,.2,1)}
+        .scrollbar-thin::-webkit-scrollbar{width:6px;height:6px}
+        .scrollbar-thin::-webkit-scrollbar-track{background:oklch(var(--b2))}
+        .scrollbar-thin::-webkit-scrollbar-thumb{background:oklch(var(--bc)/0.2);border-radius:3px}
+        .stat-value{font-variant-numeric:tabular-nums}
+        .money{font-variant-numeric:tabular-nums;white-space:nowrap}
+        .pr-table thead th{
+            position:sticky;top:0;z-index:1;
+            background:oklch(var(--b1));
+            box-shadow:0 1px 0 oklch(var(--bc)/0.08);
+            font-size:11px;text-transform:uppercase;letter-spacing:.04em;
+            color:oklch(var(--bc)/0.55);font-weight:600;
+        }
+        .pr-table tbody tr.pr-row{cursor:pointer}
+        .pr-table tbody tr.pr-row:hover{background:oklch(var(--b2)/0.55)}
+        .pr-table tbody tr.pr-row.is-expanded{background:oklch(var(--p)/0.06)}
+        .pr-expand-row td{background:oklch(var(--b2)/0.45);padding:0 !important}
+        .filter-chip{transition:background-color .15s,color .15s,border-color .15s}
+        .filter-chip.is-active{background:oklch(var(--p));color:oklch(var(--pc));border-color:transparent}
+        [data-stat-filter]{cursor:pointer;text-align:left}
+        [data-stat-filter].is-active{border-color:oklch(var(--p));box-shadow:0 0 0 2px oklch(var(--p)/0.22)}
+        .pr-document{border:1px solid oklch(var(--bc)/0.35);background:#fff}
+        .pr-document-header{border-bottom:2px solid oklch(var(--bc)/0.85)}
+        .pr-field{border:1px solid oklch(var(--bc)/0.16);background:oklch(var(--b1))}
+        .pr-item-header,.pr-item-row{display:grid;grid-template-columns:44px minmax(200px,1.45fr) minmax(250px,1.8fr) 112px 92px 118px minmax(160px,1.1fr) minmax(160px,1.1fr);gap:0}
+        .pr-item-header>div{background:oklch(var(--b2));font-size:11px;font-weight:700;text-transform:uppercase;color:oklch(var(--bc)/0.68);border:1px solid oklch(var(--bc)/0.18);padding:8px}
+        .pr-item-row>div{border:1px solid oklch(var(--bc)/0.12);padding:8px;background:oklch(var(--b1))}
+        .reorder-card{border:1px solid oklch(var(--bc)/0.18);background:oklch(var(--b1));border-radius:12px;padding:10px;transition:all .15s ease}
+        .reorder-card.selected{border-color:oklch(var(--p));background:oklch(var(--p)/0.06)}
+        .stock-pill{font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px}
+        .stock-out{background:oklch(var(--er)/0.15);color:oklch(var(--er))}
+        .stock-low{background:oklch(var(--wa)/0.2);color:oklch(var(--wa))}
+        .stock-ok{background:oklch(var(--su)/0.2);color:oklch(var(--su))}
+        details.reorder-panel>summary{list-style:none;cursor:pointer}
+        details.reorder-panel>summary::-webkit-details-marker{display:none}
+        @media(max-width:900px){.pr-item-header{display:none}.pr-item-row{display:block;border:1px solid oklch(var(--bc)/0.16);border-radius:8px;overflow:hidden}.pr-item-row>div{border-width:0 0 1px 0}}
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <!-- Populated by js/warehouse/raw-sidebar.js -->
+    </aside>
+
+<!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden"><button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button></div>
+            <div class="flex-1"><h1 class="text-lg lg:text-xl font-bold">Old PRS History</h1></div>
+            <div class="flex-none flex items-center gap-2">
+                <a class="btn btn-primary btn-sm gap-2" href="reorder_alerts.html"><i class="fas fa-clipboard-check"></i><span class="hidden sm:inline">Validate Low Stock</span></a>
+                <button class="btn btn-ghost btn-sm" onclick="loadPRs()"><i class="fas fa-sync-alt"></i></button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6 space-y-4">
+
+            <!-- Status counts (click to filter table) -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                <button type="button" data-stat-filter="draft" onclick="applyStatFilter('draft')" class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-3 gap-0"><p class="text-2xl font-bold stat-value" id="statDraft">0</p><p class="text-xs text-base-content/60">Draft</p></div>
+                </button>
+                <button type="button" data-stat-filter="pending" onclick="applyStatFilter('pending')" class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-3 gap-0"><p class="text-2xl font-bold stat-value text-warning" id="statPending">0</p><p class="text-xs text-base-content/60">Purchaser Inbox</p></div>
+                </button>
+                <button type="button" data-stat-filter="approved" onclick="applyStatFilter('approved')" class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-3 gap-0"><p class="text-2xl font-bold stat-value text-success" id="statApproved">0</p><p class="text-xs text-base-content/60">Legacy Approved</p></div>
+                </button>
+                <button type="button" data-stat-filter="rejected" onclick="applyStatFilter('rejected')" class="card bg-base-100 border border-base-300">
+                    <div class="card-body p-3 gap-0"><p class="text-2xl font-bold stat-value text-error" id="statRejected">0</p><p class="text-xs text-base-content/60">Rejected</p></div>
+                </button>
+                <button type="button" data-stat-filter="converted" onclick="applyStatFilter('converted')" class="card bg-base-100 border border-base-300 col-span-2 sm:col-span-1">
+                    <div class="card-body p-3 gap-0"><p class="text-2xl font-bold stat-value text-info" id="statConverted">0</p><p class="text-xs text-base-content/60">Converted</p></div>
+                </button>
+            </div>
+
+            <!-- Compact PR table (primary work surface) -->
+            <div class="card bg-base-100 border border-base-300">
+                <div class="card-body p-3 sm:p-4 gap-3">
+                    <div class="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3">
+                        <label class="input input-bordered input-sm flex items-center gap-2 flex-1 min-w-0">
+                            <i class="fas fa-search text-base-content/40"></i>
+                            <input type="search" id="prSearch" class="grow" placeholder="Search PR#, purpose..." oninput="onPRSearch()" autocomplete="off">
+                        </label>
+                        <div class="flex flex-wrap gap-1.5" id="statusTabs" role="tablist" aria-label="Filter by status">
+                            <button type="button" class="filter-chip btn btn-xs rounded-full border border-base-300" data-status="pending">Purchaser Inbox</button>
+                            <button type="button" class="filter-chip btn btn-xs rounded-full border border-base-300" data-status="draft">Draft</button>
+                            <button type="button" class="filter-chip btn btn-xs rounded-full border border-base-300" data-status="approved">Legacy Approved</button>
+                            <button type="button" class="filter-chip btn btn-xs rounded-full border border-base-300" data-status="rejected">Rejected</button>
+                            <button type="button" class="filter-chip btn btn-xs rounded-full border border-base-300" data-status="converted">Converted</button>
+                            <button type="button" class="filter-chip btn btn-xs rounded-full border border-base-300" data-status="">All</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-base-content/50 px-0.5">
+                        <span id="prListInfo">0 requests</span>
+                        <span class="hidden sm:inline">Click a row for details · expand for line items</span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[58vh] scrollbar-thin border-t border-base-200">
+                    <table class="table table-sm pr-table">
+                        <thead>
+                            <tr>
+                                <th class="w-8"></th>
+                                <th>PRS #</th>
+                                <th>Status</th>
+                                <th>Priority</th>
+                                <th>Purpose</th>
+                                <th class="text-center">Items</th>
+                                <th class="text-right">Est. total</th>
+                                <th>Needed</th>
+                                <th>Created</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prTableBody">
+                            <tr><td colspan="10" class="text-center py-12">
+                                <span class="loading loading-spinner loading-md text-primary"></span>
+                                <p class="text-sm text-base-content/60 mt-2">Loading purchase requests...</p>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reorder tools (collapsed by default — secondary workflow) -->
+            <details id="reorderWorkbench" class="hidden reorder-panel card bg-base-100 border border-base-300">
+                <summary class="card-body p-3 sm:p-4 flex-row items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-9 h-9 rounded-xl bg-warning/10 text-warning flex items-center justify-center shrink-0">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="min-w-0 text-left">
+                            <p class="font-semibold text-sm">Build PR from low stock</p>
+                            <p class="text-xs text-base-content/50 truncate">Optional · select items below reorder point</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0 text-xs text-base-content/60">
+                        <span><span id="reorderOutCount" class="font-bold text-error">0</span> out</span>
+                        <span><span id="reorderLowCount" class="font-bold text-warning">0</span> low</span>
+                        <i class="fas fa-chevron-down text-base-content/40"></i>
+                    </div>
+                </summary>
+                <div class="card-body pt-0 px-3 sm:px-4 pb-4 border-t border-base-200">
+                    <div class="flex flex-wrap items-center gap-2 mt-3 mb-3">
+                        <div class="join">
+                            <button type="button" class="btn btn-sm join-item btn-primary" data-reorder-status="needs" onclick="setReorderStatus('needs')">Needs reorder</button>
+                            <button type="button" class="btn btn-sm join-item" data-reorder-status="out" onclick="setReorderStatus('out')">Out</button>
+                            <button type="button" class="btn btn-sm join-item" data-reorder-status="low" onclick="setReorderStatus('low')">Low</button>
+                            <button type="button" class="btn btn-sm join-item" data-reorder-status="all" onclick="setReorderStatus('all')">All</button>
+                        </div>
+                        <label class="input input-bordered input-sm flex items-center gap-2">
+                            <i class="fas fa-search text-base-content/40"></i>
+                            <input type="text" class="grow" id="reorderSearch" placeholder="Search item..." oninput="updateReorderSearch(this.value)">
+                        </label>
+                        <select class="select select-bordered select-sm" id="reorderType" onchange="updateReorderType(this.value)">
+                            <option value="all">All types</option>
+                            <option value="ingredient">Ingredients</option>
+                            <option value="mro">MRO</option>
+                        </select>
+                        <button type="button" class="btn btn-outline btn-sm ml-auto" onclick="selectAllVisibleReorderItems()"><i class="fas fa-check-double"></i> Select visible</button>
+                        <button type="button" id="createSelectedPrBtn" class="btn btn-primary btn-sm" data-pr-create onclick="openCreateModalFromSelection()" disabled><i class="fas fa-file-circle-plus"></i> Create one PRS</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="clearReorderSelection()">Clear</button>
+                    </div>
+                    <div id="reorderList" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2"></div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 mt-2 text-xs text-base-content/50">
+                        <span id="reorderInfo">Showing 0 items</span>
+                        <button type="button" class="btn btn-ghost btn-xs" onclick="showMoreReorder()">Show more</button>
+                    </div>
+                    <span id="reorderOkCount" class="hidden">0</span>
+                </div>
+            </details>
+        </main>
+    </div>
+
+    <!-- Create PR Modal -->
+    <dialog id="createModal" class="modal">
+        <div class="modal-box max-w-6xl max-h-[92vh]">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button></form>
+            <div class="pr-document rounded-lg p-5">
+                <div class="pr-document-header flex flex-col md:flex-row md:items-start justify-between gap-4 pb-4 mb-4">
+                    <div class="flex items-center gap-4">
+                        <img src="../../../highland_fresh_logo.png" alt="Highland Fresh Logo" class="w-16 h-16 object-contain">
+                        <div>
+                            <h3 class="font-extrabold text-xl">Highland Fresh Dairy</h3>
+                            <p class="text-sm text-base-content/70">Purchase Request Slip (PRS)</p>
+                            <p class="text-xs text-base-content/60">Warehouse Raw Department</p>
+                        </div>
+                    </div>
+                    <div class="text-left md:text-right">
+                        <p class="text-xs uppercase font-semibold text-base-content/50">Document No.</p>
+                        <p class="font-mono font-bold text-primary" id="createPrNumber">Generating...</p>
+                        <p class="text-xs text-base-content/60">Status: Draft</p>
+                    </div>
+                </div>
+                <div class="alert alert-info py-2 text-sm mb-4">
+                    <i class="fas fa-info-circle"></i>
+                    <span>This PR is an internal wishlist only. Supplier selection is done later in the Purchase Order module.</span>
+                </div>
+                <div class="alert alert-warning py-2 text-sm mb-4">
+                    <i class="fas fa-clipboard-check"></i>
+                    <span>Count each item on the shelf before submitting. If the shelf count is lower than the saved balance, explain the difference; the correction and explanation will stay with this PRS.</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div class="pr-field rounded-lg p-3">
+                        <p class="text-xs text-base-content/60">Prepared By</p>
+                        <p class="font-semibold" id="createPreparedBy">Warehouse Staff</p>
+                    </div>
+                    <div class="pr-field rounded-lg p-3">
+                        <p class="text-xs text-base-content/60">Document Date</p>
+                        <p class="font-semibold" id="createDocumentDate">-</p>
+                    </div>
+                </div>
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Priority</span></label>
+                        <select id="prPriority" class="select select-bordered w-full">
+                            <option value="normal">Normal</option>
+                            <option value="low">Low</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Needed By</span></label>
+                        <input type="date" id="prNeededBy" class="input input-bordered w-full">
+                    </div>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Purpose / Reason *</span></label>
+                    <select id="prPurpose" class="select select-bordered w-full" onchange="syncPRPurposeToLines()">
+                        <option value="">Select reason...</option>
+                        <option value="Stock below reorder point">Stock below reorder point</option>
+                        <option value="Production forecast requirement">Production forecast requirement</option>
+                        <option value="Safety stock replenishment">Safety stock replenishment</option>
+                        <option value="Emergency replacement">Emergency replacement</option>
+                        <option value="Approved operating need">Approved operating need</option>
+                    </select>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Document Notes</span></label>
+                    <textarea id="prNotes" class="textarea textarea-bordered w-full" rows="2" placeholder="Internal notes only. Do not enter supplier details."></textarea>
+                </div>
+
+                <!-- Items -->
+                <div class="flex items-center justify-between gap-3">
+                    <h4 class="font-bold">Requested Items</h4>
+                    <button type="button" class="btn btn-outline btn-sm gap-1" onclick="addPRItem()"><i class="fas fa-plus"></i> Add Item</button>
+                </div>
+                <div class="pr-item-header">
+                    <div>#</div>
+                    <div>Item Name</div>
+                    <div>Physical Stock Check *</div>
+                    <div>Requested Qty</div>
+                    <div>Unit</div>
+                    <div>Est. Unit Price</div>
+                    <div>Applied Reason</div>
+                    <div>Remarks</div>
+                </div>
+                <div id="prItemsContainer" class="space-y-2 md:space-y-0"></div>
+                <div class="flex justify-end">
+                    <div class="border border-base-300 rounded-lg px-4 py-2 min-w-64 flex justify-between gap-6">
+                        <span class="text-sm text-base-content/60">Estimated Total</span>
+                        <strong id="createEstimatedTotal">PHP 0.00</strong>
+                    </div>
+                </div>
+            </div>
+            </div>
+            <div class="modal-action">
+                <button class="btn btn-ghost" onclick="document.getElementById('createModal').close()">Cancel</button>
+                <button class="btn btn-outline" id="saveDraftPRBtn" onclick="submitPR('draft')"><i class="fas fa-save"></i> Save Draft</button>
+                <button class="btn btn-primary" id="submitPRBtn" onclick="submitPR('pending')"><i class="fas fa-paper-plane"></i> Submit PRS</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- Detail Modal -->
+    <dialog id="detailModal" class="modal">
+        <div class="modal-box max-w-4xl"><form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+            <div id="detailContent"><div class="text-center py-8"><span class="loading loading-spinner loading-lg"></span></div></div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <div id="toastContainer" class="toast toast-end toast-bottom z-50"></div>
+
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_raw,general_manager"></script>
+    <script src="../../../js/ui/dialogs.js"></script>
+    <script src="../../../js/purchasing/purchasing.service.js"></script>
+    <script src="../../../js/warehouse/raw.service.js?v=20260825-2"></script>
+    <script src="../../../js/warehouse/sidebar.stats.js"></script>
+    <script>window.WAREHOUSE_RAW_ACTIVE_PAGE = "purchase_requests";</script>
+    <script src="../../../js/warehouse/raw-sidebar.js?v=20260727a"></script>
+
+    <script>
+        let allPRs = [];
+        let requestedItems = [];
+        let currentStatus = 'pending';
+        let prSearchQuery = '';
+        let expandedPRIds = new Set();
+        let prItemCounter = 0;
+        let prCatalog = [];
+        let reorderFilters = { status: 'needs', type: 'all', search: '', limit: 12 };
+        let selectedReorderItems = new Set();
+        let linkedPRId = null;
+
+        function toggleSidebar(){
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', async()=>{
+            if(!AuthService.isAuthenticated()){window.location.href='../../login.html';return;}
+            const user=AuthService.getCurrentUser();
+            if(user){
+                document.getElementById('sidebarUserName').textContent=`${user.first_name||''} ${user.last_name||''}`.trim();
+                document.getElementById('userInitials').textContent=((user.first_name||'W')[0]+(user.last_name||'R')[0]).toUpperCase();
+            }
+            window.currentUserRole=user?.role||'warehouse_raw';
+            applyInitialPRRoute();
+            setupTabs();
+            syncStatFilters();
+            await loadCatalog();
+            openRequestedReorderWorkbench();
+            await loadPRs();
+            // Line-item cache for expandable rows (best-effort; table works without it)
+            loadRequestedItems().catch(() => {});
+            if(!handlePRPrefill()){
+                handleLinkedPR();
+            }
+        });
+
+        function applyInitialPRRoute(){
+            const params=new URLSearchParams(window.location.search);
+            const status=params.get('status');
+            if(['draft','pending','approved','rejected','converted','partially_converted',''].includes(status)){
+                currentStatus=status;
+            }
+            linkedPRId=params.get('pr_id');
+        }
+
+        function openRequestedReorderWorkbench(){
+            const params=new URLSearchParams(window.location.search);
+            if(params.get('panel')!=='reorder')return;
+            const workbench=document.getElementById('reorderWorkbench');
+            if(!workbench)return;
+            workbench.open=true;
+            requestAnimationFrame(()=>workbench.scrollIntoView({behavior:'smooth',block:'start'}));
+        }
+
+        async function loadCatalog(){
+            try{
+                const [ingredientRes,mroRes]=await Promise.all([
+                    PurchasingService.getIngredientCatalog(),
+                    PurchasingService.getMroCatalog()
+                ]);
+
+                const ingredients=(ingredientRes?.data?.ingredients||ingredientRes?.data||[]).map(item=>{
+                    const minimumStock=parseFloat(item.minimum_stock||0);
+                    const reorderRaw=parseFloat(item.reorder_point||0);
+                    const reorderPoint=reorderRaw>0?reorderRaw:(minimumStock>0?minimumStock*1.5:0);
+                    const currentStock=parseFloat(item.current_stock||0);
+                    const onFileStock=parseFloat(item.current_stock_on_file??item.current_stock??0);
+                    return {
+                    source_type:'ingredient',
+                    source_id:item.id,
+                    code:item.ingredient_code||item.code||'',
+                    name:item.ingredient_name||item.name||'',
+                    unit:item.unit_of_measure||'units',
+                    current_stock:currentStock,
+                    on_file_stock:onFileStock,
+                    minimum_stock:minimumStock,
+                    reorder_point:reorderPoint,
+                    maximum_stock:parseFloat(item.maximum_stock||0),
+                    lead_time_days:parseInt(item.lead_time_days||0,10)||0,
+                    unit_cost:parseFloat(item.unit_cost||0),
+                    category:item.category_name||'Ingredient',
+                    stock_status:getCatalogStockStatus(currentStock,minimumStock,reorderPoint)
+                };
+                });
+
+                const mroItems=(mroRes?.data?.mro_items||mroRes?.data?.items||mroRes?.data||[]).map(item=>{
+                    const minimumStock=parseFloat(item.minimum_stock||0);
+                    const reorderRaw=parseFloat(item.reorder_point||0);
+                    const reorderPoint=reorderRaw>0?reorderRaw:(minimumStock>0?minimumStock*1.5:0);
+                    const currentStock=parseFloat(item.current_stock||0);
+                    return {
+                    source_type:'mro',
+                    source_id:item.id,
+                    code:item.item_code||item.code||'',
+                    name:item.item_name||item.name||'',
+                    unit:item.unit_of_measure||'units',
+                    current_stock:currentStock,
+                    on_file_stock:currentStock,
+                    minimum_stock:minimumStock,
+                    reorder_point:reorderPoint,
+                    maximum_stock:parseFloat(item.maximum_stock||0),
+                    lead_time_days:parseInt(item.lead_time_days||0,10)||0,
+                    unit_cost:parseFloat(item.unit_cost||0),
+                    category:item.category_name||'MRO',
+                    stock_status:getCatalogStockStatus(currentStock,minimumStock,reorderPoint)
+                };
+                });
+
+                prCatalog=[...ingredients,...mroItems].sort((a,b)=>{
+                    const rank={OUT:0,LOW:1,OK:2};
+                    return (rank[a.stock_status]-rank[b.stock_status])||a.name.localeCompare(b.name);
+                });
+                renderReorderSummary();
+                renderReorderList();
+            }catch(e){
+                console.error(e);
+                prCatalog=[];
+                renderReorderSummary();
+                renderReorderList();
+                showToast('Failed to load item master list','error');
+            }
+        }
+
+        function getCatalogStockStatus(currentStock,minimumStock,reorderPoint){
+            if(currentStock<=0)return'OUT';
+            // LOW rule (shared with backend StockRule): current_stock <=
+            // COALESCE(reorder_point, minimum_stock * 1.5).
+            const reorder=(Number.isFinite(reorderPoint)&&reorderPoint>0)?reorderPoint:(minimumStock*1.5);
+            return currentStock<=reorder?'LOW':'OK';
+        }
+
+        function setupTabs(){
+            document.querySelectorAll('#statusTabs button').forEach(btn=>{
+                btn.addEventListener('click',()=>{
+                    currentStatus=btn.dataset.status;
+                    updateStatusTabs();
+                    syncStatFilters();
+                    renderPRs();
+                });
+            });
+            updateStatusTabs();
+        }
+
+        function updateStatusTabs(){
+            document.querySelectorAll('#statusTabs button').forEach(btn=>{
+                const active = (btn.dataset.status ?? '') === (currentStatus ?? '');
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+
+        function applyStatFilter(status){
+            // Toggle: click same status again → All
+            currentStatus = (currentStatus === status) ? '' : (status || '');
+            updateStatusTabs();
+            syncStatFilters();
+            renderPRs();
+        }
+
+        function syncStatFilters(){
+            document.querySelectorAll('[data-stat-filter]').forEach(btn=>{
+                const active = btn.getAttribute('data-stat-filter') === currentStatus;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+        }
+
+        function onPRSearch(){
+            prSearchQuery = (document.getElementById('prSearch')?.value || '').trim().toLowerCase();
+            renderPRs();
+        }
+
+        function getFilteredPRs(){
+            let list = currentStatus
+                ? allPRs.filter(p => p.status === currentStatus)
+                : [...allPRs];
+            if (prSearchQuery) {
+                list = list.filter(p => {
+                    const hay = [
+                        p.pr_number,
+                        p.purpose,
+                        p.status,
+                        p.priority,
+                        p.requested_by_name
+                    ].map(v => String(v || '').toLowerCase()).join(' ');
+                    return hay.includes(prSearchQuery);
+                });
+            }
+            // Newest first for scanning
+            list.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+            return list;
+        }
+
+        function formatMoney(amount){
+            const n = Number(amount);
+            const value = Number.isFinite(n) ? n : 0;
+            if (value <= 0) return '—';
+            try {
+                return new Intl.NumberFormat('en-PH', {
+                    style: 'currency', currency: 'PHP',
+                    minimumFractionDigits: 2, maximumFractionDigits: 2
+                }).format(value);
+            } catch (e) {
+                return 'PHP ' + value.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+        }
+
+        function itemsPreviewForPR(prId){
+            return requestedItems.filter(i => String(i.pr_id) === String(prId));
+        }
+
+        function togglePRExpand(prId, event){
+            if (event) event.stopPropagation();
+            const key = String(prId);
+            if (expandedPRIds.has(key)) expandedPRIds.delete(key);
+            else expandedPRIds.add(key);
+            renderPRs();
+        }
+
+        async function loadPRs(){
+            try{
+                const res=await PurchasingService.getPurchaseRequests();
+                allPRs=res?.data||[];
+                updateStats();
+                renderPRs();
+            }catch(e){
+                console.error(e);
+                allPRs=[];renderPRs();
+                showToast('Failed to load purchase requests','error');
+            }
+        }
+
+        async function loadRequestedItems(){
+            try{
+                const res=await api.get('/purchasing/purchase_requests.php',{params:{action:'requested_items'}});
+                requestedItems=res?.data||[];
+                // Refresh table so expandable previews can show line items
+                if (document.getElementById('prTableBody')) renderPRs();
+            }catch(e){
+                console.error(e);
+                requestedItems=[];
+            }
+        }
+
+        function updateStats(){
+            const set = (id, n) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = String(n);
+            };
+            set('statDraft', allPRs.filter(p=>p.status==='draft').length);
+            set('statPending', allPRs.filter(p=>p.status==='pending').length);
+            set('statApproved', allPRs.filter(p=>p.status==='approved').length);
+            set('statRejected', allPRs.filter(p=>p.status==='rejected').length);
+            set('statConverted', allPRs.filter(p=>p.status==='converted').length);
+        }
+
+        function renderPRs(){
+            const tbody = document.getElementById('prTableBody');
+            const info = document.getElementById('prListInfo');
+            if (!tbody) return;
+
+            const filtered = getFilteredPRs();
+            const totalAll = allPRs.length;
+
+            if (info) {
+                const label = currentStatus
+                    ? `${filtered.length} of ${totalAll} · ${formatPRStatus(currentStatus) || currentStatus}`
+                    : `${filtered.length} request${filtered.length === 1 ? '' : 's'}`;
+                info.textContent = prSearchQuery ? `${label} (filtered)` : label;
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-14">
+                    <i class="fas fa-inbox text-3xl text-base-content/20 mb-2"></i>
+                    <p class="font-semibold">No purchase request slips</p>
+                    <p class="text-sm text-base-content/55 mt-1">${prSearchQuery ? 'Try a different search.' : (currentStatus === 'pending' ? 'No PRS records in the Purchaser inbox.' : 'Try another status or create a new PRS.')}</p>
+                </td></tr>`;
+                return;
+            }
+
+            const priorityBadge = { urgent: 'badge-error', high: 'badge-warning', normal: 'badge-ghost', low: 'badge-ghost' };
+            const statusBadge = { draft: 'badge-ghost', pending: 'badge-warning', approved: 'badge-success', rejected: 'badge-error', converted: 'badge-info', partially_converted: 'badge-info' };
+
+            tbody.innerHTML = filtered.map(pr => {
+                const id = pr.id;
+                const key = String(id);
+                const expanded = expandedPRIds.has(key);
+                const lines = itemsPreviewForPR(id);
+                const purpose = (pr.purpose || '').trim() || '—';
+                const purposeShort = purpose.length > 48 ? purpose.slice(0, 46) + '…' : purpose;
+                const expandIcon = expanded ? 'fa-chevron-down' : 'fa-chevron-right';
+
+                let expandHtml = '';
+                if (expanded) {
+                    if (lines.length) {
+                        const rows = lines.map(item => {
+                            const code = item.ingredient_code || item.mro_item_code || '';
+                            return `<tr class="text-sm">
+                                <td class="pl-10">${escapeHtml(item.item_description || 'Item')}${code ? ` <span class="font-mono text-xs text-base-content/45">${escapeHtml(code)}</span>` : ''}</td>
+                                <td class="text-right whitespace-nowrap">${parseFloat(item.quantity || 0).toLocaleString()} ${escapeHtml(item.unit || '')}</td>
+                            </tr>`;
+                        }).join('');
+                        expandHtml = `<tr class="pr-expand-row"><td colspan="10">
+                            <div class="px-3 py-2">
+                                <table class="table table-xs w-full max-w-2xl"><thead><tr><th>Line item</th><th class="text-right">Qty</th></tr></thead><tbody>${rows}</tbody></table>
+                                ${pr.status === 'rejected' && pr.rejection_reason ? `<p class="text-xs text-error mt-2 px-1"><i class="fas fa-circle-exclamation mr-1"></i>${escapeHtml(pr.rejection_reason)}</p>` : ''}
+                            </div>
+                        </td></tr>`;
+                    } else {
+                        expandHtml = `<tr class="pr-expand-row"><td colspan="10">
+                            <div class="px-4 py-3 text-sm text-base-content/55 flex flex-wrap items-center gap-3">
+                                <span>Open details for full line items.</span>
+                                <button type="button" class="btn btn-ghost btn-xs" onclick="event.stopPropagation();viewPR(${id})">View details</button>
+                                ${pr.status === 'rejected' && pr.rejection_reason ? `<span class="text-error text-xs">${escapeHtml(pr.rejection_reason)}</span>` : ''}
+                            </div>
+                        </td></tr>`;
+                    }
+                }
+
+                return `
+                <tr class="pr-row ${expanded ? 'is-expanded' : ''}" onclick="viewPR(${id})">
+                    <td class="w-8" onclick="togglePRExpand(${id}, event)">
+                        <button type="button" class="btn btn-ghost btn-xs btn-square" aria-label="Expand" aria-expanded="${expanded}">
+                            <i class="fas ${expandIcon} text-xs text-base-content/50"></i>
+                        </button>
+                    </td>
+                    <td><span class="font-mono font-semibold text-primary text-sm">${escapeHtml(pr.pr_number || '')}</span></td>
+                    <td><span class="badge badge-sm ${statusBadge[pr.status] || 'badge-ghost'} whitespace-nowrap" title="${escapeHtml(formatPRStatus(pr.status))}">${escapeHtml(formatPRStatusShort(pr.status))}</span></td>
+                    <td><span class="badge badge-sm badge-outline ${priorityBadge[pr.priority] || 'badge-ghost'}">${(pr.priority || 'normal').toUpperCase()}</span></td>
+                    <td class="max-w-[14rem]"><span class="text-sm truncate block" title="${escapeHtml(purpose)}">${escapeHtml(purposeShort)}</span></td>
+                    <td class="text-center"><span class="font-mono text-sm stat-value">${pr.item_count || lines.length || 0}</span></td>
+                    <td class="text-right money text-sm">${formatMoney(pr.estimated_total)}</td>
+                    <td class="text-sm whitespace-nowrap">${pr.needed_by_date ? formatDate(pr.needed_by_date) : '—'}</td>
+                    <td class="text-sm whitespace-nowrap text-base-content/70">${formatDate(pr.created_at)}</td>
+                    <td class="text-right" onclick="event.stopPropagation()">
+                        <div class="flex items-center justify-end gap-1">
+                            <button type="button" class="btn btn-ghost btn-xs" onclick="viewPR(${id})" title="Details"><i class="fas fa-eye"></i></button>
+                            <button type="button" class="btn btn-ghost btn-xs" onclick="openPrintablePR(${id})" title="Print"><i class="fas fa-print"></i></button>
+                        </div>
+                    </td>
+                </tr>
+                ${expandHtml}`;
+            }).join('');
+        }
+
+        async function viewPR(id){
+            const modal=document.getElementById('detailModal');
+            const content=document.getElementById('detailContent');
+            content.innerHTML='<div class="text-center py-8"><span class="loading loading-spinner loading-lg"></span></div>';
+            modal.showModal();
+
+            try{
+                const res=await PurchasingService.getPurchaseRequestDetail(id);
+                const pr=res?.data;
+                if(!pr){content.innerHTML='<p class="text-error">Not found</p>';return;}
+
+                const statusColors={draft:'ghost',pending:'warning',approved:'success',rejected:'error',converted:'info',partially_converted:'info'};
+                const c=statusColors[pr.status]||'ghost';
+
+                const itemsTotal=(pr.items||[]).reduce((sum,i)=>sum+parseFloat(i.estimated_total||0),0);
+                content.innerHTML=`
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-bold text-xl">${escapeHtml(pr.pr_number)}</h3>
+                            <span class="badge badge-${c} badge-sm">${formatPRStatus(pr.status)}</span>
+                            <span class="badge badge-outline badge-sm">${(pr.priority||'normal').toUpperCase()}</span>
+                        </div>
+                        <span class="text-sm text-base-content/60">${formatDate(pr.created_at)}</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-sm">
+                        <div class="bg-base-200 rounded-lg p-2.5"><p class="text-xs text-base-content/50 mb-0.5">Requested By</p><p class="font-semibold">${escapeHtml(pr.requested_by_name||'—')}</p></div>
+                        <div class="bg-base-200 rounded-lg p-2.5"><p class="text-xs text-base-content/50 mb-0.5">Needed By</p><p class="font-semibold">${pr.needed_by_date?formatDate(pr.needed_by_date):'—'}</p></div>
+                        <div class="bg-base-200 rounded-lg p-2.5"><p class="text-xs text-base-content/50 mb-0.5">Items</p><p class="font-semibold">${(pr.items||[]).length}</p></div>
+                        <div class="bg-base-200 rounded-lg p-2.5"><p class="text-xs text-base-content/50 mb-0.5">Est. Total</p><p class="font-semibold">${itemsTotal>0?'₱'+itemsTotal.toLocaleString('en-PH',{minimumFractionDigits:2}):'—'}</p></div>
+                    </div>
+
+                    ${pr.purpose?`<p class="text-sm text-base-content/70 mb-3"><i class="fas fa-info-circle text-base-content/40 mr-1"></i>${escapeHtml(pr.purpose)}</p>`:''}
+                    ${pr.status==='pending'?`<div class="alert alert-warning mb-3 py-2 text-sm"><i class="fas fa-inbox"></i><span>Submitted to Purchaser for canvassing and PO creation.</span></div>`:''}
+                    ${pr.status==='approved'&&pr.approved_by_name?`<div class="alert alert-success mb-3 py-2 text-sm"><i class="fas fa-check-circle"></i><span>Legacy PR approval by ${pr.approved_by_name} on ${formatDate(pr.approved_at)}</span></div>`:''}
+                    ${pr.status==='rejected'?`<div class="alert alert-error mb-3 py-2 text-sm"><i class="fas fa-times-circle"></i><span>Rejected: ${escapeHtml(pr.rejection_reason||'No reason')}</span></div>`:''}
+                    ${pr.status==='converted'?`<div class="alert alert-info mb-3 py-2 text-sm"><i class="fas fa-lock"></i><span>Locked — converted to Purchase Order. GM can reopen if needed.</span></div>`:''}
+
+                    <div class="divider text-xs">Items</div>
+                    <div class="overflow-x-auto">
+                        <table class="table table-sm table-zebra">
+                            <thead><tr>
+                                <th>Item</th>
+                                <th class="text-right">Qty</th>
+                                <th>Unit</th>
+                                <th class="text-right">Unit Price</th>
+                                <th class="text-right">Total</th>
+                            </tr></thead>
+                            <tbody>${(pr.items||[]).map(i=>`
+                                <tr>
+                                    <td>
+                                        <div class="font-medium">${escapeHtml(i.item_description)}</div>
+                                        <div class="text-xs text-base-content/50">${formatItemStockReference(i)}</div>
+                                        ${pr.status==='draft'?renderDraftAuditFields(i):''}
+                                    </td>
+                                    <td class="text-right">${parseFloat(i.quantity||0).toLocaleString('en-PH')}</td>
+                                    <td>${escapeHtml(i.unit||'—')}</td>
+                                    <td class="text-right">${i.estimated_unit_price?'₱'+parseFloat(i.estimated_unit_price).toLocaleString('en-PH',{minimumFractionDigits:2}):'—'}</td>
+                                    <td class="text-right font-semibold">${i.estimated_total?'₱'+parseFloat(i.estimated_total).toLocaleString('en-PH',{minimumFractionDigits:2}):'—'}</td>
+                                </tr>
+                            `).join('')}</tbody>
+                            <tfoot><tr><td colspan="4" class="text-right font-semibold">Total</td><td class="text-right font-bold">₱${itemsTotal.toLocaleString('en-PH',{minimumFractionDigits:2})}</td></tr></tfoot>
+                        </table>
+                    </div>
+
+                    ${pr.linked_pos&&pr.linked_pos.length>0?`
+                        <div class="divider text-xs">Linked Purchase Orders</div>
+                        <div class="flex flex-wrap gap-2">${pr.linked_pos.map(po=>`<span class="badge badge-info gap-1"><i class="fas fa-file-invoice-dollar"></i>${po.po_number} — ${PurchasingService.formatStatus(po.status)}</span>`).join('')}</div>
+                    `:''}
+
+                    ${pr.status_history&&pr.status_history.length>0?`
+                        <div class="divider text-xs">History</div>
+                        <ul class="steps steps-vertical text-sm">
+                            ${pr.status_history.map(h=>`
+                                <li class="step step-primary">
+                                    <div class="text-left"><strong>${formatPRStatus(h.to_status)}</strong>${h.notes?` — ${h.notes}`:''}<br><span class="text-xs text-base-content/50">${h.changed_by_name||'System'} · ${formatDateTime(h.changed_at)}</span></div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `:''}
+
+                    <div class="modal-action">
+                        <button class="btn btn-ghost" onclick="document.getElementById('detailModal').close()">Close</button>
+                        <button class="btn btn-primary" onclick="openPrintablePR(${pr.id})"><i class="fas fa-print"></i> Print</button>
+                    </div>
+                `;
+            }catch(e){content.innerHTML='<p class="text-error text-center py-8">Failed to load details</p>';}
+        }
+
+        async function submitDraftPR(id){
+            const auditFields=[...document.querySelectorAll('#detailContent .detail-audited-stock')];
+            if(auditFields.length===0){showToast('Open the draft and enter the physical shelf count for every item','error');return;}
+            const auditItems=[];
+            for(let index=0;index<auditFields.length;index++){
+                const input=auditFields[index];
+                const auditedStock=parseFloat(input.value);
+                const systemStock=parseFloat(input.dataset.systemStock||'0');
+                const reason=document.querySelector(`#detailContent .detail-audit-reason[data-item-id="${input.dataset.itemId}"]`)?.value.trim()||'';
+                if(!Number.isFinite(auditedStock)||auditedStock<0){showToast(`Line ${index+1}: enter the physical shelf count`,'error');input.focus();return;}
+                if(auditedStock>systemStock+0.0005){showToast(`Line ${index+1}: the shelf count is higher than the saved balance. Record the missing receipt or use the stock correction screen first.`,'error');input.focus();return;}
+                if(Math.abs(auditedStock-systemStock)>0.0005&&!reason){showToast(`Line ${index+1}: explain why the shelf count differs from the saved balance`,'error');return;}
+                auditItems.push({id:Number(input.dataset.itemId),audited_stock:auditedStock,audit_reason:reason||null});
+            }
+            try{
+                const res=await PurchasingService.submitPR(id,{items:auditItems});
+                showToast(res?.message||'Purchase Request Slip submitted','success');
+                document.getElementById('detailModal').close();
+                await Promise.all([loadPRs(), loadRequestedItems()]);
+            }catch(e){
+                const duplicateId=e?.response?.data?.errors?.duplicate_pr_id;
+                const duplicateNumber=e?.response?.data?.errors?.duplicate_pr_number;
+                if(duplicateId){
+                    showToastAction(
+                        `Duplicate pending PR already exists (${duplicateNumber||'PR'}).`,
+                        'error',
+                        'View PR',
+                        ()=>{document.getElementById('detailModal').close();viewPR(duplicateId);}
+                    );
+                    return;
+                }
+                showToast(e?.response?.data?.message||e?.message||'Failed to submit PR','error');
+            }
+        }
+
+        async function reopenConvertedPR(id){
+            const reason=await AppDialogs.prompt({
+                title:'Reopen Purchase Request Slip',
+                message:'Provide the reason for reopening this converted PR.',
+                label:'Reason',
+                placeholder:'Example: Supplier conversion needs correction',
+                confirmText:'Reopen PR',
+                variant:'warning',
+                icon:'fa-unlock'
+            });
+            if(!reason)return;
+            try{
+                const res=await PurchasingService.reopenPR(id,reason);
+                showToast(res?.message||'Purchase Request Slip reopened','success');
+                document.getElementById('detailModal').close();
+                await Promise.all([loadPRs(), loadRequestedItems()]);
+            }catch(e){
+                showToast(e?.response?.data?.message||e?.message||'Failed to reopen PR','error');
+            }
+        }
+
+        function openPrintablePR(id){
+            if(!id)return;
+            window.open(`../../purchasing/print_pr.html?pr_id=${id}&v=20260824-2`,'_blank','noopener');
+        }
+
+        // --- Create PR ---
+        async function openCreateModal(prefill=null){
+            document.getElementById('prPriority').value='normal';
+            document.getElementById('prNeededBy').value='';
+            document.getElementById('prPurpose').value='';
+            document.getElementById('prNotes').value='';
+            document.getElementById('prItemsContainer').innerHTML='';
+            document.getElementById('createEstimatedTotal').textContent='PHP 0.00';
+            document.getElementById('createDocumentDate').textContent=new Date().toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+            const user=AuthService.getCurrentUser();
+            document.getElementById('createPreparedBy').textContent=user?.name||`${user?.first_name||''} ${user?.last_name||''}`.trim()||'Warehouse Staff';
+            document.getElementById('createPrNumber').textContent='Generating...';
+            prItemCounter=0;
+            if(prefill){
+                applyPRPrefillHeader(prefill);
+                if(Array.isArray(prefill.items)&&prefill.items.length){
+                    prefill.items.forEach(item=>addPRItem(item));
+                }else{
+                    addPRItem(prefill);
+                }
+            }else{
+                addPRItem();
+            }
+            document.getElementById('createModal').showModal();
+            try{
+                const res=await PurchasingService.getNextPRNumber();
+                document.getElementById('createPrNumber').textContent=res?.data?.next_number||'Auto-generated on submit';
+            }catch(e){
+                document.getElementById('createPrNumber').textContent='Auto-generated on submit';
+            }
+        }
+
+        function addPRItem(prefill=null){
+            prItemCounter++;
+            const div=document.createElement('div');
+            div.className='pr-item-row';
+            div.id=`prItem_${prItemCounter}`;
+            const selectableCatalog=prCatalog.map((item,index)=>({item,index}))
+                .filter(entry=>entry.item.stock_status!=='OK');
+            const catalogOptions=selectableCatalog.map(({item,index})=>{
+                const reorderLabel=item.reorder_point>0?item.reorder_point.toLocaleString():'-';
+                const leadLabel=item.lead_time_days||'-';
+                return `
+                <option value="${index}" ${item.stock_status!=='OK'?'data-low-stock="1"':''}>
+                    ${item.stock_status!=='OK'?`[${item.stock_status}] `:''}${escapeHtml(item.name)}${item.code?` (${escapeHtml(item.code)})`:''} - ${item.source_type==='ingredient'?'Ingredient':'MRO'} - Stock: ${item.current_stock.toLocaleString()} ${escapeHtml(item.unit)} | Reorder: ${reorderLabel} ${escapeHtml(item.unit)} | Lead: ${leadLabel} days
+                </option>
+                `;
+            }).join('');
+            div.innerHTML=`
+                <div class="flex items-center justify-between gap-2">
+                    <span class="font-mono text-sm pr-line-no">${prItemCounter}</span>
+                    <button type="button" class="btn btn-ghost btn-xs btn-square text-error" onclick="removePRItem(this)"><i class="fas fa-times"></i></button>
+                </div>
+                <div>
+                    <select class="select select-bordered select-sm w-full pr-item-select" onchange="onPRItemSelected(this)">
+                        <option value="">${catalogOptions? 'Select item *' : 'No items below reorder point'}</option>
+                        ${catalogOptions}
+                    </select>
+                </div>
+                <div class="space-y-1.5">
+                    <div class="text-xs text-base-content/60 pr-stock-hint">Only items below reorder point are listed.</div>
+                    <label class="text-xs font-semibold">Counted on shelf</label>
+                    <input type="number" class="input input-bordered input-sm w-full pr-audited-stock" placeholder="Enter physical count" min="0" max="9999999.999" step="0.001" inputmode="decimal" oninput="onPRAuditChanged(this)">
+                    <div class="text-xs pr-variance text-base-content/50">Enter the count you physically verified.</div>
+                    <input type="text" class="input input-bordered input-sm w-full pr-audit-reason hidden" maxlength="255" placeholder="Explain shortage or difference">
+                </div>
+                <div>
+                    <input type="number" class="input input-bordered input-sm w-full pr-qty" placeholder="Qty" min="0.01" max="1000000" step="0.01" inputmode="decimal" title="Complete the stock count and request reason first" onkeydown="if(['e','E','+','-'].includes(event.key))event.preventDefault()" oninput="enforcePRQuantityInput(this)">
+                    <div class="text-xs text-base-content/50 mt-1 pr-qty-rule">Choose a reason and item to see how this is calculated.</div>
+                </div>
+                <div><input type="text" class="input input-bordered input-sm w-full pr-unit" placeholder="Unit" readonly></div>
+                <div><input type="number" class="input input-bordered input-sm w-full pr-price" placeholder="0.00" min="0" max="999999.99" step="0.01" inputmode="decimal" readonly></div>
+                <div>
+                    <select class="select select-bordered select-sm w-full pr-line-purpose bg-base-200" disabled title="This line uses the request reason selected above">
+                        <option value="">Choose request reason above</option>
+                        <option value="Stock below reorder point">Stock below reorder point</option>
+                        <option value="Production forecast requirement">Production forecast requirement</option>
+                        <option value="Safety stock replenishment">Safety stock replenishment</option>
+                        <option value="Emergency replacement">Emergency replacement</option>
+                        <option value="Approved operating need">Approved operating need</option>
+                    </select>
+                </div>
+                <div>
+                    <input type="text" class="input input-bordered input-sm w-full pr-item-notes" placeholder="Internal remarks">
+                </div>
+            `;
+            document.getElementById('prItemsContainer').appendChild(div);
+            refreshPRLineNumbers();
+            if(prefill){
+                applyPRItemPrefill(div,prefill);
+            }
+            syncPRPurposeToLines();
+            refreshPRItemChoices();
+        }
+
+        function applyPRPrefillHeader(prefill){
+            if(prefill.priority)document.getElementById('prPriority').value=prefill.priority;
+            if(prefill.needed_by_date)document.getElementById('prNeededBy').value=prefill.needed_by_date;
+            if(prefill.purpose)document.getElementById('prPurpose').value=prefill.purpose;
+            if(prefill.notes)document.getElementById('prNotes').value=prefill.notes;
+            syncPRPurposeToLines();
+        }
+
+        function renderReorderSummary(){
+            const outCount=prCatalog.filter(i=>i.stock_status==='OUT').length;
+            const lowCount=prCatalog.filter(i=>i.stock_status==='LOW').length;
+            const okCount=prCatalog.filter(i=>i.stock_status==='OK').length;
+            const outEl=document.getElementById('reorderOutCount');
+            const lowEl=document.getElementById('reorderLowCount');
+            const okEl=document.getElementById('reorderOkCount');
+            if(outEl)outEl.textContent=outCount;
+            if(lowEl)lowEl.textContent=lowCount;
+            if(okEl)okEl.textContent=okCount;
+        }
+
+        function setReorderStatus(status){
+            reorderFilters.status=status;
+            reorderFilters.limit=12;
+            document.querySelectorAll('[data-reorder-status]').forEach(btn=>{
+                if(btn.dataset.reorderStatus===status){
+                    btn.classList.add('btn-primary');
+                    btn.classList.remove('btn-ghost');
+                }else{
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-ghost');
+                }
+            });
+            renderReorderList();
+        }
+
+        function updateReorderSearch(value){
+            reorderFilters.search=(value||'').toLowerCase();
+            reorderFilters.limit=12;
+            renderReorderList();
+        }
+
+        function updateReorderType(value){
+            reorderFilters.type=value||'all';
+            reorderFilters.limit=12;
+            renderReorderList();
+        }
+
+        function showMoreReorder(){
+            reorderFilters.limit+=12;
+            renderReorderList();
+        }
+
+        function getFilteredCatalog(){
+            const statusFilter=reorderFilters.status;
+            const typeFilter=reorderFilters.type;
+            const search=reorderFilters.search;
+            return prCatalog.map((item,index)=>({item,index})).filter(entry=>{
+                const s=entry.item.stock_status;
+                if(statusFilter==='needs'&&!(s==='OUT'||s==='LOW'))return false;
+                if(statusFilter==='out'&&s!=='OUT')return false;
+                if(statusFilter==='low'&&s!=='LOW')return false;
+                if(typeFilter!=='all'&&entry.item.source_type!==typeFilter)return false;
+                if(search){
+                    const hay=(entry.item.name+' '+(entry.item.code||'')+' '+(entry.item.category||'')).toLowerCase();
+                    if(!hay.includes(search))return false;
+                }
+                return true;
+            });
+        }
+
+        function renderReorderList(){
+            const container=document.getElementById('reorderList');
+            const info=document.getElementById('reorderInfo');
+            const createButton=document.getElementById('createSelectedPrBtn');
+            if(!container){return;}
+            document.querySelectorAll('[data-reorder-status]').forEach(btn=>{
+                if(btn.dataset.reorderStatus===reorderFilters.status){
+                    btn.classList.add('btn-primary');
+                    btn.classList.remove('btn-ghost');
+                }else{
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-ghost');
+                }
+            });
+            const filtered=getFilteredCatalog();
+            const visible=filtered.slice(0,reorderFilters.limit);
+            if(filtered.length===0){
+                container.innerHTML=`<div class="col-span-full text-center text-sm muted-hint py-6">No items match your filters.</div>`;
+                if(info)info.textContent='Showing 0 items';
+                if(createButton){
+                    createButton.disabled=true;
+                    createButton.innerHTML='<i class="fas fa-file-circle-plus"></i> Create one PRS';
+                }
+                return;
+            }
+
+            container.innerHTML=visible.map(({item,index})=>{
+                const isSelected=selectedReorderItems.has(index);
+                const suggestedQty=getSuggestedQty(item);
+                const badgeClass=getStockBadgeClass(item.stock_status);
+                const leadTime=item.lead_time_days?`${item.lead_time_days} days`:'-';
+                const reorderDisplay=item.reorder_point>0?item.reorder_point.toLocaleString():'-';
+                return `
+                    <div class="reorder-card ${isSelected?'selected':''}" onclick="toggleReorderSelection(${index})">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="stock-pill ${badgeClass}">${item.stock_status}</span>
+                            <input type="checkbox" class="checkbox checkbox-sm" ${isSelected?'checked':''} onclick="event.stopPropagation();toggleReorderSelection(${index})">
+                        </div>
+                        <div class="font-semibold">${escapeHtml(item.name)}</div>
+                        <div class="text-xs muted-hint">${escapeHtml(item.code||'No code')} - ${item.source_type==='ingredient'?'Ingredient':'MRO'}</div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mt-2">
+                            <div><span class="muted-hint">Current</span><br><strong>${item.current_stock.toLocaleString()} ${escapeHtml(item.unit)}</strong></div>
+                            <div><span class="muted-hint">Reorder Point</span><br><strong>${reorderDisplay} ${escapeHtml(item.unit)}</strong></div>
+                            <div><span class="muted-hint">Qty to Order</span><br><strong>${suggestedQty>0?suggestedQty.toLocaleString():'-'}</strong></div>
+                            <div><span class="muted-hint">Lead Time</span><br><strong>${leadTime}</strong></div>
+                        </div>
+                        <div class="flex items-center justify-between mt-3 text-xs">
+                            <span class="muted-hint">${escapeHtml(item.category||'Category')}</span>
+                            <button class="btn ${isSelected?'btn-primary':'btn-outline'} btn-xs" onclick="event.stopPropagation();toggleReorderSelection(${index})"><i class="fas ${isSelected?'fa-check':'fa-plus'}"></i> ${isSelected?'Selected':'Select'}</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if(info){
+                const shown=Math.min(filtered.length,reorderFilters.limit);
+                info.textContent=`Showing ${shown} of ${filtered.length} items. Selected ${selectedReorderItems.size}.`;
+            }
+            if(createButton){
+                const count=selectedReorderItems.size;
+                createButton.disabled=count===0;
+                createButton.innerHTML=`<i class="fas fa-file-circle-plus"></i> Create one PRS${count>0?` (${count} item${count===1?'':'s'})`:''}`;
+            }
+        }
+
+        function getSuggestedQty(item){
+            const reorderPoint=parseFloat(item.reorder_point||0);
+            const minimumStock=parseFloat(item.minimum_stock||0);
+            const maxStock=parseFloat(item.maximum_stock||0);
+            const current=parseFloat(item.current_stock||0);
+            const effectiveReorder=Math.max(reorderPoint,minimumStock);
+            const target=maxStock>effectiveReorder?maxStock:effectiveReorder*2;
+            if(target<=0)return 0;
+            return Math.max(0, target-current);
+        }
+
+        function getStockBadgeClass(status){
+            if(status==='OUT')return 'stock-out';
+            if(status==='LOW')return 'stock-low';
+            return 'stock-ok';
+        }
+
+        function toggleReorderSelection(index){
+            if(selectedReorderItems.has(index)){
+                selectedReorderItems.delete(index);
+            }else{
+                selectedReorderItems.add(index);
+            }
+            renderReorderList();
+        }
+
+        function clearReorderSelection(){
+            selectedReorderItems.clear();
+            renderReorderList();
+        }
+
+        function selectAllVisibleReorderItems(){
+            getFilteredCatalog().slice(0,reorderFilters.limit).forEach(({index})=>selectedReorderItems.add(index));
+            renderReorderList();
+        }
+
+        function openCreateModalFromSelection(){
+            const indices=Array.from(selectedReorderItems);
+            if(indices.length===0){
+                showToast('Select at least one item from the Reorder Guide','error');
+                return;
+            }
+            const items=indices.map(index=>buildPrefillFromCatalog(prCatalog[index])).filter(Boolean);
+            openCreateModal({
+                purpose:'Stock below reorder point',
+                notes:'Auto-filled from Reorder Guide',
+                items
+            });
+        }
+
+        function buildPrefillFromCatalog(item){
+            if(!item){return null;}
+            const suggestedQty=getSuggestedQty(item);
+            const status=item.stock_status;
+            const linePurpose=status==='OUT'?'Emergency replacement':'Stock below reorder point';
+            return {
+                source_type:item.source_type,
+                source_id:item.source_id,
+                quantity:suggestedQty>0?suggestedQty:null,
+                unit:item.unit,
+                estimated_unit_price:item.unit_cost,
+                line_purpose:linePurpose,
+                line_notes:status==='OUT'?'Out of stock':'Below minimum stock'
+            };
+        }
+
+        function applyPRItemPrefill(row,prefill){
+            const select=row.querySelector('.pr-item-select');
+            const index=prCatalog.findIndex(item=>
+                item.source_type===(prefill.source_type||'ingredient')&&
+                String(item.source_id)===String(prefill.source_id||prefill.item_id)
+            );
+            if(index>=0){
+                select.value=String(index);
+                onPRItemSelected(select);
+            }
+            if(prefill.quantity)row.querySelector('.pr-qty').value=parseFloat(prefill.quantity).toFixed(2);
+            if(prefill.unit)row.querySelector('.pr-unit').value=prefill.unit;
+            if(prefill.estimated_unit_price)row.querySelector('.pr-price').value=parseFloat(prefill.estimated_unit_price).toFixed(2);
+            const requestPurpose=document.getElementById('prPurpose').value;
+            row.querySelector('.pr-line-purpose').value=requestPurpose||'';
+            onPRPurposeChanged(row.querySelector('.pr-line-purpose'));
+            if(prefill.line_notes)row.querySelector('.pr-item-notes').value=prefill.line_notes;
+            refreshPRTotal();
+        }
+
+        function removePRItem(btn){
+            btn.closest('.pr-item-row')?.remove();
+            refreshPRLineNumbers();
+            refreshPRTotal();
+            refreshPRItemChoices();
+        }
+
+        function refreshPRItemChoices(){
+            const rows=Array.from(document.querySelectorAll('#prItemsContainer .pr-item-row'));
+            const selectedValues=new Set(
+                rows.map(row=>row.querySelector('.pr-item-select')?.value).filter(value=>value!=='')
+            );
+
+            rows.forEach(row=>{
+                const select=row.querySelector('.pr-item-select');
+                if(!select)return;
+                Array.from(select.options).forEach(option=>{
+                    if(option.value==='')return;
+                    option.disabled=option.value!==select.value&&selectedValues.has(option.value);
+                });
+            });
+        }
+
+        function onPRItemSelected(select){
+            const row=select.closest('.pr-item-row');
+            if(select.value!==''){
+                const duplicateRow=Array.from(document.querySelectorAll('#prItemsContainer .pr-item-row'))
+                    .find(candidate=>candidate!==row&&candidate.querySelector('.pr-item-select')?.value===select.value);
+                if(duplicateRow){
+                    const item=prCatalog[Number(select.value)];
+                    const existingLine=duplicateRow.querySelector('.pr-line-no')?.textContent||'another';
+                    select.value='';
+                    showToast(`${item?.name||'This item'} is already on line ${existingLine}. Update that row instead.`,'error');
+                    duplicateRow.scrollIntoView({behavior:'smooth',block:'center'});
+                    duplicateRow.classList.add('ring','ring-warning','ring-2');
+                    setTimeout(()=>duplicateRow.classList.remove('ring','ring-warning','ring-2'),1600);
+                }
+            }
+            const item=select.value===''?null:prCatalog[Number(select.value)];
+            const unit=row.querySelector('.pr-unit');
+            const price=row.querySelector('.pr-price');
+            const qty=row.querySelector('.pr-qty');
+            const hint=row.querySelector('.pr-stock-hint');
+            const audited=row.querySelector('.pr-audited-stock');
+            const variance=row.querySelector('.pr-variance');
+            const reason=row.querySelector('.pr-audit-reason');
+
+            if(!item){
+                unit.value='';
+                price.value='';
+                qty.value='';
+                audited.value='';
+                reason.value='';
+                reason.classList.add('hidden');
+                variance.textContent='Enter the count you physically verified.';
+                hint.textContent='Choose from the approved item master.';
+                refreshPRItemChoices();
+                return;
+            }
+
+            row.dataset.systemStock=String(item.on_file_stock);
+            row.dataset.autoQty='1';
+            unit.value=item.unit||'units';
+            price.value=item.unit_cost>0?item.unit_cost.toFixed(2):'';
+            audited.value='';
+            reason.value='';
+            reason.classList.add('hidden');
+            variance.className='text-xs pr-variance text-base-content/50';
+            variance.textContent='Enter the count you physically verified.';
+            const suggestedQty=getSuggestedQty(item);
+            const requestPurpose=row.querySelector('.pr-line-purpose')?.value||'';
+            const stockBasedPurpose=['Stock below reorder point','Safety stock replenishment','Emergency replacement'].includes(requestPurpose);
+            if(stockBasedPurpose&&suggestedQty>0&&!qty.value){
+                qty.value=suggestedQty.toFixed(2);
+            }
+            const maxDisplay=item.maximum_stock>0?item.maximum_stock.toLocaleString():'-';
+            const stockDisplay=Math.abs(item.on_file_stock-item.current_stock)>0.0005
+                ?`Usable: ${item.current_stock.toLocaleString()} ${item.unit} | Saved balance: ${item.on_file_stock.toLocaleString()} ${item.unit}`
+                :`Usable / saved: ${item.current_stock.toLocaleString()} ${item.unit}`;
+            hint.textContent=`${item.category} | ${stockDisplay} | Low at: ${item.reorder_point.toLocaleString()} ${item.unit} | Target: ${maxDisplay} ${item.unit} | Lead: ${item.lead_time_days||'-'} days`;
+            onPRPurposeChanged(row.querySelector('.pr-line-purpose'));
+            refreshPRTotal();
+            refreshPRItemChoices();
+        }
+
+        function onPRPurposeChanged(select){
+            const row=select?.closest('.pr-item-row');
+            if(!row)return;
+            const stockBased=['Stock below reorder point','Safety stock replenishment','Emergency replacement'].includes(select.value);
+            const qty=row.querySelector('.pr-qty');
+            const rule=row.querySelector('.pr-qty-rule');
+            const selectedValue=row.querySelector('.pr-item-select')?.value;
+            const item=selectedValue===''?null:prCatalog[Number(selectedValue)];
+            qty.readOnly=stockBased;
+            qty.classList.toggle('bg-base-200',stockBased);
+            const baseline=item?Math.max(
+                Number(item.maximum_stock)||0,
+                Number(item.reorder_point)||0,
+                Number(item.minimum_stock)||0,
+                Number(item.on_file_stock)||0
+            ):0;
+            const manualLimit=Math.min(100000,Math.max(1000,baseline*10));
+            qty.max=stockBased?'1000000':String(manualLimit);
+            qty.title=stockBased
+                ?'Calculated from the replenishment target minus the physical shelf count.'
+                :`Enter the forecast quantity. Current review limit: ${manualLimit.toLocaleString('en-PH')}.`;
+            if(rule&&!stockBased){
+                rule.className='text-xs text-base-content/50 mt-1 pr-qty-rule';
+                rule.textContent=item
+                    ?`Manual forecast entry; review limit ${manualLimit.toLocaleString('en-PH')} ${item.unit}. Larger needs require an updated stock plan.`
+                    :'Select an item to see the review limit.';
+                if(row.dataset.autoCalculated==='1'){
+                    qty.value='';
+                    row.dataset.autoCalculated='0';
+                    refreshPRTotal();
+                }
+            }
+            if(stockBased){
+                const audited=row.querySelector('.pr-audited-stock');
+                if(audited.value!==''){
+                    onPRAuditChanged(audited);
+                }else if(rule){
+                    rule.className='text-xs text-primary mt-1 pr-qty-rule';
+                    rule.textContent='Enter the shelf count; the system will calculate target minus counted stock.';
+                }
+            }
+        }
+
+        function syncPRPurposeToLines(){
+            const purpose=document.getElementById('prPurpose')?.value||'';
+            document.querySelectorAll('#prItemsContainer .pr-item-row').forEach(row=>{
+                const linePurpose=row.querySelector('.pr-line-purpose');
+                if(!linePurpose)return;
+                linePurpose.value=purpose;
+                onPRPurposeChanged(linePurpose);
+            });
+        }
+
+        function enforcePRQuantityInput(input){
+            const row=input.closest('.pr-item-row');
+            row.dataset.autoCalculated='0';
+            const maximum=Number(input.max)||1000000;
+            const entered=Number(input.value);
+            if(input.value!==''&&Number.isFinite(entered)&&entered>maximum){
+                input.value=String(maximum);
+                const rule=row.querySelector('.pr-qty-rule');
+                if(rule){
+                    rule.className='text-xs text-error font-semibold mt-1 pr-qty-rule';
+                    rule.textContent=`Entry stopped at ${maximum.toLocaleString('en-PH')}. Update the stock plan first if a larger forecast is legitimate.`;
+                }
+                input.classList.add('input-error');
+                window.setTimeout(()=>input.classList.remove('input-error'),900);
+            }
+            refreshPRTotal();
+        }
+
+        function onPRAuditChanged(input){
+            const row=input.closest('.pr-item-row');
+            const selectedValue=row.querySelector('.pr-item-select').value;
+            const item=selectedValue===''?null:prCatalog[Number(selectedValue)];
+            const varianceEl=row.querySelector('.pr-variance');
+            const reason=row.querySelector('.pr-audit-reason');
+            if(!item){varianceEl.textContent='Choose an item first.';return;}
+            const audited=parseFloat(input.value);
+            if(!Number.isFinite(audited)||audited<0){
+                varianceEl.className='text-xs pr-variance text-error';
+                varianceEl.textContent='Enter zero or a positive physical count.';
+                reason.classList.add('hidden');
+                return;
+            }
+            const difference=audited-item.on_file_stock;
+            if(difference>0.0005){
+                varianceEl.className='text-xs pr-variance text-error font-semibold';
+                varianceEl.textContent=`Counted ${audited.toLocaleString('en-PH')} ${item.unit}; saved balance is ${item.on_file_stock.toLocaleString('en-PH')} ${item.unit}. Record the missing receipt or stock correction first.`;
+                reason.classList.remove('hidden');
+            }else if(difference<-0.0005){
+                varianceEl.className='text-xs pr-variance text-warning font-semibold';
+                varianceEl.textContent=`Short by ${Math.abs(difference).toLocaleString('en-PH')} ${item.unit} compared with the saved balance. Explain what happened.`;
+                reason.classList.remove('hidden');
+            }else{
+                varianceEl.className='text-xs pr-variance text-success font-semibold';
+                varianceEl.textContent='Physical count matches the saved balance.';
+                reason.value='';
+                reason.classList.add('hidden');
+            }
+            const linePurpose=row.querySelector('.pr-line-purpose')?.value||'';
+            const stockBased=['Stock below reorder point','Safety stock replenishment','Emergency replacement'].includes(linePurpose);
+            if(stockBased){
+                const target=item.maximum_stock>0
+                    ?item.maximum_stock
+                    :(item.reorder_point>0?item.reorder_point:item.minimum_stock);
+                const requested=Math.max(0,target-audited);
+                row.querySelector('.pr-qty').value=requested>0?requested.toFixed(2):'';
+                row.dataset.autoCalculated='1';
+                const rule=row.querySelector('.pr-qty-rule');
+                if(rule){
+                    rule.className=`text-xs mt-1 pr-qty-rule ${requested>0?'text-primary font-semibold':'text-error font-semibold'}`;
+                    rule.textContent=requested>0
+                        ?`Calculated: target ${target.toLocaleString('en-PH')} - counted ${audited.toLocaleString('en-PH')} = ${requested.toLocaleString('en-PH')} ${item.unit}`
+                        :`Nothing to request: counted stock is already at or above the ${target.toLocaleString('en-PH')} ${item.unit} target.`;
+                }
+                refreshPRTotal();
+            }
+        }
+
+        function refreshPRLineNumbers(){
+            document.querySelectorAll('#prItemsContainer .pr-item-row').forEach((row,index)=>{
+                const label=row.querySelector('.pr-line-no');
+                if(label)label.textContent=index+1;
+            });
+        }
+
+        function refreshPRTotal(){
+            let total=0;
+            document.querySelectorAll('#prItemsContainer .pr-item-row').forEach(row=>{
+                const qty=parseFloat(row.querySelector('.pr-qty')?.value)||0;
+                const price=parseFloat(row.querySelector('.pr-price')?.value)||0;
+                total+=qty*price;
+            });
+            document.getElementById('createEstimatedTotal').textContent='PHP '+total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+        }
+
+        function handlePRPrefill(){
+            const params=new URLSearchParams(window.location.search);
+            const stored=sessionStorage.getItem('highland_pr_prefill');
+            if(!stored&&!params.has('prefill'))return false;
+
+            let prefill=null;
+            if(stored){
+                try{prefill=JSON.parse(stored);}catch(e){prefill=null;}
+                sessionStorage.removeItem('highland_pr_prefill');
+            }
+
+            if(prefill){
+                openCreateModal(prefill);
+                return true;
+            }
+            return false;
+        }
+
+        function handleLinkedPR(){
+            if(!linkedPRId)return;
+            const id=linkedPRId;
+            linkedPRId=null;
+            viewPR(id);
+        }
+
+        async function submitPR(status='pending'){
+            const purpose=document.getElementById('prPurpose').value;
+            if(!purpose){showToast('Purpose is required','error');return;}
+
+            const itemEls=document.querySelectorAll('#prItemsContainer .pr-item-row');
+            if(itemEls.length===0){showToast('Add at least one item','error');return;}
+
+            const items=[];
+            const selectedItems=new Map();
+            let valid=true;
+            let validationMessage='';
+            itemEls.forEach((el,index)=>{
+                const selectedIndex=el.querySelector('.pr-item-select').value;
+                const selectedItem=selectedIndex===''?null:prCatalog[Number(selectedIndex)];
+                const qty=parseFloat(el.querySelector('.pr-qty').value);
+                const unit=selectedItem?.unit||'units';
+                const price=parseFloat(el.querySelector('.pr-price').value)||selectedItem?.unit_cost||0;
+                const linePurpose=purpose;
+                const notes=el.querySelector('.pr-item-notes').value.trim();
+                const auditedInput=el.querySelector('.pr-audited-stock').value;
+                const auditedStock=auditedInput===''?null:parseFloat(auditedInput);
+                const auditReason=el.querySelector('.pr-audit-reason').value.trim();
+                if(!selectedItem){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: select an approved item`;
+                    return;
+                }
+                const qtyInput=el.querySelector('.pr-qty');
+                const qtyMaximum=parseFloat(qtyInput.max)||1000000;
+                if(!Number.isFinite(qty)||qty<0.01||qty>qtyMaximum){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: requested quantity must be between 0.01 and ${qtyMaximum.toLocaleString('en-PH')} ${unit}. Update the stock plan first if a larger forecast is legitimate.`;
+                    return;
+                }
+                if(!unit||!linePurpose){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: complete the unit and purpose`;
+                    return;
+                }
+                if(!Number.isFinite(price)||price<0||price>999999.99||qty*price>9999999999.99){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: the estimated price or total is outside the supported range`;
+                    return;
+                }
+                const itemKey=`${selectedItem.source_type}:${selectedItem.source_id}`;
+                if(selectedItems.has(itemKey)){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: ${selectedItem.name} is already on line ${selectedItems.get(itemKey)}. Keep one row and update its quantity.`;
+                    return;
+                }
+                selectedItems.set(itemKey,index+1);
+                if(status==='pending'&&(auditedStock===null||!Number.isFinite(auditedStock)||auditedStock<0||auditedStock>9999999.999)){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: enter the physical shelf count before submitting`;
+                    return;
+                }
+                if(auditedStock!==null&&(!Number.isFinite(auditedStock)||auditedStock<0||auditedStock>9999999.999)){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: physical shelf count must be zero or greater`;
+                    return;
+                }
+                if(auditedStock!==null&&auditedStock>selectedItem.on_file_stock+0.0005){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: counted ${auditedStock.toLocaleString('en-PH')} ${unit}, but the saved balance is ${selectedItem.on_file_stock.toLocaleString('en-PH')} ${unit}. Record the missing receipt or stock correction first.`;
+                    return;
+                }
+                if(auditedStock!==null&&Math.abs(auditedStock-selectedItem.on_file_stock)>0.0005&&!auditReason){
+                    valid=false;
+                    validationMessage=`Line ${index+1}: explain why the shelf count differs from the saved balance of ${selectedItem.on_file_stock.toLocaleString('en-PH')} ${unit}`;
+                    return;
+                }
+                items.push({
+                    ingredient_id:selectedItem.source_type==='ingredient'?selectedItem.source_id:null,
+                    mro_item_id:selectedItem.source_type==='mro'?selectedItem.source_id:null,
+                    item_description:selectedItem.name,
+                    quantity:qty,
+                    unit,
+                    estimated_unit_price:price,
+                    purpose:linePurpose,
+                    notes,
+                    audited_stock:auditedStock,
+                    audit_reason:auditReason||null
+                });
+            });
+
+            if(!valid){showToast(validationMessage||'All items need an approved item and quantity','error');return;}
+
+            const btn=status==='draft'?document.getElementById('saveDraftPRBtn'):document.getElementById('submitPRBtn');
+            const submitBtn=document.getElementById('submitPRBtn');
+            const draftBtn=document.getElementById('saveDraftPRBtn');
+            submitBtn.disabled=true;
+            draftBtn.disabled=true;
+            btn.innerHTML=status==='draft'?'<span class="loading loading-spinner loading-sm"></span> Saving...':'<span class="loading loading-spinner loading-sm"></span> Submitting...';
+
+            try{
+                const res=await PurchasingService.createPurchaseRequest({
+                    status,
+                    priority:document.getElementById('prPriority').value,
+                    needed_by_date:document.getElementById('prNeededBy').value||null,
+                    purpose,
+                    notes:document.getElementById('prNotes').value.trim()||null,
+                    items
+                });
+                showToast(res?.message||'Purchase Request Slip created!','success');
+                document.getElementById('createModal').close();
+                await Promise.all([loadPRs(), loadRequestedItems()]);
+            }catch(e){
+                const duplicateId=e?.response?.data?.errors?.duplicate_pr_id;
+                const duplicateNumber=e?.response?.data?.errors?.duplicate_pr_number;
+                if(duplicateId){
+                    showToastAction(
+                        `Duplicate pending PR already exists (${duplicateNumber||'PR'}).`,
+                        'error',
+                        'View PR',
+                        ()=>{document.getElementById('createModal').close();viewPR(duplicateId);}
+                    );
+                    return;
+                }
+                showToast(e?.response?.data?.message||e?.message||'Failed to create PR','error');
+            }finally{
+                submitBtn.disabled=false;
+                draftBtn.disabled=false;
+                draftBtn.innerHTML='<i class="fas fa-save"></i> Save Draft';
+                submitBtn.innerHTML='<i class="fas fa-paper-plane"></i> Submit PRS';
+            }
+        }
+
+        // --- Helpers ---
+        function formatDate(d){if(!d)return'--';return new Date(d).toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});}
+        function formatDateTime(d){if(!d)return'--';return new Date(d).toLocaleString('en-PH',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});}
+        function formatPRStatus(status){
+            const labels={draft:'Draft',pending:'Submitted to Purchaser',approved:'Legacy Approved',rejected:'Rejected',converted:'Converted to PO',partially_converted:'Partially Converted'};
+            return labels[status]||PurchasingService.formatStatus(status||'');
+        }
+        function formatPRStatusShort(status){
+            const labels={draft:'Draft',pending:'Inbox',approved:'Legacy',rejected:'Rejected',converted:'Converted',partially_converted:'Partial'};
+            return labels[status]||formatPRStatus(status);
+        }
+        function formatItemStockReference(item){
+            if(item.audited_stock!==null&&item.audited_stock!==undefined&&item.audited_stock!==''){
+                const unit=escapeHtml(item.unit||'units');
+                const saved=parseFloat(item.system_stock_before||0).toLocaleString('en-PH');
+                const counted=parseFloat(item.audited_stock||0).toLocaleString('en-PH');
+                const difference=parseFloat(item.stock_variance||0);
+                const differenceLabel=(difference>0?'+':'')+difference.toLocaleString('en-PH');
+                const reason=item.audit_reason?`<br><span class="text-warning">Reason: ${escapeHtml(item.audit_reason)}</span>`:'';
+                const auditor=item.audited_by_name?escapeHtml(item.audited_by_name):'Warehouse Raw custodian';
+                const auditedAt=item.audited_at?formatDateTime(item.audited_at):'time not recorded';
+                return `Saved before PRS: ${saved} ${unit}<br><strong>Counted on shelf: ${counted} ${unit}</strong> | Difference: ${differenceLabel} ${unit}<br><span class="text-xs text-base-content/60">Counted by ${auditor} on ${auditedAt}</span>${reason}`;
+            }
+            const current=item.ingredient_id?item.ingredient_current_stock:item.mro_current_stock;
+            const minimum=item.ingredient_id?item.ingredient_minimum_stock:item.mro_minimum_stock;
+            const reorder=item.ingredient_id?(item.ingredient_reorder_point||item.ingredient_minimum_stock):item.mro_minimum_stock;
+            const unit=escapeHtml(item.unit||'units');
+            const currentValue=parseFloat(current||0).toLocaleString('en-PH');
+            const minimumValue=parseFloat(minimum||0).toLocaleString('en-PH');
+            const reorderValue=parseFloat(reorder||0).toLocaleString('en-PH');
+            return `Current: ${currentValue} ${unit}<br><span class="text-xs text-base-content/60">Min: ${minimumValue} ${unit} | Reorder: ${reorderValue} ${unit}</span>`;
+        }
+        function renderDraftAuditFields(item){
+            const current=item.ingredient_id?item.ingredient_current_stock:item.mro_current_stock;
+            const value=item.audited_stock!==null&&item.audited_stock!==undefined?`value="${escapeHtml(item.audited_stock)}"`:'';
+            return `<div class="mt-2 grid gap-1.5 max-w-xs">
+                <label class="text-xs font-semibold">Physical shelf count *</label>
+                <input type="number" class="input input-bordered input-xs detail-audited-stock" min="0" max="9999999.999" step="0.001" inputmode="decimal" ${value} data-item-id="${Number(item.id)}" data-system-stock="${parseFloat(current||0)}" placeholder="Counted quantity">
+                <input type="text" class="input input-bordered input-xs detail-audit-reason" maxlength="255" value="${escapeHtml(item.audit_reason||'')}" data-item-id="${Number(item.id)}" placeholder="Reason if count differs">
+            </div>`;
+        }
+        function escapeHtml(value){
+            return String(value||'')
+                .replace(/&/g,'&amp;')
+                .replace(/</g,'&lt;')
+                .replace(/>/g,'&gt;')
+                .replace(/"/g,'&quot;')
+                .replace(/'/g,'&#39;');
+        }
+
+        function showToast(msg,type='info'){
+            const c=document.getElementById('toastContainer');
+            const cls=type==='success'?'alert-success':type==='error'?'alert-error':'alert-info';
+            const icon=type==='success'?'check-circle':type==='error'?'exclamation-circle':'info-circle';
+            const t=document.createElement('div');
+            t.className=`alert ${cls} shadow-lg text-sm`;
+            HighlandSecurity.renderToastContent(t, msg, `fas fa-${icon}`);
+            c.appendChild(t);
+            setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3000);
+        }
+
+        function showToastAction(msg,type='info',actionLabel=null,actionHandler=null){
+            const c=document.getElementById('toastContainer');
+            const cls=type==='success'?'alert-success':type==='error'?'alert-error':'alert-info';
+            const icon=type==='success'?'check-circle':type==='error'?'exclamation-circle':'info-circle';
+            const t=document.createElement('div');
+            t.className=`alert ${cls} shadow-lg text-sm flex items-center gap-2`;
+
+            const iconEl=document.createElement('i');
+            iconEl.className=`fas fa-${icon}`;
+            const textEl=document.createElement('span');
+            textEl.textContent=msg;
+
+            t.appendChild(iconEl);
+            t.appendChild(textEl);
+
+            if(actionLabel&&typeof actionHandler==='function'){
+                const btn=document.createElement('button');
+                btn.type='button';
+                btn.className='btn btn-xs btn-outline';
+                btn.textContent=actionLabel;
+                btn.addEventListener('click',()=>{
+                    actionHandler();
+                    t.remove();
+                });
+                t.appendChild(btn);
+            }
+
+            c.appendChild(t);
+            setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},4000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1699 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch - Warehouse FG | Highland Fresh</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .fifo-warning { @apply border-2 border-warning bg-warning/10; }
+        .fifo-ok { @apply border-2 border-success bg-success/5; }
+        .fifo-expired { @apply border-2 border-error bg-error/5; }
+        .scan-input:focus { @apply ring-4 ring-primary/50; }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+    
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Warehouse - Finished Goods</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="dashboard.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-th-large w-5 text-center text-base-content/60"></i><span>Dashboard</span>
+                    </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Inventory</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="inventory.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-boxes w-5 text-center text-base-content/60"></i><span>FG Inventory</span>
+                    </a></li>
+                    <li><a href="chillers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-temperature-low w-5 text-center text-base-content/60"></i><span>Chiller Storage</span>
+                    </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Operations</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="receiving.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-dolly w-5 text-center text-base-content/60"></i><span>Receive from Production</span>
+                    </a></li>
+                    <li><a href="delivery_receipts.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-file-invoice w-5 text-center text-base-content/60"></i><span>Delivery Receipts</span>
+                    </a></li>
+                    <li><a href="dispatch.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                        <i class="fas fa-truck w-5 text-center"></i><span>Dispatch</span>
+                    </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Customers</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="customers.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-users w-5 text-center text-base-content/60"></i><span>Customer List</span>
+                    </a></li>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Reports</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li><a href="reports/inventory.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-chart-bar w-5 text-center text-base-content/60"></i><span>Inventory Report</span>
+                    </a></li>
+                    <li><a href="reports/dispatch.html" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                        <i class="fas fa-shipping-fast w-5 text-center text-base-content/60"></i><span>Dispatch Report</span>
+                    </a></li>
+                </ul>
+            </div>
+        </nav>
+        
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">FG</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">Warehouse Staff</p>
+                    <p class="text-xs text-base-content/60 truncate">Finished Goods</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square"><i class="fas fa-ellipsis-v"></i></label>
+                    <ul tabindex="0" class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i> Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-truck text-primary"></i>
+                    <span class="font-semibold">Barcode Dispatch</span>
+                </div>
+            </div>
+            <div class="flex-none gap-2">
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+        
+        <main class="flex-1 p-4 lg:p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-base-content">Barcode-Based Dispatch</h1>
+                    <p class="text-base-content/60">Scan products to release with FIFO enforcement</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left: Scanner Section -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Barcode Scanner -->
+                    <div class="card bg-base-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-title text-lg mb-4">
+                                <i class="fas fa-barcode text-primary"></i>
+                                Scan Product Barcode
+                            </h2>
+                            
+                            <div class="form-control mb-4">
+                                <label class="label"><span class="label-text">Select Picking Ticket</span></label>
+                                <select id="selectDR" class="select select-bordered" onchange="loadDRDetails()">
+                                    <option value="">Select picking ticket / DR...</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-control">
+                                <label class="label"><span class="label-text">Barcode / Batch Code</span></label>
+                                <div class="join w-full">
+                                    <input type="text" id="barcodeInput" 
+                                           class="input input-bordered join-item flex-1 scan-input text-lg font-mono" 
+                                           placeholder="Scan or enter barcode..."
+                                           onkeypress="if(event.key==='Enter') scanBarcode()"
+                                           autofocus>
+                                    <button class="btn btn-primary join-item" onclick="scanBarcode()">
+                                        <i class="fas fa-search"></i> Lookup
+                                    </button>
+                                    <button class="btn btn-secondary join-item" onclick="openCameraScanner()" title="Use Phone Camera">
+                                        <i class="fas fa-camera"></i>
+                                    </button>
+                                </div>
+                                <label class="label">
+                                    <span class="label-text-alt text-base-content/50">
+                                        <i class="fas fa-circle-info"></i> Scan a batch, review the needed quantity, then add it
+                                    </span>
+                                </label>
+                            </div>
+                            
+                            <!-- Scan Result -->
+                            <div id="scanResult" class="mt-4 hidden">
+                                <div id="scanResultContent" class="rounded-lg p-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- FIFO Warning Banner -->
+                    <div id="fifoWarning" class="alert alert-warning hidden">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <div>
+                            <h3 class="font-bold">FIFO Warning!</h3>
+                            <div id="fifoWarningText">There are older batches that should be released first.</div>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm" onclick="showOlderBatches()">View Older</button>
+                            <button class="btn btn-sm btn-warning" onclick="overrideFIFO()">Override</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Scanned Items -->
+                    <div class="card bg-base-100 shadow-sm">
+                        <div class="card-body">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="card-title text-lg">
+                                    <i class="fas fa-list-check text-success"></i>
+                                    Scanned Items for Release
+                                </h2>
+                                <span class="badge badge-primary" id="scannedCount">0 items</span>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="table">
+                                    <thead>
+                                        <tr class="bg-base-200">
+                                            <th>Product</th>
+                                            <th>Batch</th>
+                                            <th>Expiry</th>
+                                            <th class="text-right">Boxes</th>
+                                            <th class="text-right">Pieces</th>
+                                            <th class="text-right">Total Pcs</th>
+                                            <th>FIFO</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="scannedItemsTable">
+                                        <tr>
+                                            <td colspan="8" class="text-center py-8 text-base-content/60">
+                                                <i class="fas fa-barcode text-4xl mb-2 opacity-30"></i>
+                                                <p>Scan items to add to release list</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="card-actions justify-end mt-4">
+                                <button class="btn btn-outline" onclick="clearScanned()">
+                                    <i class="fas fa-trash"></i> Clear All
+                                </button>
+                                <button class="btn btn-primary" id="btnConfirmRelease" onclick="confirmRelease()" disabled>
+                                    <i class="fas fa-file-invoice"></i> <span id="btnConfirmText">Generate DR</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: DR Summary -->
+                <div class="space-y-6">
+                    <!-- Selected DR Info -->
+                    <div class="card bg-base-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-title text-lg mb-4">
+                                <i class="fas fa-file-invoice text-info"></i>
+                                DR Summary
+                            </h2>
+                            
+                            <div id="drSummary" class="text-base-content/60 text-center py-4">
+                                Select a Delivery Receipt to begin
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Stats -->
+                    <div class="card bg-base-100 shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-title text-lg mb-4">
+                                <i class="fas fa-chart-bar text-primary"></i>
+                                Today's Dispatch
+                            </h2>
+                            
+                            <div class="stats stats-vertical w-full">
+                                <div class="stat">
+                                    <div class="stat-title">DRs Dispatched</div>
+                                    <div class="stat-value text-primary" id="todayDRs">0</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-title">Units Released</div>
+                                    <div class="stat-value" id="todayUnits">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300">
+            <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <!-- Quantity Modal -->
+    <dialog id="quantityModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-1">Confirm Batch Quantity</h3>
+            <p class="text-sm text-base-content/60 mb-4">Review the quantity needed for the selected picking ticket.</p>
+            <form id="quantityForm">
+                <input type="hidden" id="qtyInventoryId">
+                
+                <div class="bg-base-200 rounded-lg p-4 mb-4">
+                    <div class="text-sm">
+                        <div><span class="text-base-content/60">Product:</span> <strong id="qtyProduct">-</strong></div>
+                        <div><span class="text-base-content/60">Batch:</span> <strong id="qtyBatch">-</strong></div>
+                        <div><span class="text-base-content/60">Available:</span> <strong id="qtyAvailable">-</strong></div>
+                        <div class="mt-2 p-2 bg-info/10 rounded text-info text-xs" id="qtyPackConfigLine">
+                            <i class="fas fa-box"></i> <span id="qtyPiecesPerBoxLabel">Pack configuration</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-control mb-4">
+                    <label class="label"><span class="label-text">Release Quantity</span></label>
+                    <div class="flex gap-2 items-center">
+                        <div class="form-control flex-1" id="qtyBoxesField">
+                            <label class="label py-0"><span class="label-text text-xs" id="qtyBoxesLabel">Packs</span></label>
+                            <input type="number" id="qtyBoxes" class="input input-bordered w-full" min="0" value="0" onchange="calculateTotalReleasePieces(e)" oninput="calculateTotalReleasePieces(e)">
+                        </div>
+                        <span class="self-end pb-3 text-lg font-bold" id="qtyPackPlus">+</span>
+                        <div class="form-control flex-1">
+                            <label class="label py-0"><span class="label-text text-xs" id="qtyPiecesLabel">Loose</span></label>
+                            <input type="number" id="qtyPieces" class="input input-bordered w-full" min="0" value="0" onchange="piecesAutoPack(e)" oninput="piecesAutoPack(e)">
+                        </div>
+                    </div>
+                    <div class="mt-3 p-3 bg-primary/10 rounded-lg">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm">Total base units to release:</span>
+                            <span class="text-xl font-bold text-primary" id="qtyTotalPieces">0</span>
+                        </div>
+                    </div>
+                    <p class="text-xs text-base-content/60 mt-2" id="qtyValidation"></p>
+                </div>
+                
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="quantityModal.close()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add to Release</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    
+    <!-- Camera Scanner Modal -->
+    <dialog id="cameraScannerModal" class="modal">
+        <div class="modal-box max-w-md">
+            <h3 class="font-bold text-lg mb-4">
+                <i class="fas fa-camera mr-2"></i> Scan Barcode
+            </h3>
+            
+            <div id="cameraPreview" style="width: 100%; min-height: 250px;" class="rounded-lg overflow-hidden bg-base-200"></div>
+            
+            <div id="scanFeedback" class="mt-3 p-2 text-center hidden">
+                <i class="fas fa-check-circle text-success text-2xl"></i>
+                <p class="font-medium" id="scannedCode"></p>
+            </div>
+
+            <div id="cameraScanStatus" class="alert alert-info mt-3 py-2 text-sm" role="status" aria-live="polite">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span id="cameraScanStatusText">Starting camera…</span>
+            </div>
+            
+            <p class="text-sm text-base-content/60 mt-3 text-center">
+                Fit the complete horizontal barcode inside the guide and hold the phone steady.
+            </p>
+            
+            <div class="modal-action">
+                <button type="button" class="btn" onclick="closeCameraScanner()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+    
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/vendor/html5-qrcode.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_fg,general_manager"></script>
+    <script src="../../../js/utils/units.js?v=20260712"></script>
+    <script src="../../../js/utils/product-display.js?v=20260909-sizefix1"></script>
+    <script src="../../../js/utils/lookup-normalization.js?v=20260908-1"></script>
+    <script src="../../../js/warehouse/fg.service.js"></script>
+    
+    <script>
+        let pendingDRs = [];
+        let currentDR = null;
+        let scannedItems = [];
+        let currentScanResult = null;
+        let editIndex = -1; // -1 = new scan, >=0 = editing existing row
+
+        function resetStagedRelease() {
+            scannedItems = [];
+            currentScanResult = null;
+            editIndex = -1;
+
+            const quantityModal = document.getElementById('quantityModal');
+            if (quantityModal?.open) quantityModal.close();
+            document.getElementById('scanResult')?.classList.add('hidden');
+            document.getElementById('fifoWarning')?.classList.add('hidden');
+            renderScannedItems();
+        }
+        
+        // Helper function to get total scanned quantity for a product
+        function getScannedQtyForProduct(productId) {
+            return scannedItems
+                .filter(i => i.product_id == productId)
+                .reduce((sum, i) => sum + (i.releaseTotal || 0), 0);
+        }
+
+        /** Ordered/required qty for a DR line item (supports quantity or quantity_ordered). */
+        function getRequiredQtyForItem(item) {
+            return parseInt(item.quantity_ordered ?? item.quantity, 10) || 0;
+        }
+
+        function getPickProgress() {
+            const lines = currentDR?.items || [];
+            const required = lines.reduce((sum, line) => sum + getRequiredQtyForItem(line), 0);
+            const picked = lines.reduce((sum, line) => sum + getScannedQtyForProduct(line.product_id), 0);
+            const exact = lines.length > 0 && lines.every(line =>
+                getScannedQtyForProduct(line.product_id) === getRequiredQtyForItem(line)
+            );
+            return { required, picked, remaining: Math.max(0, required - picked), exact };
+        }
+
+        /** Remaining units still allowed for a product (never negative). */
+        function getRemainingQtyForProduct(productId) {
+            if (!currentDR || !currentDR.items) return Infinity;
+            const line = currentDR.items.find(i => i.product_id == productId);
+            if (!line) return 0;
+            return Math.max(0, getRequiredQtyForItem(line) - getScannedQtyForProduct(productId));
+        }
+
+        function getOutstandingTicketLines() {
+            return (currentDR?.items || []).filter(line => getRemainingQtyForProduct(line.product_id) > 0);
+        }
+
+        function completedSkuScanMessage(productId) {
+            const line = (currentDR?.items || []).find(item => item.product_id == productId);
+            if (!line) return 'This SKU is not required by the selected picking ticket.';
+
+            const required = getRequiredQtyForItem(line);
+            const picked = getScannedQtyForProduct(productId);
+            const next = getOutstandingTicketLines()
+                .filter(item => item.product_id != productId)
+                .map(item => ProductDisplay.name(item));
+            const nextInstruction = next.length
+                ? ` Scan ${next.join(' or ')} next.`
+                : ' Every required SKU is now complete.';
+            return `${ProductDisplay.name(line)} is already complete (${picked}/${required}).${nextInstruction}`;
+        }
+
+        function scanInventoryChoice(inventoryId) {
+            const input = document.getElementById('barcodeInput');
+            input.value = `PKG-${inventoryId}`;
+            scanBarcode();
+        }
+
+        /**
+         * Hard stop: block any add that would push scanned_qty above required_qty.
+         * @returns {{ ok: boolean, message?: string, remaining?: number, required?: number, already?: number }}
+         */
+        function validatePickAgainstOrder(productId, addQty) {
+            if (!currentDR || !currentDR.items || !currentDR.items.length) {
+                return { ok: true };
+            }
+            const line = currentDR.items.find(i => i.product_id == productId);
+            if (!line) {
+                return {
+                    ok: false,
+                    message: 'This product is NOT on this picking ticket / delivery receipt.'
+                };
+            }
+            const required = getRequiredQtyForItem(line);
+            let already = getScannedQtyForProduct(productId);
+            // When editing, subtract the old qty so validation checks against the new total
+            if (editIndex >= 0 && editIndex < scannedItems.length) {
+                already -= (scannedItems[editIndex].releaseTotal || 0);
+            }
+            const remaining = Math.max(0, required - already);
+            const add = parseInt(addQty, 10) || 0;
+
+            if (add <= 0) {
+                return { ok: false, message: 'Quantity must be greater than zero.', remaining, required, already };
+            }
+            if (already + add > required) {
+                return {
+                    ok: false,
+                    message: 'Cannot exceed ordered quantity',
+                    remaining,
+                    required,
+                    already,
+                    attempted: already + add
+                };
+            }
+            return { ok: true, remaining: remaining - add, required, already };
+        }
+
+        /** Short error tone for blocked over-scan (no external asset). */
+        function playErrorSound() {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return;
+                const ctx = new Ctx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(180, ctx.currentTime);
+                osc.frequency.setValueAtTime(120, ctx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.12, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+                setTimeout(() => ctx.close().catch(() => {}), 400);
+            } catch (_) { /* ignore */ }
+        }
+
+        function blockOverScan(message) {
+            playErrorSound();
+            showToast(message || 'Cannot exceed ordered quantity', 'error');
+            const input = document.getElementById('barcodeInput');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+        }
+
+        /** Build one required-item progress row: green only when exact match; red when over. */
+        function renderRequiredItemRow(item) {
+            const scannedQty = getScannedQtyForProduct(item.product_id);
+            const requiredQty = getRequiredQtyForItem(item);
+            let rowClass = 'text-base-content/80';
+            let icon = '';
+            let countClass = 'font-mono';
+
+            if (requiredQty > 0 && scannedQty === requiredQty) {
+                rowClass = 'text-success font-medium';
+                icon = '<i class="fas fa-check-circle mr-1"></i>';
+                countClass = 'font-mono font-semibold text-success';
+            } else if (scannedQty > requiredQty) {
+                rowClass = 'text-error font-semibold';
+                icon = '<i class="fas fa-times-circle mr-1"></i>';
+                countClass = 'font-mono font-bold text-error';
+            } else if (scannedQty > 0) {
+                rowClass = 'text-warning';
+                icon = '<i class="fas fa-hourglass-half mr-1 opacity-70"></i>';
+                countClass = 'font-mono text-warning';
+            }
+
+            return `<div class="flex justify-between items-center gap-2 ${rowClass}">
+                <span class="min-w-0 truncate">${icon}${escapeHtml(ProductDisplay.name(item))}</span>
+                <span class="${countClass} shrink-0">${scannedQty}/${requiredQty}</span>
+            </div>`;
+        }
+        
+        // Update DR summary to show scanned vs required progress
+        function updateDRSummaryProgress() {
+            if (!currentDR || !currentDR.items) return;
+            
+            const listEl = document.getElementById('drRequiredItemsList');
+            if (!listEl) return;
+            
+            listEl.innerHTML = `
+                <div class="font-semibold mb-2">Required Items:</div>
+                ${currentDR.items.map(renderRequiredItemRow).join('')}
+            `;
+        }
+        
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+        
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            document.getElementById('themeToggle').checked = true;
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg max-w-md`;
+            if (type === 'error') {
+                HighlandSecurity.renderToastContent(toast, message, 'fas fa-exclamation-triangle', 'font-semibold');
+            } else {
+                HighlandSecurity.renderToastContent(toast, message);
+            }
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), type === 'error' ? 5000 : 3000);
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                    document.getElementById('userInitials').textContent = `${user.first_name[0]}${user.last_name[0]}`;
+                }
+                await loadPendingDRs();
+                await loadTodayStats();
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const pickIdFromUrl = urlParams.get('pick') || urlParams.get('dr');
+                const ticketFromUrl = urlParams.get('ticket');
+
+                if (ticketFromUrl) {
+                    const selectDR = document.getElementById('selectDR');
+                    const option = Array.from(selectDR.options).find(o => {
+                        return o.textContent.includes(ticketFromUrl);
+                    });
+                    if (option) {
+                        selectDR.value = option.value;
+                        await loadDRDetails();
+                        showToast('Ticket loaded. Scan product barcodes to dispatch.', 'success');
+                    } else {
+                        // Fallback: try loading DR directly by number via barcode lookup
+                        try {
+                            const lookup = await WarehouseFGService.lookupBatchByBarcode(ticketFromUrl);
+                            if (lookup?.data?.type === 'delivery_receipt' && lookup.data.dr_number) {
+                                // Find the option that matches the returned DR id
+                                const drOpt = Array.from(selectDR.options).find(o => o.value == lookup.data.id);
+                                if (drOpt) {
+                                    selectDR.value = drOpt.value;
+                                    await loadDRDetails();
+                                    showToast('Ticket loaded. Scan product barcodes to dispatch.', 'success');
+                                } else {
+                                    showToast('Ticket not found. It may have already been dispatched.', 'warning');
+                                }
+                            } else {
+                                showToast('Ticket not found. It may have already been dispatched.', 'warning');
+                            }
+                        } catch (e) {
+                            showToast('Ticket not found. It may have already been dispatched.', 'warning');
+                        }
+                    }
+                } else if (pickIdFromUrl) {
+                    const selectDR = document.getElementById('selectDR');
+                    const option = Array.from(selectDR.options).find(o => o.value == pickIdFromUrl);
+                    if (option) {
+                        selectDR.value = pickIdFromUrl;
+                        await loadDRDetails();
+                        showToast('Picking ticket loaded. Scan product barcodes to pick items.', 'success');
+                    } else {
+                        showToast('Picking ticket not found. It may have been completed.', 'warning');
+                    }
+                }
+                
+                document.getElementById('barcodeInput').focus();
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+        
+        async function loadPendingDRs() {
+            try {
+                const response = await WarehouseFGService.getPendingDRs();
+                pendingDRs = response.data || [];
+                const select = document.getElementById('selectDR');
+                select.innerHTML = '<option value="">Select picking ticket / DR...</option>';
+                pendingDRs.forEach(dr => {
+                    const statusLabel = dr.status === 'picking' ? '🔄 PICKING' : dr.status.toUpperCase();
+                    select.innerHTML += `<option value="${dr.id}">${dr.dr_number} - ${dr.customer_name} [${statusLabel}]</option>`;
+                });
+            } catch (error) {
+                console.error('Failed to load pending DRs:', error);
+            }
+        }
+        
+        async function loadTodayStats() {
+            try {
+                const response = await WarehouseFGService.getDashboardStats();
+                const stats = response.data || {};
+                document.getElementById('todayDRs').textContent = stats.delivery?.dispatched_today || 0;
+                document.getElementById('todayUnits').textContent = (stats.delivery?.units_released || 0).toLocaleString();
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+        
+        async function loadDRDetails() {
+            const drId = document.getElementById('selectDR').value;
+            const previousDrId = currentDR?.id == null ? '' : String(currentDR.id);
+            const ticketChanged = String(drId || '') !== previousDrId;
+
+            if (ticketChanged) {
+                const discardedCount = scannedItems.length;
+                currentDR = null;
+                resetStagedRelease();
+                if (discardedCount > 0) {
+                    showToast('Scanned items were cleared because the picking ticket changed.', 'info');
+                }
+            }
+
+            if (!drId) {
+                currentDR = null;
+                document.getElementById('drSummary').innerHTML = '<div class="text-base-content/60 text-center py-4">Select a Picking Ticket to begin</div>';
+                updateButtonState();
+                return;
+            }
+            
+            try {
+                document.getElementById('drSummary').innerHTML =
+                    '<div class="text-base-content/60 text-center py-4"><span class="loading loading-spinner loading-sm mr-2"></span>Loading picking ticket...</div>';
+                const response = await WarehouseFGService.getDeliveryReceipt(drId);
+                if (String(document.getElementById('selectDR').value) !== String(drId)) return;
+                currentDR = response.data;
+                
+                // Check if this is a picking ticket (status='picking') vs a regular DR
+                const isPicking = currentDR.status === 'picking';
+                const statusBadge = isPicking 
+                    ? '<span class="badge badge-warning">Picking</span>'
+                    : `<span class="badge badge-${currentDR.status === 'pending' ? 'warning' : 'info'}">${currentDR.status}</span>`;
+                
+                document.getElementById('drSummary').innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-lg">${escapeHtml(currentDR.dr_number)}</span>
+                            ${statusBadge}
+                        </div>
+                        ${isPicking ? `
+                        <div class="alert alert-info text-sm">
+                            <i class="fas fa-info-circle"></i>
+                            <span>Scan items below. Click "Generate DR" when all items are picked.</span>
+                        </div>
+                        ` : ''}
+                        <div class="divider my-2"></div>
+                        <div class="text-sm space-y-1">
+                            <div><i class="fas fa-user w-5 text-base-content/60"></i> ${escapeHtml(currentDR.customer_name)}</div>
+                            <div><i class="fas fa-tag w-5 text-base-content/60"></i> ${escapeHtml(currentDR.customer_type || 'N/A')}</div>
+                            <div><i class="fas fa-map-marker-alt w-5 text-base-content/60"></i> ${escapeHtml(currentDR.delivery_address || 'N/A')}</div>
+                        </div>
+                        ${currentDR.items && currentDR.items.length > 0 ? `
+                            <div class="divider my-2"></div>
+                            <div class="text-sm" id="drRequiredItemsList">
+                                <div class="font-semibold mb-2">Required Items:</div>
+                                ${currentDR.items.map(renderRequiredItemRow).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+                
+                updateButtonState();
+                document.getElementById('barcodeInput').focus();
+            } catch (error) {
+                console.error('Failed to load DR:', error);
+                if (String(document.getElementById('selectDR').value) === String(drId)) {
+                    currentDR = null;
+                    document.getElementById('drSummary').innerHTML =
+                        '<div class="text-error text-center py-4">Could not load this Picking Ticket. Please select it again.</div>';
+                    updateButtonState();
+                    showToast('Failed to load picking ticket details', 'error');
+                }
+            }
+        }
+        
+        function updateButtonState() {
+            const button = document.getElementById('btnConfirmRelease');
+            const btnText = document.getElementById('btnConfirmText');
+            const btnIcon = button.querySelector('i');
+            
+            if (currentDR && currentDR.status === 'picking') {
+                const progress = getPickProgress();
+                btnText.textContent = progress.exact ? 'Generate DR' : `Pick ${progress.remaining} more`;
+                btnIcon.className = 'fas fa-file-invoice';
+                button.disabled = !progress.exact;
+                button.title = progress.exact
+                    ? 'Generate the Delivery Receipt'
+                    : 'Pick every ordered unit before generating the Delivery Receipt';
+            } else {
+                btnText.textContent = 'Confirm Release';
+                btnIcon.className = 'fas fa-truck';
+                button.disabled = !currentDR || scannedItems.length === 0;
+                button.title = currentDR ? 'Confirm the staged release' : 'Select a Picking Ticket first';
+            }
+        }
+        
+        async function scanBarcode() {
+            const barcode = LookupNormalization.barcode(document.getElementById('barcodeInput').value);
+            if (!barcode) {
+                showToast('Please enter a barcode', 'warning');
+                return;
+            }
+            
+            try {
+                const response = await WarehouseFGService.lookupBatchByBarcode(barcode);
+                currentScanResult = response.data;
+                
+                const resultDiv = document.getElementById('scanResult');
+                const contentDiv = document.getElementById('scanResultContent');
+
+                if (currentScanResult?.type === 'inventory_choices') {
+                    const candidates = Array.isArray(currentScanResult.items) ? currentScanResult.items : [];
+                    const outstandingIds = new Set(getOutstandingTicketLines().map(line => String(line.product_id)));
+                    const eligible = currentDR?.id
+                        ? candidates.filter(item => outstandingIds.has(String(item.product_id)))
+                        : [];
+                    const eligibleProductIds = new Set(eligible.map(item => String(item.product_id)));
+
+                    // Once only one SKU on this ticket remains, a shared batch
+                    // code can safely resolve it without another user decision.
+                    if (eligible.length > 0 && eligibleProductIds.size === 1) {
+                        currentScanResult = eligible[0];
+                        showToast(`Batch matched the remaining SKU: ${ProductDisplay.name(currentScanResult)}.`, 'info');
+                    } else {
+                        const choices = eligibleProductIds.size > 1 ? eligible : candidates;
+                        const hasTicket = Boolean(currentDR?.id);
+                        const noOutstandingMatch = hasTicket && eligible.length === 0;
+                        const title = !hasTicket
+                            ? 'Select a Picking Ticket first'
+                            : (noOutstandingMatch ? 'No unfinished SKU matches this batch' : 'Choose the package size');
+                        const guidance = !hasTicket
+                            ? 'Choose the customer ticket, then scan this batch again.'
+                            : (noOutstandingMatch
+                                ? 'The matching ticket lines are already complete or this batch is not required.'
+                                : 'This production batch contains more than one unfinished SKU. Select the physical package you are holding.');
+                        const buttons = (!hasTicket || noOutstandingMatch) ? '' : choices.map(item => {
+                            const remaining = getRemainingQtyForProduct(item.product_id);
+                            return `<button type="button" class="btn btn-outline btn-sm justify-start h-auto py-2" onclick="scanInventoryChoice(${Number(item.id)})">
+                                <span class="text-left">
+                                    <span class="block font-semibold">${escapeHtml(ProductDisplay.name(item))}</span>
+                                    <span class="block text-xs opacity-70">SKU ${escapeHtml(item.product_sku || `PKG-${item.id}`)} · ${remaining} remaining</span>
+                                </span>
+                            </button>`;
+                        }).join('');
+
+                        contentDiv.className = `rounded-lg p-4 border-2 ${noOutstandingMatch ? 'border-warning bg-warning/10' : 'border-info bg-info/5'}`;
+                        contentDiv.innerHTML = `
+                            <div class="font-bold mb-1">${escapeHtml(title)}</div>
+                            <div class="text-sm text-base-content/70 mb-3">${escapeHtml(guidance)}</div>
+                            ${buttons ? `<div class="grid gap-2">${buttons}</div>` : ''}
+                        `;
+                        resultDiv.classList.remove('hidden');
+                        currentScanResult = null;
+                        document.getElementById('barcodeInput').value = '';
+                        if (noOutstandingMatch) playErrorSound();
+                        showToast(title, noOutstandingMatch ? 'warning' : 'info');
+                        return;
+                    }
+                }
+                
+                // Check if this is a DR number scan
+                if (currentScanResult && currentScanResult.type === 'delivery_receipt') {
+                    const dr = currentScanResult.dr;
+                    
+                    // Try to auto-select the DR in dropdown
+                    const selectDR = document.getElementById('selectDR');
+                    const option = Array.from(selectDR.options).find(o => o.value == dr.id);
+                    if (option) {
+                        selectDR.value = dr.id;
+                        loadDRDetails();
+                        showToast(`DR ${dr.dr_number} selected. Now scan product barcodes.`, 'success');
+                    } else {
+                        showToast(`DR ${dr.dr_number} found but not in pending list (Status: ${dr.status})`, 'warning');
+                    }
+                    
+                    contentDiv.className = 'rounded-lg p-4 bg-info/10 border-2 border-info';
+                    contentDiv.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-file-invoice text-info text-3xl mb-2"></i>
+                            <p class="font-semibold">Delivery Receipt Detected</p>
+                            <p class="text-sm text-base-content/60 mb-2">${escapeHtml(dr.dr_number)}</p>
+                            <p class="text-sm text-base-content/60">Customer: ${escapeHtml(dr.customer_name || 'N/A')}</p>
+                            <div class="alert alert-info mt-3 text-sm">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Now scan <strong>product barcodes</strong> to add items</span>
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.classList.remove('hidden');
+                    document.getElementById('barcodeInput').value = '';
+                    document.getElementById('barcodeInput').focus();
+                    return;
+                }
+
+                if (currentScanResult && currentScanResult.type === 'inventory_item') {
+                    if (!currentDR?.id) {
+                        playErrorSound();
+                        contentDiv.className = 'rounded-lg p-4 bg-warning/10 border-2 border-warning';
+                        contentDiv.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-ticket text-warning text-2xl"></i>
+                                <div>
+                                    <p class="font-semibold">Select a Picking Ticket first</p>
+                                    <p class="text-sm text-base-content/60">The batch was not added. Choose the customer request, then scan it again.</p>
+                                </div>
+                            </div>`;
+                        resultDiv.classList.remove('hidden');
+                        currentScanResult = null;
+                        document.getElementById('barcodeInput').value = '';
+                        document.getElementById('selectDR').focus();
+                        showToast('Select a Picking Ticket before scanning a product batch.', 'warning');
+                        return;
+                    }
+
+                    // Check if batch is expired
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const expiryDate = currentScanResult.expiry_date ? new Date(currentScanResult.expiry_date) : null;
+                    const isExpired = expiryDate && expiryDate < today;
+
+                    const availableDisplay = PackUnits.formatQuantity(currentScanResult, { preferSplit: true });
+                    const packLine = PackUnits.formatPackLine(currentScanResult);
+                    const integrity = PackUnits.checkIntegrity(currentScanResult);
+                    const integrityHtml = integrity.ok ? '' : `<div class="text-xs text-error mt-1">${PackUnits.integrityBadgeHtml(currentScanResult)} ${integrity.issues[0] || ''}</div>`;
+
+                    if (isExpired) {
+                        // EXPIRED — block dispatch entirely
+                        contentDiv.className = 'rounded-lg p-4 fifo-expired';
+                        contentDiv.innerHTML = `
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <div class="font-bold text-lg">${escapeHtml(ProductDisplay.name(currentScanResult))}</div>
+                                    <div class="text-sm text-base-content/60">${escapeHtml(currentScanResult.variant || '')} ${escapeHtml(currentScanResult.size_value || '')}${escapeHtml(currentScanResult.size_unit || '')}</div>
+                                </div>
+                                <span class="badge badge-error"><i class="fas fa-ban mr-1"></i> EXPIRED</span>
+                            </div>
+                            <div class="bg-base-200 rounded-lg p-3 mb-3">
+                                <div class="text-xs text-base-content/60 mb-1">Available Stock</div>
+                                <div class="font-bold text-lg">${availableDisplay}</div>
+                                <div class="text-xs text-info mt-1"><i class="fas fa-box"></i> ${packLine}</div>
+                                ${integrityHtml}
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-sm mb-4">
+                                <div><span class="text-base-content/60">Batch:</span> <code>${escapeHtml(currentScanResult.batch_code)}</code></div>
+                                <div><span class="text-base-content/60">Chiller:</span> ${escapeHtml(currentScanResult.chiller_name || 'N/A')}</div>
+                                <div><span class="text-base-content/60">Mfg Date:</span> ${currentScanResult.manufacture_date ? new Date(currentScanResult.manufacture_date).toLocaleDateString() : 'N/A'}</div>
+                                <div><span class="text-base-content/60">Expiry:</span> <span class="font-bold text-error">${expiryDate.toLocaleDateString()}</span></div>
+                            </div>
+                            <div class="alert alert-error text-sm mb-0">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>This batch expired on <strong>${expiryDate.toLocaleDateString()}</strong>. Expired inventory cannot be dispatched.</span>
+                            </div>
+                        `;
+                        // Hide FIFO warning — expiry is the blocker, not FIFO order
+                        document.getElementById('fifoWarning').classList.add('hidden');
+                    } else {
+                        // Not expired — proceed with FIFO check
+                        const fifoCheck = await WarehouseFGService.checkFIFOCompliance(currentScanResult.id, currentScanResult.product_id);
+                        const isFIFOOk = fifoCheck.data?.is_compliant !== false;
+
+                        // Validate product is on the DR
+                        if (currentDR && currentDR.items && currentDR.items.length > 0) {
+                            const matchingItem = currentDR.items.find(item => item.product_id == currentScanResult.product_id);
+                            if (!matchingItem) {
+                                const drProductNames = currentDR.items.map(i => ProductDisplay.name(i)).join(', ');
+                                blockOverScan(`This product (${ProductDisplay.name(currentScanResult)}) is NOT on this Delivery Receipt! Required: ${drProductNames}`);
+                                return;
+                            }
+                            const remaining = getRemainingQtyForProduct(currentScanResult.product_id);
+                            if (remaining <= 0) {
+                                blockOverScan(completedSkuScanMessage(currentScanResult.product_id));
+                                document.getElementById('scanResult')?.classList.add('hidden');
+                                return;
+                            }
+                        }
+
+                        const labels = PackUnits.unitLabels(currentScanResult);
+                        const remaining = getRemainingQtyForProduct(currentScanResult.product_id);
+                        contentDiv.className = 'rounded-lg p-3 border-2 border-info bg-info/5';
+                        contentDiv.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <i class="fas fa-barcode text-info text-xl"></i>
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-semibold truncate">${escapeHtml(ProductDisplay.name(currentScanResult))}</div>
+                                    <div class="text-xs text-base-content/60">Batch ${escapeHtml(currentScanResult.batch_code)} found — review quantity before adding</div>
+                                </div>
+                                <span class="badge badge-info badge-sm">${remaining} ${escapeHtml(labels.base)} needed</span>
+                            </div>`;
+
+                        if (!isFIFOOk) {
+                            document.getElementById('fifoWarning').classList.remove('hidden');
+                            document.getElementById('fifoWarningText').textContent =
+                                `Batch ${fifoCheck.data?.oldest_batch || 'older'} should be released first (expires ${fifoCheck.data?.oldest_expiry || 'earlier'})`;
+                        } else {
+                            document.getElementById('fifoWarning').classList.add('hidden');
+                            resultDiv.classList.remove('hidden');
+                            document.getElementById('barcodeInput').value = '';
+                            addToRelease();
+                            return;
+                        }
+                    }
+                } else {
+                    contentDiv.className = 'rounded-lg p-4 bg-error/10 border-2 border-error';
+                    contentDiv.innerHTML = `
+                        <div class="text-center">
+                            <i class="fas fa-exclamation-circle text-error text-3xl mb-2"></i>
+                            <p class="font-semibold">Barcode not found</p>
+                            <p class="text-sm text-base-content/60">No inventory item matches this barcode</p>
+                        </div>
+                    `;
+                }
+                
+                resultDiv.classList.remove('hidden');
+                document.getElementById('barcodeInput').value = '';
+                document.getElementById('barcodeInput').focus();
+                
+            } catch (error) {
+                console.error('Scan error:', error);
+                currentScanResult = null;
+                playErrorSound();
+
+                const message = error?.response?.data?.message
+                    || error?.message
+                    || 'The barcode could not be checked. Please try again.';
+                const resultDiv = document.getElementById('scanResult');
+                const contentDiv = document.getElementById('scanResultContent');
+                if (resultDiv && contentDiv) {
+                    contentDiv.className = 'rounded-lg p-4 bg-error/10 border-2 border-error';
+                    contentDiv.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <i class="fas fa-triangle-exclamation text-error text-2xl mt-0.5"></i>
+                            <div>
+                                <p class="font-semibold">Barcode cannot be dispatched</p>
+                                <p class="text-sm text-base-content/70 mt-1">${escapeHtml(message)}</p>
+                            </div>
+                        </div>`;
+                    resultDiv.classList.remove('hidden');
+                }
+
+                document.getElementById('barcodeInput').value = '';
+                document.getElementById('barcodeInput').focus();
+                showToast(message, 'error');
+            }
+        }
+        
+        function addToRelease() {
+            if (!currentScanResult) return;
+
+            editIndex = -1; // Reset to new scan mode
+
+            // Block expired batches from being added to release list
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const exp = currentScanResult.expiry_date ? new Date(currentScanResult.expiry_date) : null;
+            if (exp && exp < today) {
+                playErrorSound();
+                showToast(`Cannot dispatch expired batch (${currentScanResult.batch_code}) — expired ${exp.toLocaleDateString()}`, 'error');
+                return;
+            }
+            
+            // Validate that scanned product matches DR requirements
+            if (currentDR && currentDR.items && currentDR.items.length > 0) {
+                const scannedProductId = currentScanResult.product_id;
+                const matchingDRItem = currentDR.items.find(item => item.product_id == scannedProductId);
+                
+                if (!matchingDRItem) {
+                    const drProductNames = currentDR.items.map(i => ProductDisplay.name(i)).join(', ');
+                    blockOverScan(`This product (${ProductDisplay.name(currentScanResult)}) is NOT on this Delivery Receipt! Required: ${drProductNames}`);
+                    return;
+                }
+
+                // Hard-stop before modal if line is already fully picked
+                const remaining = getRemainingQtyForProduct(scannedProductId);
+                if (remaining <= 0) {
+                    blockOverScan(completedSkuScanMessage(scannedProductId));
+                    document.getElementById('scanResult')?.classList.add('hidden');
+                    return;
+                }
+            }
+            
+            const labels = PackUnits.unitLabels(currentScanResult);
+            const availableBoxes = PackUnits.readBoxes(currentScanResult);
+            const availablePieces = PackUnits.readLoosePieces(currentScanResult);
+            const totalAvailable = PackUnits.totalBase(currentScanResult);
+            const availableDisplay = PackUnits.formatQuantity(currentScanResult, { preferSplit: true });
+            const packLine = PackUnits.formatPackLine(currentScanResult);
+            const orderRemaining = getRemainingQtyForProduct(currentScanResult.product_id);
+            const alreadyStagedFromBatch = scannedItems
+                .filter(item => item.id == currentScanResult.id)
+                .reduce((sum, item) => sum + (parseInt(item.releaseTotal, 10) || 0), 0);
+            const availableToStage = Math.max(0, totalAvailable - alreadyStagedFromBatch);
+            const maxAllowed = Number.isFinite(orderRemaining)
+                ? Math.min(availableToStage, orderRemaining)
+                : availableToStage;
+
+            if (availableToStage <= 0) {
+                blockOverScan('All available stock from this batch is already staged.');
+                return;
+            }
+
+            const piecesPerBox = Math.max(1, parseInt(labels.piecesPerPack, 10) || 1);
+            const hasDispatchPack = piecesPerBox > 1;
+            const suggestedTotal = Math.max(0, maxAllowed);
+            const suggestedBoxes = piecesPerBox > 1 ? Math.floor(suggestedTotal / piecesPerBox) : 0;
+            const suggestedPieces = piecesPerBox > 1 ? suggestedTotal % piecesPerBox : suggestedTotal;
+            
+            document.getElementById('qtyInventoryId').value = currentScanResult.id;
+            document.getElementById('qtyProduct').textContent = ProductDisplay.name(currentScanResult);
+            document.getElementById('qtyBatch').textContent = currentScanResult.batch_code;
+            document.getElementById('qtyAvailable').textContent = availableDisplay;
+            document.getElementById('qtyPiecesPerBoxLabel').textContent = packLine;
+            document.getElementById('qtyBoxesLabel').textContent = labels.pack;
+            document.getElementById('qtyPiecesLabel').textContent = labels.base;
+            document.getElementById('qtyBoxesField')?.classList.toggle('hidden', !hasDispatchPack);
+            document.getElementById('qtyPackPlus')?.classList.toggle('hidden', !hasDispatchPack);
+            document.getElementById('qtyBoxes').value = suggestedBoxes;
+            document.getElementById('qtyBoxes').max = Math.max(0, availableBoxes);
+            document.getElementById('qtyPieces').value = suggestedPieces;
+            document.getElementById('qtyTotalPieces').textContent = String(suggestedTotal);
+            document.getElementById('qtyValidation').textContent = '';
+            
+            // Store available stock + order remaining for validation
+            currentScanResult._maxBoxes = availableBoxes;
+            currentScanResult._maxPieces = availablePieces;
+            currentScanResult._piecesPerBox = piecesPerBox;
+            currentScanResult._totalAvailable = availableToStage;
+            currentScanResult._orderRemaining = orderRemaining;
+            currentScanResult._maxAllowed = maxAllowed;
+            currentScanResult._baseLabel = labels.base;
+            
+            // Reset modal button text for new scan
+            const submitBtn = document.querySelector('#quantityForm button[type="submit"]');
+            if (submitBtn) submitBtn.textContent = 'Add to Release';
+
+            calculateTotalReleasePieces();
+            document.getElementById('quantityModal').showModal();
+        }
+        
+        function calculateTotalReleasePieces(e) {
+            if (!currentScanResult) return;
+            
+            const piecesPerBox = currentScanResult._piecesPerBox || 1;
+            const boxesInput = document.getElementById('qtyBoxes');
+            const piecesInput = document.getElementById('qtyPieces');
+
+            let boxes, pieces;
+            if (e && e.target) {
+                const val = parseInt(e.target.value) || 0;
+                if (e.target === boxesInput) {
+                    boxes = val;
+                    pieces = parseInt(piecesInput.value) || 0;
+                } else {
+                    boxes = parseInt(boxesInput.value) || 0;
+                    pieces = val;
+                }
+            } else {
+                boxes = parseInt(boxesInput.value) || 0;
+                pieces = parseInt(piecesInput.value) || 0;
+            }
+
+            const total = (boxes * piecesPerBox) + pieces;
+            const baseLabel = (currentScanResult._baseLabel || 'units').toLowerCase();
+            
+            document.getElementById('qtyTotalPieces').textContent = `${total.toLocaleString()} ${baseLabel}`;
+            
+            const maxAvailable = currentScanResult._totalAvailable || 0;
+            const orderRemaining = currentScanResult._orderRemaining;
+            const maxAllowed = currentScanResult._maxAllowed ?? maxAvailable;
+            const validationEl = document.getElementById('qtyValidation');
+            
+            if (total > maxAvailable) {
+                validationEl.textContent = `Exceeds available stock (${maxAvailable.toLocaleString()} ${baseLabel} max)`;
+                validationEl.className = 'text-xs text-error mt-2';
+            } else if (Number.isFinite(orderRemaining) && total > orderRemaining) {
+                validationEl.textContent = `Cannot exceed ordered quantity (only ${orderRemaining.toLocaleString()} remaining on ticket)`;
+                validationEl.className = 'text-xs text-error mt-2 font-semibold';
+            } else if (total === 0) {
+                const remHint = Number.isFinite(orderRemaining)
+                    ? ` — ${orderRemaining.toLocaleString()} still needed on order`
+                    : '';
+                validationEl.textContent = `Enter quantity to release${remHint}`;
+                validationEl.className = 'text-xs text-base-content/60 mt-2';
+            } else {
+                const stockLeft = maxAvailable - total;
+                const orderLeft = Number.isFinite(orderRemaining) ? orderRemaining - total : null;
+                let msg = `${stockLeft.toLocaleString()} ${baseLabel} stock will remain`;
+                if (orderLeft !== null) {
+                    msg += ` · ${orderLeft.toLocaleString()} still needed on order`;
+                }
+                validationEl.textContent = msg;
+                validationEl.className = 'text-xs text-success mt-2';
+            }
+        }
+
+        function piecesAutoPack(e) {
+            if (!currentScanResult) return;
+            const ppb = Math.max(1, parseInt(currentScanResult._piecesPerBox) || 1);
+            const piecesInput = document.getElementById('qtyPieces');
+            const boxesInput = document.getElementById('qtyBoxes');
+            let rawPieces = e && e.target ? (parseInt(e.target.value) || 0) : (parseInt(piecesInput.value) || 0);
+
+            if (ppb <= 1 || rawPieces < ppb) {
+                calculateTotalReleasePieces(e);
+                return;
+            }
+
+            const existingBoxes = parseInt(boxesInput.value) || 0;
+            const extraBoxes = Math.floor(rawPieces / ppb);
+            const remainingPieces = rawPieces % ppb;
+
+            boxesInput.value = existingBoxes + extraBoxes;
+            piecesInput.value = remainingPieces;
+
+            calculateTotalReleasePieces({ target: boxesInput });
+        }
+        
+        document.getElementById('quantityForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const piecesPerBox = currentScanResult._piecesPerBox || 1;
+            const releaseBoxes = parseInt(document.getElementById('qtyBoxes').value) || 0;
+            const releasePieces = parseInt(document.getElementById('qtyPieces').value) || 0;
+            const totalRelease = (releaseBoxes * piecesPerBox) + releasePieces;
+            const maxAvailable = currentScanResult._totalAvailable || 0;
+            
+            if (totalRelease <= 0) {
+                showToast('Please enter a quantity to release', 'warning');
+                return;
+            }
+            
+            if (totalRelease > maxAvailable) {
+                showToast('Quantity exceeds available stock', 'warning');
+                return;
+            }
+
+            // Hard-stop: never allow scanned_qty > required_qty for this product
+            const pickCheck = validatePickAgainstOrder(currentScanResult.product_id, totalRelease);
+            if (!pickCheck.ok) {
+                blockOverScan(pickCheck.message || 'Cannot exceed ordered quantity');
+                return;
+            }
+            
+            if (editIndex >= 0 && editIndex < scannedItems.length) {
+                // Editing existing item — replace values
+                scannedItems[editIndex].releaseBoxes = releaseBoxes;
+                scannedItems[editIndex].releasePieces = releasePieces;
+                scannedItems[editIndex].releaseTotal = totalRelease;
+            } else {
+                // New scan — add or merge
+                const existingIndex = scannedItems.findIndex(i => i.id === currentScanResult.id);
+                if (existingIndex >= 0) {
+                    scannedItems[existingIndex].releaseBoxes += releaseBoxes;
+                    scannedItems[existingIndex].releasePieces += releasePieces;
+                    scannedItems[existingIndex].releaseTotal += totalRelease;
+                } else {
+                    scannedItems.push({
+                        ...currentScanResult,
+                        releaseBoxes: releaseBoxes,
+                        releasePieces: releasePieces,
+                        releaseTotal: totalRelease,
+                        piecesPerBox: piecesPerBox
+                    });
+                }
+            }
+            
+            const wasEditing = editIndex >= 0;
+            editIndex = -1;
+            renderScannedItems();
+            document.getElementById('quantityModal').close();
+            document.getElementById('scanResult').classList.add('hidden');
+            showToast(wasEditing ? 'Item updated' : 'Item added to release list', 'success');
+            document.getElementById('barcodeInput')?.focus();
+        });
+        
+        function renderScannedItems() {
+            const tbody = document.getElementById('scannedItemsTable');
+            
+            if (scannedItems.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-base-content/60">
+                            <i class="fas fa-barcode text-4xl mb-2 opacity-30"></i>
+                            <p>Scan items to add to release list</p>
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('scannedCount').textContent = '0 items';
+                updateDRSummaryProgress();
+                updateButtonState();
+                return;
+            }
+            
+            // Calculate grand totals
+            let grandTotalPieces = 0;
+            
+            tbody.innerHTML = scannedItems.map((item, index) => {
+                grandTotalPieces += item.releaseTotal;
+                return `
+                <tr>
+                    <td>
+                        <div class="font-medium">${escapeHtml(ProductDisplay.name(item))}</div>
+                        <div class="text-xs text-base-content/60">${escapeHtml(item.product_code || '')}</div>
+                    </td>
+                    <td><code class="text-xs">${escapeHtml(item.batch_code)}</code></td>
+                    <td>${item.expiry_date ? new Date(item.expiry_date).toLocaleDateString() : 'N/A'}</td>
+                    <td class="text-right">${item.releaseBoxes > 0 ? item.releaseBoxes : '-'}</td>
+                    <td class="text-right">${item.releasePieces > 0 ? item.releasePieces : '-'}</td>
+                    <td class="text-right font-bold text-primary">${item.releaseTotal}</td>
+                    <td><span class="badge badge-success badge-sm">OK</span></td>
+                    <td>
+                        <div class="flex items-center gap-1">
+                            <button class="btn btn-ghost btn-xs text-primary" onclick="openEditQuantityModal(${index})" title="Edit quantity">
+                                <i class="fas fa-pen"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-xs text-error" onclick="removeScannedItem(${index})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+            
+            // Add total row
+            tbody.innerHTML += `
+                <tr class="bg-primary/10 font-bold">
+                    <td colspan="5" class="text-right">Grand Total:</td>
+                    <td class="text-right text-primary text-lg">${grandTotalPieces.toLocaleString()} pcs</td>
+                    <td colspan="2"></td>
+                </tr>
+            `;
+            
+            document.getElementById('scannedCount').textContent = `${scannedItems.length} items (${grandTotalPieces} pcs)`;
+            // Update DR summary to show progress
+            updateDRSummaryProgress();
+            updateButtonState();
+        }
+        
+        function removeScannedItem(index) {
+            scannedItems.splice(index, 1);
+            renderScannedItems();
+        }
+
+        function openEditQuantityModal(index) {
+            const item = scannedItems[index];
+            if (!item) return;
+            editIndex = index;
+            currentScanResult = item;
+
+            const labels = PackUnits.unitLabels(item);
+            const availableBoxes = PackUnits.readBoxes(item);
+            const totalAvailable = PackUnits.totalBase(item);
+            const availableDisplay = PackUnits.formatQuantity(item, { preferSplit: true });
+            const packLine = PackUnits.formatPackLine(item);
+
+            document.getElementById('qtyInventoryId').value = item.id;
+            document.getElementById('qtyProduct').textContent = ProductDisplay.name(item);
+            document.getElementById('qtyBatch').textContent = item.batch_code;
+            document.getElementById('qtyAvailable').textContent = availableDisplay;
+            document.getElementById('qtyPiecesPerBoxLabel').textContent = packLine;
+            document.getElementById('qtyBoxesLabel').textContent = labels.pack;
+            document.getElementById('qtyPiecesLabel').textContent = labels.base;
+            document.getElementById('qtyBoxes').value = item.releaseBoxes || 0;
+            document.getElementById('qtyBoxes').max = Math.max(0, availableBoxes);
+            document.getElementById('qtyPieces').value = item.releasePieces || 0;
+            document.getElementById('qtyTotalPieces').textContent = `${item.releaseTotal || 0} ${labels.base}`;
+            document.getElementById('qtyValidation').textContent = '';
+
+            // Compute order remaining excluding this item's own scanned qty
+            item._piecesPerBox = labels.piecesPerPack;
+            item._totalAvailable = totalAvailable;
+
+            // Auto-pack saved pieces into boxes+pieces on modal open
+            piecesAutoPack();
+            let scannedQty = getScannedQtyForProduct(item.product_id);
+            if (item.releaseTotal) scannedQty -= item.releaseTotal;
+            const line = (currentDR?.items || []).find(i => i.product_id == item.product_id);
+            item._orderRemaining = line ? Math.max(0, getRequiredQtyForItem(line) - scannedQty) : Infinity;
+            item._maxAllowed = Number.isFinite(item._orderRemaining) ? Math.min(totalAvailable, item._orderRemaining) : totalAvailable;
+            item._baseLabel = labels.base;
+
+            // Update modal button to "Update"
+            const submitBtn = document.querySelector('#quantityForm button[type="submit"]');
+            if (submitBtn) submitBtn.textContent = 'Update';
+
+            calculateTotalReleasePieces();
+            document.getElementById('quantityModal').showModal();
+        }
+        
+        async function clearScanned() {
+            if (scannedItems.length === 0) return;
+            const confirmed = await AuthService.confirmAction({
+                title: 'Clear Scanned Items',
+                message: 'Clear all scanned items?',
+                confirmText: 'Clear Items',
+                tone: 'warning',
+                icon: 'fa-list-check'
+            });
+            if (!confirmed) return;
+            scannedItems = [];
+            renderScannedItems();
+        }
+        
+        async function confirmRelease() {
+            if (scannedItems.length === 0) {
+                showToast('No items to release', 'warning');
+                return;
+            }
+            
+            const drId = currentDR?.id;
+            if (!drId) {
+                showToast('Please select a Picking Ticket', 'warning');
+                return;
+            }
+
+            // Final client-side guard before Generate DR / Release
+            if (currentDR.items && currentDR.items.length > 0) {
+                for (const line of currentDR.items) {
+                    const required = getRequiredQtyForItem(line);
+                    const scanned = getScannedQtyForProduct(line.product_id);
+                    if (scanned > required) {
+                        blockOverScan(
+                            `Cannot exceed ordered quantity for ${ProductDisplay.name(line)} (${scanned}/${required}). Remove excess scans first.`
+                        );
+                        return;
+                    }
+                    if (scanned < required) {
+                        showToast(
+                            `Picking is incomplete for ${ProductDisplay.name(line)}: picked ${scanned} of ${required}.`,
+                            'warning'
+                        );
+                        return;
+                    }
+                }
+                // Reject products staged that are not on the ticket
+                for (const staged of scannedItems) {
+                    const onTicket = currentDR.items.some(i => i.product_id == staged.product_id);
+                    if (!onTicket) {
+                        blockOverScan(`${ProductDisplay.name(staged)} is not on this picking ticket.`);
+                        return;
+                    }
+                }
+            }
+            
+            const isPicking = currentDR.status === 'picking';
+            const confirmMsg = isPicking 
+                ? `Generate Delivery Receipt for ${scannedItems.length} picked items?\n\nThis will:\n- Assign official DR number\n- Deduct inventory from stock`
+                : `Release ${scannedItems.length} items for ${currentDR.dr_number}?`;
+            
+            const confirmed = await AuthService.confirmAction({
+                title: isPicking ? 'Generate Delivery Receipt' : 'Release Items',
+                message: confirmMsg,
+                confirmText: isPicking ? 'Generate DR' : 'Release Items',
+                tone: 'success',
+                icon: 'fa-truck'
+            });
+            if (!confirmed) return;
+            
+            try {
+                const items = scannedItems.map(i => ({
+                    inventory_id: i.id,
+                    product_id: i.product_id,
+                    quantity_boxes: i.releaseBoxes,
+                    quantity_pieces: i.releasePieces,
+                    total_pieces: i.releaseTotal,
+                    barcode: i.batch_code
+                }));
+                
+                if (isPicking) {
+                    // Finalize picking - creates official DR number, inventory deducted, status → ready
+                    const response = await WarehouseFGService.finalizePicking(drId, items);
+                    const drNumber = response.data?.dr_number || 'DR generated';
+                    const finalDrId = response.data?.id || drId;
+
+                    showToast(
+                        `${drNumber} generated. Print the paper DR before the truck leaves (driver & customer signatures).`,
+                        'success'
+                    );
+
+                    scannedItems = [];
+                    renderScannedItems();
+                    await loadPendingDRs();
+                    await loadTodayStats();
+                    document.getElementById('selectDR').value = '';
+                    document.getElementById('drSummary').innerHTML =
+                        '<div class="text-base-content/60 text-center py-4">Select a Picking Ticket to begin</div>';
+                    currentDR = null;
+                    updateButtonState();
+
+                    // Force print workflow next: paper DR must leave with the truck
+                    await AuthService.confirmAction({
+                        title: 'Print Delivery Receipt',
+                        message:
+                            'This receipt is Ready for Delivery.\n\n' +
+                            'Print the paper DR now for Driver (Delivered By) and Customer (Received By) signatures.',
+                        highlight: drNumber,
+                        highlightLabel: 'Delivery Receipt',
+                        callout: 'The truck cannot be dispatched until the DR is printed.',
+                        calloutTone: 'warning',
+                        confirmText: 'Continue to Print',
+                        confirmIcon: 'fa-print',
+                        tone: 'success',
+                        icon: 'fa-print'
+                    });
+
+                    // Always open Delivery Receipts focused on print (paper must leave with truck)
+                    window.location.href = `delivery_receipts.html?print=${finalDrId}`;
+                    return;
+                } else {
+                    // Regular release flow for already-finalized DRs
+                    await WarehouseFGService.bulkReleaseItems(drId, items);
+                    // Transition DR status from 'ready' to 'dispatched' after items released
+                    try {
+                        await WarehouseFGService.releaseDR(drId);
+                    } catch (releaseErr) {
+                        console.warn('Could not auto-transition DR to dispatched:', releaseErr);
+                    }
+                    showToast('Items released and truck dispatched!', 'success');
+                }
+                
+                scannedItems = [];
+                renderScannedItems();
+                await loadPendingDRs();
+                await loadTodayStats();
+                
+                document.getElementById('selectDR').value = '';
+                document.getElementById('drSummary').innerHTML = '<div class="text-base-content/60 text-center py-4">Select a Picking Ticket to begin</div>';
+                currentDR = null;
+                updateButtonState();
+                
+            } catch (error) {
+                console.error('Release error:', error);
+                const errMsg = error.response?.data?.message || 'Failed to process';
+                if (/exceed ordered|not on this|duplicate scan/i.test(errMsg)) {
+                    playErrorSound();
+                }
+                showToast(errMsg, 'error');
+            }
+        }
+        
+        function showOlderBatches() {
+            showToast('View older batches feature coming soon', 'info');
+        }
+        
+        async function overrideFIFO() {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Override FIFO',
+                message: 'Override FIFO and continue with this batch? This will be logged.',
+                confirmText: 'Override FIFO',
+                tone: 'warning',
+                icon: 'fa-triangle-exclamation'
+            });
+            if (confirmed) {
+                document.getElementById('fifoWarning').classList.add('hidden');
+                addToRelease();
+            }
+        }
+        
+        // ==================== CAMERA SCANNER ====================
+        let html5QrCode = null;
+        let cameraScanHintTimer = null;
+
+        function setCameraScanStatus(message, tone = 'info', icon = 'fa-camera') {
+            const status = document.getElementById('cameraScanStatus');
+            const text = document.getElementById('cameraScanStatusText');
+            if (!status || !text) return;
+            status.className = `alert alert-${tone} mt-3 py-2 text-sm`;
+            status.querySelector('i').className = `fas ${icon}`;
+            text.textContent = message;
+        }
+
+        function cameraStartMessage(error) {
+            const name = String(error?.name || '');
+            const message = String(error?.message || error || '');
+            if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(location.hostname)) {
+                return 'Phone camera access requires HTTPS. Open the secure https:// site and try again.';
+            }
+            if (name === 'NotAllowedError' || /permission|denied/i.test(message)) {
+                return 'Camera permission was denied. Allow camera access in the browser site settings, then reopen the scanner.';
+            }
+            if (name === 'NotFoundError' || /not found|no camera/i.test(message)) {
+                return 'No usable camera was found on this device.';
+            }
+            if (name === 'NotReadableError' || /could not start|in use/i.test(message)) {
+                return 'The camera is busy in another app. Close that app, then reopen the scanner.';
+            }
+            return `Camera could not start: ${message || 'unknown camera error'}`;
+        }
+        
+        async function openCameraScanner() {
+            const modal = document.getElementById('cameraScannerModal');
+            modal.showModal();
+            
+            // Small delay to ensure modal is visible
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const cameraPreview = document.getElementById('cameraPreview');
+            document.getElementById('scanFeedback').classList.add('hidden');
+            clearTimeout(cameraScanHintTimer);
+            setCameraScanStatus('Requesting camera access…', 'info', 'fa-spinner fa-spin');
+            
+            try {
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    throw new Error('This browser does not provide camera access here. Use HTTPS and a current browser.');
+                }
+                html5QrCode = new Html5Qrcode("cameraPreview");
+                
+                await html5QrCode.start(
+                    { facingMode: "environment" }, // Back camera on phones
+                    {
+                        fps: 10,
+                        // Compact CODE128 labels fit this phone-friendly guide.
+                        qrbox: { width: 280, height: 140 },
+                        formatsToSupport: [
+                            Html5QrcodeSupportedFormats.CODE_128,
+                            Html5QrcodeSupportedFormats.EAN_13,
+                            Html5QrcodeSupportedFormats.CODE_39,
+                            Html5QrcodeSupportedFormats.QR_CODE
+                        ]
+                    },
+                    onScanSuccess,
+                    onScanError
+                );
+                setCameraScanStatus('Camera ready. Aim at the complete horizontal barcode.', 'info', 'fa-camera');
+                cameraScanHintTimer = setTimeout(() => {
+                    setCameraScanStatus(
+                        'No code detected yet. Move closer, avoid glare, and keep both ends of the barcode inside the guide.',
+                        'warning',
+                        'fa-lightbulb'
+                    );
+                }, 8000);
+            } catch (err) {
+                console.error('Failed to start camera:', err);
+                const message = cameraStartMessage(err);
+                setCameraScanStatus(message, 'error', 'fa-triangle-exclamation');
+                showToast(message, 'error');
+                if (html5QrCode) {
+                    try { html5QrCode.clear(); } catch (_) {}
+                    html5QrCode = null;
+                }
+            }
+        }
+        
+        function onScanSuccess(decodedText, decodedResult) {
+            clearTimeout(cameraScanHintTimer);
+            // Show feedback
+            document.getElementById('scanFeedback').classList.remove('hidden');
+            document.getElementById('scannedCode').textContent = decodedText;
+            setCameraScanStatus('Barcode recognized. Checking inventory…', 'success', 'fa-circle-check');
+            
+            // Fill in the barcode input
+            document.getElementById('barcodeInput').value = decodedText;
+            
+            // Close scanner and trigger lookup
+            setTimeout(() => {
+                closeCameraScanner();
+                scanBarcode();
+            }, 500);
+        }
+        
+        function onScanError(errorMessage) {
+            // Ignore - continuous scanning will have many "not found" errors
+        }
+        
+        async function closeCameraScanner() {
+            const modal = document.getElementById('cameraScannerModal');
+            clearTimeout(cameraScanHintTimer);
+            
+            if (html5QrCode) {
+                try {
+                    await html5QrCode.stop();
+                    html5QrCode.clear();
+                } catch (err) {
+                    // Scanner may already be stopped when the modal closes.
+                }
+                html5QrCode = null;
+            }
+            
+            modal.close();
+        }
+        
+        // Close camera when modal backdrop is clicked
+        document.getElementById('cameraScannerModal').addEventListener('close', () => {
+            clearTimeout(cameraScanHintTimer);
+            if (html5QrCode) {
+                html5QrCode.stop().catch(() => {});
+                html5QrCode = null;
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+

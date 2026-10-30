@@ -1,0 +1,71 @@
+<?php
+
+require_once __DIR__ . '/../api/helpers/customer_order_import.php';
+
+function inboxAssert(bool $condition, string $message): void
+{
+    if (!$condition) {
+        throw new RuntimeException($message);
+    }
+}
+
+inboxAssert(hfCustomerOrderParseQuantity('20') === 20, 'Whole-number quantity should be accepted.');
+inboxAssert(hfCustomerOrderParseQuantity('20.000') === 20, 'Spreadsheet whole numbers should be accepted.');
+inboxAssert(hfCustomerOrderParseQuantity('2e10') === null, 'Scientific notation must be rejected.');
+inboxAssert(hfCustomerOrderParseQuantity('-1') === null, 'Negative quantities must be rejected.');
+inboxAssert(hfCustomerOrderParseQuantity('1000001') === null, 'Oversized quantities must be rejected.');
+
+inboxAssert(hfCustomerOrderParseMoney('2800.00') === ['valid' => true, 'value' => 2800.0], 'Normal money should be accepted.');
+inboxAssert(hfCustomerOrderParseMoney('2e10')['valid'] === false, 'Scientific-notation prices must be rejected.');
+inboxAssert(hfCustomerOrderParseMoney('12.345')['valid'] === false, 'Prices with more than two decimals must be rejected.');
+
+$boxPricing = hfCustomerOrderLinePricing([
+    'quantity_base' => 20,
+    'pieces_per_box' => 20,
+    'base_unit' => 'block',
+    'box_unit' => 'box',
+    'system_unit_price' => 140,
+    'raw_data' => json_encode([
+        'entered_unit_price' => 2800,
+        'price_unit' => 'box',
+    ]),
+]);
+inboxAssert(abs($boxPricing['base_price'] - 140.0) < 0.0001, 'A 2,800 box price must become 140 per block.');
+inboxAssert(abs($boxPricing['line_total'] - 2800.0) < 0.0001, 'One 20-block box priced at 2,800 must total 2,800.');
+
+$nonDivisibleBoxPricing = hfCustomerOrderLinePricing([
+    'quantity_base' => 12,
+    'pieces_per_box' => 12,
+    'base_unit' => 'piece',
+    'box_unit' => 'box',
+    'raw_data' => json_encode([
+        'entered_unit_price' => 1000,
+        'price_unit' => 'box',
+    ]),
+]);
+inboxAssert(abs($nonDivisibleBoxPricing['line_total'] - 1000.0) < 0.0001, 'Box totals must stay exact even when the per-piece price repeats.');
+
+$approved = ['customer_id' => 3, 'customer_po_number' => 'PO-1', 'delivery_date' => '2026-08-27', 'lines' => [['row_number' => 1, 'line' => ['quantity' => 1]]]];
+$laterEdit = ['customer_id' => 3, 'customer_po_number' => 'PO-1', 'delivery_date' => '2026-08-27', 'lines' => [['row_number' => 1, 'line' => ['quantity' => 2]]]];
+inboxAssert(hfManualSnapshotMatches($approved, $approved), 'An approval must match the exact saved order.');
+inboxAssert(!hfManualSnapshotMatches($approved, $laterEdit), 'A later quantity change must require a new customer approval.');
+inboxAssert(!hfCustomerOrderRequiresGmApproval('cash', 0, 5000, 0), 'Cash orders must bypass GM approval.');
+inboxAssert(!hfCustomerOrderRequiresGmApproval('credit', 1000, 2000, 5000), 'Credit orders within the limit must bypass GM approval.');
+inboxAssert(hfCustomerOrderRequiresGmApproval('credit', 4000, 2000, 5000), 'Only a credit-limit exception must require GM approval.');
+
+$helperSource = file_get_contents(__DIR__ . '/../api/helpers/customer_order_import.php');
+$endpointSource = file_get_contents(__DIR__ . '/../api/sales/order_inbox.php');
+inboxAssert(str_contains($helperSource, "'quantity_boxes' => 'INT NOT NULL DEFAULT 0'"), 'Legacy inbox schemas must repair quantity-box fields before save.');
+inboxAssert(str_contains($helperSource, "'system_unit_price' => 'DECIMAL(12,2) NULL'"), 'Legacy inbox schemas must repair system-price fields before save.');
+inboxAssert(str_contains($helperSource, "'raw_data' => 'JSON NULL'"), 'Legacy inbox schemas must repair raw line details before save.');
+inboxAssert(str_contains($endpointSource, 'catch (PDOException $e)'), 'Inbox endpoint must classify database faults separately from input errors.');
+inboxAssert(
+    strpos($endpointSource, 'catch (PDOException $e)') < strpos($endpointSource, 'catch (RuntimeException $e)'),
+    'PDO exceptions must be caught before RuntimeException because PDOException inherits from RuntimeException.'
+);
+inboxAssert(
+    !preg_match('/ORDER BY\s+(?:[a-z]+\.)?row_number\b/i', $helperSource . "\n" . $endpointSource),
+    'ROW_NUMBER must be quoted in SQL because hosted MariaDB treats it as a reserved window-function name.'
+);
+
+echo "Customer order inbox flow checks passed.\n";

@@ -1,0 +1,1050 @@
+<?php
+/**
+ * Highland Fresh System - AR Collection API
+ * 
+ * Collection of payments for credit accounts (Accounts Receivable)
+ * Generates Official Receipt (OR) documents
+ * Supports partial payments (staggered collection)
+ * 
+ * GET - Search by customer/order/DR, outstanding balances, customer balance
+ * POST - Record collection payment, generate OR
+ * 
+ * @package HighlandFresh
+ * @version 4.0
+ */
+
+require_once dirname(__DIR__) . '/bootstrap.php';
+require_once dirname(__DIR__) . '/helpers/customer_accounts.php';
+
+// Require Cashier or GM role
+$currentUser = Auth::requireRole(['cashier', 'general_manager']);
+
+$action = getParam('action', 'outstanding');
+
+try {
+    $db = Database::getInstance()->getConnection();
+    hfEnsureCustomerAccountSchema($db);
+    
+    // Ensure payment_collections table exists
+    ensureCollectionsTable($db);
+    
+    switch ($requestMethod) {
+        case 'GET':
+            handleGet($db, $action, $currentUser);
+            break;
+        case 'POST':
+            handlePost($db, $action, $currentUser);
+            break;
+        default:
+            Response::error('Method not allowed', 405);
+    }
+} catch (Exception $e) {
+    error_log("Collections API Error: " . $e->getMessage());
+    Response::error('Server error: ' . $e->getMessage(), 500);
+}
+
+/**
+ * Ensure the payment_collections table exists
+ */
+function ensureCollectionsTable($db) {
+    $db->exec("
+        CREATE TABLE IF NOT EXISTS payment_collections (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            or_number VARCHAR(30) NOT NULL UNIQUE COMMENT 'Official Receipt Number: OR-YYYY-XXXXX',
+            dr_id INT NULL COMMENT 'Link to delivery_receipts',
+            dr_number VARCHAR(30) NULL,
+            transaction_id INT NULL COMMENT 'Link to sales_transactions for credit sales',
+            customer_id INT NULL,
+            customer_name VARCHAR(200) NOT NULL,
+            
+            amount_collected DECIMAL(12,2) NOT NULL,
+            balance_before DECIMAL(12,2) NOT NULL,
+            balance_after DECIMAL(12,2) NOT NULL,
+            
+            payment_method ENUM('cash', 'gcash', 'bank_transfer', 'check') NOT NULL DEFAULT 'cash',
+            payment_metadata JSON COMMENT 'check_number, check_bank, check_date, gcash_ref, bank_ref',
+            
+            collected_by INT NOT NULL,
+            collected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            
+            notes TEXT,
+            status ENUM('pending_clearing', 'confirmed', 'cleared', 'bounced', 'cancelled') DEFAULT 'confirmed',
+            cleared_at DATETIME NULL,
+            cleared_by INT NULL,
+            clearing_reference VARCHAR(120) NULL,
+            
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            
+            INDEX idx_or_number (or_number),
+            INDEX idx_dr (dr_id, dr_number),
+            INDEX idx_customer (customer_id),
+            INDEX idx_collected_at (collected_at),
+            INDEX idx_status (status)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    ");
+
+    $statusColumn = $db->query("SHOW COLUMNS FROM payment_collections LIKE 'status'")->fetch(PDO::FETCH_ASSOC);
+    if (!$statusColumn || stripos((string)$statusColumn['Type'], 'pending_clearing') === false || stripos((string)$statusColumn['Type'], 'cleared') === false) {
+        $db->exec("ALTER TABLE payment_collections
+            MODIFY status ENUM('pending_clearing', 'confirmed', 'cleared', 'bounced', 'cancelled') DEFAULT 'confirmed'");
+    }
+
+    $columns = [];
+    foreach ($db->query('SHOW COLUMNS FROM payment_collections')->fetchAll(PDO::FETCH_ASSOC) as $column) {
+        $columns[$column['Field']] = true;
+    }
+    if (!isset($columns['cleared_at'])) {
+        $db->exec('ALTER TABLE payment_collections ADD COLUMN cleared_at DATETIME NULL AFTER status');
+    }
+    if (!isset($columns['cleared_by'])) {
+        $db->exec('ALTER TABLE payment_collections ADD COLUMN cleared_by INT NULL AFTER cleared_at');
+    }
+    if (!isset($columns['clearing_reference'])) {
+        $db->exec('ALTER TABLE payment_collections ADD COLUMN clearing_reference VARCHAR(120) NULL AFTER cleared_by');
+    }
+}
+
+function applyCollectionToReceivable($db, array $collection): array {
+    $drStmt = $db->prepare('SELECT * FROM delivery_receipts WHERE id = ? FOR UPDATE');
+    $drStmt->execute([$collection['dr_id']]);
+    $dr = $drStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$dr) {
+        throw new Exception('The linked Delivery Receipt was not found');
+    }
+
+    $amount = (float)$collection['amount_collected'];
+    $balanceBefore = max(0, (float)$dr['total_amount'] - (float)$dr['amount_paid']);
+    if ($amount > $balanceBefore + 0.009) {
+        throw new Exception('The outstanding balance changed while this check was pending. Review the account before clearing it.');
+    }
+
+    $balanceAfter = max(0, $balanceBefore - $amount);
+    $newAmountPaid = (float)$dr['amount_paid'] + $amount;
+    $paymentStatus = $balanceAfter <= 0.009 ? 'paid' : 'partial';
+    $db->prepare('UPDATE delivery_receipts SET amount_paid = ?, payment_status = ? WHERE id = ?')
+        ->execute([$newAmountPaid, $paymentStatus, $dr['id']]);
+
+    if (!empty($collection['customer_id'])) {
+        hfSyncCustomerBalance($db, (int) $collection['customer_id']);
+    }
+
+    try {
+        $txnStmt = $db->prepare('SELECT id FROM sales_transactions WHERE dr_id = ?');
+        $txnStmt->execute([$dr['id']]);
+        if ($txn = $txnStmt->fetch(PDO::FETCH_ASSOC)) {
+            $db->prepare("UPDATE sales_transactions
+                SET amount_paid = amount_paid + ?,
+                    amount_due = GREATEST(0, amount_due - ?),
+                    payment_status = CASE WHEN amount_due - ? <= 0 THEN 'paid' ELSE 'partial' END,
+                    paid_at = CASE WHEN amount_due - ? <= 0 THEN NOW() ELSE paid_at END
+                WHERE id = ?")
+                ->execute([$amount, $amount, $amount, $amount, $txn['id']]);
+        }
+    } catch (Exception $e) {
+        error_log('Skipping sales_transaction update: ' . $e->getMessage());
+    }
+
+    return [
+        'balance_before' => $balanceBefore,
+        'balance_after' => $balanceAfter,
+        'payment_status' => $paymentStatus,
+    ];
+}
+
+/**
+ * Generate Official Receipt number
+ * Format: OR-YYYY-XXXXX (sequential)
+ */
+function generateORNumber($db) {
+    $year = date('Y');
+    $prefix = "OR-{$year}-";
+    
+    // Get the last OR number for this year
+    $stmt = $db->prepare("
+        SELECT or_number 
+        FROM payment_collections 
+        WHERE or_number LIKE ? 
+        ORDER BY id DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([$prefix . '%']);
+    $last = $stmt->fetch();
+    
+    if ($last) {
+        $lastNum = intval(substr($last['or_number'], -5));
+        $newNum = $lastNum + 1;
+    } else {
+        $newNum = 1;
+    }
+    
+    return $prefix . str_pad($newNum, 5, '0', STR_PAD_LEFT);
+}
+
+// ========================================
+// GET HANDLERS
+// ========================================
+
+function handleGet($db, $action, $currentUser) {
+    switch ($action) {
+        case 'search_by_dr':
+            $drNumber = getParam('dr_number');
+            $drId = getParam('dr_id');
+            
+            if (!$drNumber && !$drId) {
+                Response::error('DR number or DR ID required', 400);
+            }
+            
+            // Find delivery receipt
+            $sql = "
+                SELECT 
+                    dr.*,
+                    c.id as customer_id_record,
+                    c.contact_person,
+                    c.credit_limit,
+                    " . hfCustomerOutstandingSql('c.id') . " as customer_total_balance,
+                    dr.payment_terms_days as payment_terms,
+                    dr.due_date
+                FROM delivery_receipts dr
+                LEFT JOIN customers c ON dr.customer_id = c.id
+                WHERE " . ($drId ? "dr.id = ?" : "dr.dr_number = ?");
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$drId ?: $drNumber]);
+            $dr = $stmt->fetch();
+            
+            if (!$dr) {
+                Response::error('Delivery Receipt not found', 404);
+            }
+            
+            // Get items on this DR
+            $itemsStmt = $db->prepare("
+                SELECT 
+                    dri.*,
+                    p.product_name,
+                    p.category
+                FROM delivery_receipt_items dri
+                LEFT JOIN products p ON dri.product_id = p.id
+                WHERE dri.delivery_receipt_id = ?
+            ");
+            $itemsStmt->execute([$dr['id']]);
+            $dr['items'] = $itemsStmt->fetchAll();
+            
+            // Get payment history for this DR
+            $paymentsStmt = $db->prepare("
+                SELECT 
+                    pc.*,
+                    u.first_name as collected_by_first_name,
+                    u.last_name as collected_by_last_name
+                FROM payment_collections pc
+                LEFT JOIN users u ON pc.collected_by = u.id
+                WHERE pc.dr_id = ?
+                ORDER BY pc.collected_at DESC
+            ");
+            $paymentsStmt->execute([$dr['id']]);
+            $dr['payment_history'] = $paymentsStmt->fetchAll();
+            
+            // Calculate totals
+            $totalPaid = array_sum(array_map(function($p) {
+                return in_array($p['status'], ['confirmed', 'cleared'], true) ? floatval($p['amount_collected']) : 0;
+            }, $dr['payment_history']));
+            $pendingChecks = array_sum(array_map(function($p) {
+                return $p['status'] === 'pending_clearing' ? floatval($p['amount_collected']) : 0;
+            }, $dr['payment_history']));
+            
+            $dr['calculated_balance'] = floatval($dr['total_amount']) - $totalPaid;
+            $dr['total_collected'] = $totalPaid;
+            $dr['pending_check_amount'] = $pendingChecks;
+            $dr['collectible_balance'] = max(0, $dr['calculated_balance'] - $pendingChecks);
+            
+            Response::success($dr, 'Delivery Receipt found');
+            break;
+            
+        case 'outstanding':
+            // Get collectible receivables. A DR becomes Accounts Receivable only
+            // after Warehouse confirms delivery; picking/dispatched documents are
+            // operational records and must never be collected by Cashier.
+            $customerId = getParam('customer_id');
+            $search = trim((string)getParam('search', ''));
+            $limit = min(100, max(10, intval(getParam('limit', 50))));
+            
+            $sql = "
+                SELECT 
+                    dr.id,
+                    dr.dr_number,
+                    dr.order_id,
+                    so.order_number,
+                    so.customer_po_number,
+                    COALESCE(c.customer_type, 'institutional') as customer_type,
+                    dr.customer_name,
+                    c.customer_code,
+                    COALESCE(dr.sub_location, c.sub_location, '') as sub_location,
+                    dr.total_amount,
+                    COALESCE(return_summary.returned_quantity, 0) as returned_quantity,
+                    COALESCE(return_summary.return_adjustment, 0) as return_adjustment,
+                    dr.total_amount + COALESCE(return_summary.return_adjustment, 0) as gross_shipped_amount,
+                    COALESCE(return_summary.pending_disposal_quantity, 0) as pending_disposal_quantity,
+                    COALESCE(dr.amount_paid, 0) as amount_paid,
+                    (dr.total_amount - COALESCE(dr.amount_paid, 0)) as amount_due,
+                    COALESCE(pending.pending_check_amount, 0) as pending_check_amount,
+                    pending.pending_collection_id,
+                    GREATEST(0, dr.total_amount - COALESCE(dr.amount_paid, 0) - COALESCE(pending.pending_check_amount, 0)) as collectible_balance,
+                    COALESCE(dr.payment_status, 'unpaid') as payment_status,
+                    dr.status as delivery_status,
+                    dr.created_at,
+                    dr.delivered_at,
+                    DATEDIFF(CURDATE(), COALESCE(dr.due_date, DATE(dr.created_at))) as days_outstanding,
+                    c.id as customer_id,
+                    dr.payment_terms_days as payment_terms,
+                    dr.due_date
+                FROM delivery_receipts dr
+                LEFT JOIN customers c
+                    ON dr.customer_id = c.id
+                    OR (dr.customer_id IS NULL AND dr.customer_name = c.name)
+                LEFT JOIN sales_orders so ON so.id = dr.order_id
+                LEFT JOIN (
+                    SELECT
+                        drt.delivery_receipt_id,
+                        SUM(drt.quantity_returned) AS returned_quantity,
+                        SUM(drt.quantity_returned * COALESCE(dri.unit_price, 0)) AS return_adjustment,
+                        SUM(CASE
+                            WHEN drt.disposition IN ('dispose', 'qc_review')
+                             AND EXISTS (
+                                 SELECT 1
+                                 FROM disposals d
+                                 WHERE d.source_type = 'finished_goods'
+                                   AND d.status IN ('pending', 'approved')
+                                   AND (
+                                       d.source_id = -drt.id
+                                       OR (
+                                           d.source_id = drt.id
+                                           AND COALESCE(d.notes, '') LIKE 'Auto-created from delivery return.%'
+                                       )
+                                   )
+                             )
+                            THEN drt.quantity_returned ELSE 0 END
+                        ) AS pending_disposal_quantity
+                    FROM delivery_returns drt
+                    INNER JOIN delivery_receipt_items dri ON dri.id = drt.dr_item_id
+                    GROUP BY drt.delivery_receipt_id
+                ) return_summary ON return_summary.delivery_receipt_id = dr.id
+                LEFT JOIN (
+                    SELECT dr_id,
+                           SUM(amount_collected) AS pending_check_amount,
+                           MAX(id) AS pending_collection_id
+                    FROM payment_collections
+                    WHERE status = 'pending_clearing'
+                    GROUP BY dr_id
+                ) pending ON pending.dr_id = dr.id
+                WHERE COALESCE(dr.payment_status, 'unpaid') IN ('unpaid', 'partial')
+                AND dr.status = 'delivered'
+            ";
+            $params = [];
+            
+            if ($customerId) {
+                $sql .= " AND c.id = ?";
+                $params[] = $customerId;
+            }
+
+            if ($search !== '') {
+                $like = "%{$search}%";
+                $sql .= " AND (
+                    dr.dr_number LIKE ?
+                    OR dr.customer_name LIKE ?
+                    OR c.name LIKE ?
+                    OR c.customer_code LIKE ?
+                    OR c.contact_person LIKE ?
+                    OR c.contact_number LIKE ?
+                    OR so.order_number LIKE ?
+                    OR so.customer_po_number LIKE ?
+                )";
+                array_push($params, $like, $like, $like, $like, $like, $like, $like, $like);
+            }
+            
+            $sql .= " ORDER BY dr.delivered_at ASC, dr.created_at ASC LIMIT ?";
+            $params[] = $limit;
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $outstanding = $stmt->fetchAll();
+            
+            // Calculate totals
+            $totalOutstanding = array_sum(array_column($outstanding, 'amount_due'));
+            
+            Response::success([
+                'receivables' => $outstanding,
+                'count' => count($outstanding),
+                'total_outstanding' => $totalOutstanding,
+                'search' => $search
+            ], $search !== '' ? 'Matching receivables retrieved' : 'Outstanding receivables retrieved');
+            break;
+            
+        case 'customer_balance':
+            $customerId = getParam('customer_id');
+            $customerName = getParam('customer_name');
+            
+            if (!$customerId && !$customerName) {
+                Response::error('Customer ID or name required', 400);
+            }
+            
+            // Get customer record
+            $sql = "SELECT * FROM customers WHERE " . ($customerId ? "id = ?" : "name LIKE ?");
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$customerId ?: "%{$customerName}%"]);
+            $customer = $stmt->fetch();
+            
+            if (!$customer) {
+                Response::error('Customer not found', 404);
+            }
+            
+            // Get outstanding DRs
+            $drsStmt = $db->prepare("
+                SELECT 
+                    dr.id,
+                    dr.dr_number,
+                    dr.total_amount,
+                    dr.amount_paid,
+                    (dr.total_amount - dr.amount_paid) as amount_due,
+                    dr.payment_status,
+                    dr.delivered_at,
+                    DATEDIFF(CURDATE(), dr.delivered_at) as days_outstanding
+                FROM delivery_receipts dr
+                WHERE (dr.customer_id = ? OR (dr.customer_id IS NULL AND dr.customer_name = ?))
+                AND dr.payment_status IN ('unpaid', 'partial')
+                AND dr.status = 'delivered'
+                ORDER BY dr.delivered_at ASC
+            ");
+            $drsStmt->execute([$customer['id'], $customer['name']]);
+            $outstandingDRs = $drsStmt->fetchAll();
+            
+            // Get recent payments
+            $paymentsStmt = $db->prepare("
+                SELECT 
+                    pc.or_number,
+                    pc.dr_number,
+                    pc.amount_collected,
+                    pc.payment_method,
+                    pc.collected_at,
+                    pc.status
+                FROM payment_collections pc
+                WHERE pc.customer_id = ? OR pc.customer_name = ?
+                ORDER BY pc.collected_at DESC
+                LIMIT 20
+            ");
+            $paymentsStmt->execute([$customer['id'], $customer['name']]);
+            $recentPayments = $paymentsStmt->fetchAll();
+            
+            $totalOutstanding = array_sum(array_column($outstandingDRs, 'amount_due'));
+            
+            // AR Aging breakdown
+            $aging = [
+                'current' => 0,      // 0-30 days
+                'days_31_60' => 0,
+                'days_61_90' => 0,
+                'over_90' => 0
+            ];
+            
+            foreach ($outstandingDRs as $dr) {
+                $days = intval($dr['days_outstanding']);
+                $amount = floatval($dr['amount_due']);
+                
+                if ($days <= 30) {
+                    $aging['current'] += $amount;
+                } elseif ($days <= 60) {
+                    $aging['days_31_60'] += $amount;
+                } elseif ($days <= 90) {
+                    $aging['days_61_90'] += $amount;
+                } else {
+                    $aging['over_90'] += $amount;
+                }
+            }
+            
+            Response::success([
+                'customer' => $customer,
+                'outstanding_deliveries' => $outstandingDRs,
+                'recent_payments' => $recentPayments,
+                'total_outstanding' => $totalOutstanding,
+                'credit_limit' => floatval($customer['credit_limit']),
+                'available_credit' => floatval($customer['credit_limit']) - $totalOutstanding,
+                'aging' => $aging
+            ], 'Customer balance retrieved');
+            break;
+            
+        case 'collection_history':
+            // Get collection history with filters
+            $fromDate = getParam('from_date');
+            $toDate = getParam('to_date');
+            $customerId = getParam('customer_id');
+            $status = getParam('status'); // Default to null (show all)
+            $paymentMethod = trim((string)getParam('payment_method', ''));
+            $search = trim((string)getParam('search', ''));
+            $limit = min(200, max(10, intval(getParam('limit', 50))));
+            
+            $sql = "
+                SELECT 
+                    pc.*,
+                    u.first_name as collected_by_first_name,
+                    u.last_name as collected_by_last_name
+                FROM payment_collections pc
+                LEFT JOIN users u ON pc.collected_by = u.id
+                WHERE 1=1
+            ";
+            $params = [];
+            
+            if ($fromDate) {
+                $sql .= " AND DATE(pc.collected_at) >= ?";
+                $params[] = $fromDate;
+            }
+            
+            if ($toDate) {
+                $sql .= " AND DATE(pc.collected_at) <= ?";
+                $params[] = $toDate;
+            }
+            
+            if ($customerId) {
+                $sql .= " AND pc.customer_id = ?";
+                $params[] = $customerId;
+            }
+            
+            if ($status && $status !== 'all') {
+                $sql .= " AND pc.status = ?";
+                $params[] = $status;
+            }
+
+            if ($paymentMethod !== '' && $paymentMethod !== 'all') {
+                $sql .= " AND pc.payment_method = ?";
+                $params[] = $paymentMethod;
+            }
+
+            if ($search !== '') {
+                $sql .= " AND (pc.or_number LIKE ? OR pc.dr_number LIKE ? OR pc.customer_name LIKE ?)";
+                $term = '%' . $search . '%';
+                array_push($params, $term, $term, $term);
+            }
+            
+            $sql .= " ORDER BY pc.collected_at DESC LIMIT ?";
+            $params[] = $limit;
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $collections = $stmt->fetchAll();
+            
+            // Decode payment_metadata
+            foreach ($collections as &$c) {
+                $c['payment_metadata'] = $c['payment_metadata'] ? json_decode($c['payment_metadata'], true) : null;
+            }
+            
+            $totalCollected = 0;
+            $cashTotal = 0;
+            $otherTotal = 0;
+            $pendingCheckTotal = 0;
+            foreach ($collections as $c) {
+                if ($c['status'] === 'pending_clearing' && $c['payment_method'] === 'check') {
+                    $pendingCheckTotal += floatval($c['amount_collected']);
+                }
+                if (!in_array($c['status'], ['confirmed', 'cleared'], true)) continue;
+                $amt = floatval($c['amount_collected']);
+                $totalCollected += $amt;
+                if ($c['payment_method'] === 'cash') {
+                    $cashTotal += $amt;
+                } else {
+                    $otherTotal += $amt;
+                }
+            }
+            
+            Response::success([
+                'collections' => $collections,
+                'count' => count($collections),
+                'total_collected' => $totalCollected,
+                'summary' => [
+                    'total_count' => count($collections),
+                    'total_amount' => $totalCollected,
+                    'cash_amount' => $cashTotal,
+                    'other_amount' => $otherTotal,
+                    'pending_check_amount' => $pendingCheckTotal,
+                ]
+            ], 'Collection history retrieved');
+            break;
+        
+        case 'receipt': // Alias for or_detail
+        case 'or_detail':
+            $orNumber = getParam('or_number');
+            $id = getParam('id');
+            
+            if (!$orNumber && !$id) {
+                Response::error('OR number or ID required', 400);
+            }
+            
+            $sql = "
+                SELECT 
+                    pc.*,
+                    u.first_name as collected_by_first_name,
+                    u.last_name as collected_by_last_name,
+                    dr.total_amount as dr_total_amount,
+                    c.customer_type
+                FROM payment_collections pc
+                LEFT JOIN users u ON pc.collected_by = u.id
+                LEFT JOIN delivery_receipts dr ON pc.dr_id = dr.id
+                LEFT JOIN customers c ON dr.customer_id = c.id
+                WHERE " . ($id ? "pc.id = ?" : "pc.or_number = ?");
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute([$id ?: $orNumber]);
+            $collection = $stmt->fetch();
+            
+            if (!$collection) {
+                Response::error('Collection record not found', 404);
+            }
+            
+            $collection['payment_metadata'] = json_decode($collection['payment_metadata'], true);
+            $collection['is_collection'] = true;
+            $collection['cashier_name'] = trim(($collection['collected_by_first_name'] ?? '') . ' ' . ($collection['collected_by_last_name'] ?? ''));
+            
+            Response::success($collection, 'Collection detail retrieved');
+            break;
+            
+        default:
+            Response::error('Invalid action', 400);
+    }
+}
+
+// ========================================
+// POST HANDLERS
+// ========================================
+
+function handlePost($db, $action, $currentUser) {
+    $data = getRequestBody();
+    
+    // For POST, action should come from the body
+    $action = $data['action'] ?? $action;
+    
+    switch ($action) {
+        case 'record_collection':
+            // Validate required fields
+            $drId = $data['dr_id'] ?? null;
+            $drNumber = $data['dr_number'] ?? null;
+            try {
+                $amountCollected = hfParseBusinessDecimal(
+                    $data['amount_collected'] ?? 0,
+                    'Amount collected',
+                    0.01,
+                    9999999999.99,
+                    2
+                );
+            } catch (InvalidArgumentException $error) {
+                Response::validationError(['amount_collected' => $error->getMessage()]);
+            }
+            $paymentMethod = $data['payment_method'] ?? 'cash';
+            
+            if (!$drId && !$drNumber) {
+                Response::error('DR ID or DR number is required', 400);
+            }
+            
+            if ($amountCollected <= 0) {
+                Response::error('Amount collected must be greater than 0', 400);
+            }
+            
+            $validMethods = ['cash', 'gcash', 'bank_transfer', 'check'];
+            if (!in_array($paymentMethod, $validMethods)) {
+                Response::error('Invalid payment method', 400);
+            }
+            
+            // Build payment metadata
+            $paymentMetadata = [];
+            
+            if ($paymentMethod === 'check') {
+                if (empty($data['check_bank'])) {
+                    Response::error('Check bank is required for check payments', 400);
+                }
+                if (empty($data['check_number'])) {
+                    Response::error('Check number is required for check payments', 400);
+                }
+                if (empty($data['check_date'])) {
+                    Response::error('Check date is required for check payments', 400);
+                }
+                $checkDate = DateTime::createFromFormat('!Y-m-d', (string)$data['check_date']);
+                if (!$checkDate || $checkDate->format('Y-m-d') !== (string)$data['check_date']) {
+                    Response::error('Enter a valid check date', 400);
+                }
+                $checkBank = trim((string)$data['check_bank']);
+                $checkNumber = trim((string)$data['check_number']);
+                if (strlen($checkBank) > 100 || strlen($checkNumber) > 80) {
+                    Response::error('The check bank or check number is too long', 400);
+                }
+                $duplicateCheck = $db->prepare("SELECT or_number FROM payment_collections
+                    WHERE payment_method = 'check'
+                      AND status NOT IN ('bounced', 'cancelled')
+                      AND JSON_UNQUOTE(JSON_EXTRACT(payment_metadata, '$.check_number')) = ?
+                      AND JSON_UNQUOTE(JSON_EXTRACT(payment_metadata, '$.check_bank')) = ?
+                    LIMIT 1");
+                $duplicateCheck->execute([$checkNumber, $checkBank]);
+                if ($existingCheck = $duplicateCheck->fetchColumn()) {
+                    Response::error("This check is already recorded under {$existingCheck}", 409);
+                }
+                $paymentMetadata = [
+                    'check_bank' => $checkBank,
+                    'check_number' => $checkNumber,
+                    'check_date' => $data['check_date'],
+                    'check_account_owner' => $data['check_account_owner'] ?? null
+                ];
+            } elseif ($paymentMethod === 'gcash') {
+                $paymentMetadata = [
+                    'gcash_ref' => $data['gcash_ref'] ?? null,
+                    'gcash_number' => $data['gcash_number'] ?? null
+                ];
+            } elseif ($paymentMethod === 'bank_transfer') {
+                $paymentMetadata = [
+                    'bank_name' => $data['bank_name'] ?? null,
+                    'bank_ref' => $data['bank_ref'] ?? null,
+                    'account_number' => $data['account_number'] ?? null
+                ];
+            }
+            
+            $db->beginTransaction();
+            
+            try {
+                // Get delivery receipt
+                $sql = "SELECT * FROM delivery_receipts WHERE " . ($drId ? "id = ?" : "dr_number = ?") . " FOR UPDATE";
+                $stmt = $db->prepare($sql);
+                $stmt->execute([$drId ?: $drNumber]);
+                $dr = $stmt->fetch();
+                
+                if (!$dr) {
+                    throw new Exception('Delivery Receipt not found');
+                }
+
+                if (($dr['status'] ?? '') !== 'delivered') {
+                    throw new Exception('Payment can only be recorded after the delivery is confirmed');
+                }
+                
+                $drId = $dr['id'];
+                $currentBalance = floatval($dr['total_amount']) - floatval($dr['amount_paid']);
+                
+                if ($currentBalance <= 0) {
+                    throw new Exception('This delivery receipt is already fully paid');
+                }
+                
+                $pendingStmt = $db->prepare("SELECT COALESCE(SUM(amount_collected), 0)
+                    FROM payment_collections
+                    WHERE dr_id = ? AND status = 'pending_clearing'");
+                $pendingStmt->execute([$drId]);
+                $pendingAmount = (float)$pendingStmt->fetchColumn();
+                $collectibleBalance = max(0, $currentBalance - $pendingAmount);
+                if ($collectibleBalance <= 0.009) {
+                    throw new Exception('A check already covers this outstanding balance and is pending for clearing');
+                }
+                if ($amountCollected > $collectibleBalance + 0.009) {
+                    throw new Exception('Payment exceeds the balance not already covered by pending checks');
+                }
+                $effectiveAmount = $amountCollected;
+                $isPendingCheck = $paymentMethod === 'check';
+                $newBalance = $isPendingCheck ? $currentBalance : $currentBalance - $effectiveAmount;
+                $collectionStatus = $isPendingCheck ? 'pending_clearing' : 'confirmed';
+                
+                // Generate OR number
+                $orNumber = generateORNumber($db);
+                
+                // Get or find customer ID
+                $customerId = null;
+                $custStmt = $db->prepare("SELECT id FROM customers WHERE name = ? LIMIT 1");
+                $custStmt->execute([$dr['customer_name']]);
+                $cust = $custStmt->fetch();
+                if ($cust) {
+                    $customerId = $cust['id'];
+                }
+                
+                // Create collection record
+                $insertStmt = $db->prepare("
+                    INSERT INTO payment_collections 
+                    (or_number, dr_id, dr_number, customer_id, customer_name,
+                     amount_collected, balance_before, balance_after,
+                     payment_method, payment_metadata, collected_by, notes, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                $insertStmt->execute([
+                    $orNumber,
+                    $drId,
+                    $dr['dr_number'],
+                    $customerId,
+                    $dr['customer_name'],
+                    $effectiveAmount,
+                    $currentBalance,
+                    $newBalance,
+                    $paymentMethod,
+                    json_encode($paymentMetadata),
+                    $currentUser['user_id'],
+                    $data['notes'] ?? null,
+                    $collectionStatus
+                ]);
+                
+                $collectionId = $db->lastInsertId();
+                
+                $newPaymentStatus = $dr['payment_status'];
+                if (!$isPendingCheck) {
+                    $application = applyCollectionToReceivable($db, [
+                        'dr_id' => $drId,
+                        'customer_id' => $customerId,
+                        'amount_collected' => $effectiveAmount,
+                    ]);
+                    $newBalance = $application['balance_after'];
+                    $newPaymentStatus = $application['payment_status'];
+                }
+                
+                // Log audit
+                logAudit(
+                    $currentUser['user_id'],
+                    'create',
+                    'payment_collections',
+                    $collectionId,
+                    null,
+                    [
+                        'or_number' => $orNumber,
+                        'dr_number' => $dr['dr_number'],
+                        'amount' => $effectiveAmount,
+                        'method' => $paymentMethod,
+                        'status' => $collectionStatus
+                    ]
+                );
+                
+                $db->commit();
+                
+                Response::created([
+                    'collection_id' => $collectionId,
+                    'or_number' => $orNumber,
+                    'dr_number' => $dr['dr_number'],
+                    'customer_name' => $dr['customer_name'],
+                    'amount_collected' => $effectiveAmount,
+                    'balance_before' => $currentBalance,
+                    'balance_after' => $newBalance,
+                    'payment_status' => $newPaymentStatus,
+                    'payment_method' => $paymentMethod,
+                    'collection_status' => $collectionStatus,
+                    'check_date' => $isPendingCheck ? ($paymentMetadata['check_date'] ?? null) : null,
+                    'is_post_dated' => $isPendingCheck
+                        && !empty($paymentMetadata['check_date'])
+                        && $paymentMetadata['check_date'] > date('Y-m-d'),
+                    'is_fully_paid' => !$isPendingCheck && $newBalance <= 0,
+                    'overpayment_warning' => null
+                ], $isPendingCheck ? 'Check recorded and pending for clearing' : 'Collection recorded successfully');
+                
+            } catch (Exception $e) {
+                $db->rollBack();
+                Response::error($e->getMessage(), 400);
+            }
+            break;
+            
+        case 'clear_check':
+            $id = (int)($data['id'] ?? 0);
+            $clearedAtInput = trim((string)($data['cleared_at'] ?? ''));
+            $clearingReference = trim((string)($data['clearing_reference'] ?? ''));
+            if ($id <= 0) {
+                Response::error('Choose a pending check', 400);
+            }
+            if ($clearedAtInput === '') {
+                Response::error('Enter the bank clearing date and time', 400);
+            }
+            if ($clearingReference === '' || strlen($clearingReference) > 120) {
+                Response::error('Enter the bank confirmation or clearing reference', 400);
+            }
+            $clearedAt = DateTime::createFromFormat('Y-m-d\TH:i', $clearedAtInput)
+                ?: DateTime::createFromFormat('Y-m-d H:i:s', $clearedAtInput);
+            if (!$clearedAt) {
+                Response::error('Enter a valid clearing date and time', 400);
+            }
+            if ($clearedAt > new DateTime('+5 minutes')) {
+                Response::error('The clearing date cannot be in the future. Mark the check cleared after the bank confirms it.', 400);
+            }
+
+            $db->beginTransaction();
+            try {
+                $stmt = $db->prepare('SELECT * FROM payment_collections WHERE id = ? FOR UPDATE');
+                $stmt->execute([$id]);
+                $collection = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$collection) {
+                    throw new Exception('Collection record not found');
+                }
+                if ($collection['payment_method'] !== 'check') {
+                    throw new Exception('Only check payments can be cleared');
+                }
+                if ($collection['status'] !== 'pending_clearing') {
+                    throw new Exception('This check is already ' . str_replace('_', ' ', $collection['status']));
+                }
+                $metadata = json_decode((string)$collection['payment_metadata'], true) ?: [];
+                $checkDate = !empty($metadata['check_date']) ? DateTime::createFromFormat('!Y-m-d', $metadata['check_date']) : null;
+                if ($checkDate && $clearedAt < $checkDate) {
+                    throw new Exception('The clearing date cannot be earlier than the check date (' . $metadata['check_date'] . ')');
+                }
+
+                $application = applyCollectionToReceivable($db, $collection);
+                $db->prepare("UPDATE payment_collections
+                    SET status = 'cleared', cleared_at = ?, cleared_by = ?, clearing_reference = ?,
+                        balance_before = ?, balance_after = ?
+                    WHERE id = ?")
+                    ->execute([
+                        $clearedAt->format('Y-m-d H:i:s'),
+                        $currentUser['user_id'],
+                        $clearingReference,
+                        $application['balance_before'],
+                        $application['balance_after'],
+                        $id,
+                    ]);
+
+                logAudit(
+                    $currentUser['user_id'],
+                    'clear_check',
+                    'payment_collections',
+                    $id,
+                    ['status' => 'pending_clearing'],
+                    ['status' => 'cleared', 'clearing_reference' => $clearingReference]
+                );
+                $db->commit();
+                Response::success([
+                    'collection_id' => $id,
+                    'or_number' => $collection['or_number'],
+                    'status' => 'cleared',
+                    'balance_after' => $application['balance_after'],
+                    'payment_status' => $application['payment_status'],
+                ], 'Check cleared and applied to Accounts Receivable');
+            } catch (Exception $e) {
+                if ($db->inTransaction()) $db->rollBack();
+                Response::error($e->getMessage(), 400);
+            }
+            break;
+
+        case 'mark_bounced':
+            // Mark a check as bounced
+            $id = $data['id'] ?? null;
+            $orNumber = $data['or_number'] ?? null;
+            $reason = $data['reason'] ?? 'Check bounced';
+            
+            if (!$id && !$orNumber) {
+                Response::error('Collection ID or OR number required', 400);
+            }
+            
+            $db->beginTransaction();
+            
+            try {
+                // Get collection
+                $sql = "SELECT * FROM payment_collections WHERE " . ($id ? "id = ?" : "or_number = ?") . " FOR UPDATE";
+                $stmt = $db->prepare($sql);
+                $stmt->execute([$id ?: $orNumber]);
+                $collection = $stmt->fetch();
+                
+                if (!$collection) {
+                    throw new Exception('Collection record not found');
+                }
+                
+                if ($collection['payment_method'] !== 'check') {
+                    throw new Exception('Only check payments can be marked as bounced');
+                }
+                
+                if ($collection['status'] !== 'pending_clearing') {
+                    throw new Exception('Only a check pending for clearing can be marked as bounced');
+                }
+                
+                // Mark as bounced
+                $db->prepare("
+                    UPDATE payment_collections 
+                    SET status = 'bounced',
+                        notes = CONCAT(COALESCE(notes, ''), '\n[BOUNCED: ', ?, ']')
+                    WHERE id = ?
+                ")->execute([$reason, $collection['id']]);
+                
+                logAudit(
+                    $currentUser['user_id'],
+                    'bounce',
+                    'payment_collections',
+                    $collection['id'],
+                    ['status' => $collection['status']],
+                    ['status' => 'bounced', 'reason' => $reason]
+                );
+                
+                $db->commit();
+                
+                Response::success([
+                    'collection_id' => $collection['id'],
+                    'or_number' => $collection['or_number'],
+                    'status' => 'bounced',
+                    'amount_reversed' => 0
+                ], 'Pending check marked as bounced');
+                
+            } catch (Exception $e) {
+                $db->rollBack();
+                Response::error($e->getMessage(), 400);
+            }
+            break;
+            
+        case 'cancel':
+            // Cancel a collection (admin action)
+            $id = $data['id'] ?? null;
+            $reason = $data['reason'] ?? null;
+            
+            if (!$id) {
+                Response::error('Collection ID required', 400);
+            }
+            if (!$reason) {
+                Response::error('Cancellation reason required', 400);
+            }
+            
+            $db->beginTransaction();
+            
+            try {
+                $stmt = $db->prepare("SELECT * FROM payment_collections WHERE id = ? FOR UPDATE");
+                $stmt->execute([$id]);
+                $collection = $stmt->fetch();
+                
+                if (!$collection) {
+                    throw new Exception('Collection record not found');
+                }
+                
+                if ($collection['status'] !== 'confirmed') {
+                    throw new Exception('Only confirmed collections can be cancelled');
+                }
+                
+                // Mark as cancelled
+                $db->prepare("
+                    UPDATE payment_collections 
+                    SET status = 'cancelled',
+                        notes = CONCAT(COALESCE(notes, ''), '\n[CANCELLED: ', ?, ']')
+                    WHERE id = ?
+                ")->execute([$reason, $id]);
+                
+                // Reverse the DR payment
+                $db->prepare("
+                    UPDATE delivery_receipts 
+                    SET amount_paid = amount_paid - ?,
+                        payment_status = CASE 
+                            WHEN amount_paid - ? <= 0 THEN 'unpaid'
+                            ELSE 'partial'
+                        END
+                    WHERE id = ?
+                ")->execute([
+                    $collection['amount_collected'],
+                    $collection['amount_collected'],
+                    $collection['dr_id']
+                ]);
+                
+                if ($collection['customer_id']) {
+                    hfSyncCustomerBalance($db, (int) $collection['customer_id']);
+                }
+                
+                $db->commit();
+                
+                Response::success([
+                    'collection_id' => $id,
+                    'status' => 'cancelled'
+                ], 'Collection cancelled successfully');
+                
+            } catch (Exception $e) {
+                $db->rollBack();
+                Response::error($e->getMessage(), 400);
+            }
+            break;
+            
+        default:
+            Response::error('Invalid action', 400);
+    }
+}
+
+// Cache buster: 20260203192649

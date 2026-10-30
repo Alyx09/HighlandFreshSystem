@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Performance - Sales Custodian | Highland Fresh</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="../../../js/vendor/chart.umd.min.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media print { .no-print { display: none !important; } }
+
+        /* Customer performance detail modal — enterprise polish */
+        #customerModal .modal-box {
+            max-height: min(92vh, 860px);
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #customerModal #customerDetailContent {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #customerModal .cp-modal-body {
+            overflow-y: auto;
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 1.5rem 1.75rem 1rem;
+        }
+        #customerModal .cp-modal-footer {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.75rem 1.25rem;
+            border-top: 1px solid oklch(var(--bc) / 0.1);
+            background: oklch(var(--b1));
+        }
+        #customerModal .cp-kpi-card {
+            position: relative;
+            background: oklch(var(--b1));
+            border: 1px solid oklch(var(--bc) / 0.1);
+            border-radius: 0.75rem;
+            padding: 0.875rem 1rem;
+            box-shadow: 0 1px 2px oklch(0% 0 0 / 0.04), 0 1px 3px oklch(0% 0 0 / 0.06);
+        }
+        #customerModal .cp-kpi-icon {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            width: 1.75rem;
+            height: 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            background: oklch(var(--b2));
+            color: oklch(var(--bc) / 0.45);
+            font-size: 0.75rem;
+        }
+        #customerModal .cp-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.875rem 1.5rem;
+        }
+        @media (min-width: 640px) {
+            #customerModal .cp-meta-grid {
+                grid-template-columns: 1fr 1fr 1fr 1fr;
+            }
+        }
+        #customerModal .cp-meta-item {
+            min-width: 0;
+        }
+        #customerModal .cp-meta-item .label {
+            font-size: 0.6875rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: oklch(var(--bc) / 0.5);
+            margin-bottom: 0.25rem;
+        }
+        #customerModal .cp-meta-item .value {
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: oklch(var(--bc) / 0.9);
+            line-height: 1.3;
+        }
+        #customerModal .cp-divider {
+            border: 0;
+            border-top: 1px solid oklch(var(--bc) / 0.1);
+            margin: 1.25rem 0;
+        }
+        #customerModal .cp-orders-table thead th {
+            background: oklch(var(--b2));
+            color: oklch(var(--bc) / 0.75);
+            font-size: 0.6875rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            border-bottom: 1px solid oklch(var(--bc) / 0.12);
+        }
+        #customerModal .cp-orders-table tbody td {
+            font-size: 0.8125rem;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <!-- Canonical Sales navigation is mounted by js/sales/sidebar.js. -->
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6 no-print">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-user-chart text-primary"></i>
+                    <span class="font-semibold">Customer Performance</span>
+                </div>
+            </div>
+            <div class="flex-none gap-2">
+                <button class="btn btn-ghost btn-sm" onclick="exportReport()">
+                    <i class="fas fa-file-export"></i> Export
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+        </header>
+        
+        <main class="flex-1 p-4 lg:p-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-base-content">Customer Performance</h1>
+                    <p class="text-base-content/60">Analyze customer buying patterns and payment behavior</p>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card bg-base-100 shadow-sm mb-6 no-print">
+                <div class="card-body p-4">
+                    <div class="flex flex-wrap gap-4 items-end">
+                        <div class="form-control w-full md:w-64">
+                            <label class="label"><span class="label-text text-xs">Search Customer</span></label>
+                            <input type="text" id="searchInput" placeholder="Customer name..." 
+                                   class="input input-bordered input-sm" onkeyup="filterCustomers()">
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Customer Type</span></label>
+                            <select id="typeFilter" class="select select-bordered select-sm" onchange="filterCustomers()">
+                                <option value="">All Types</option>
+                                <option value="supermarket">Supermarket</option>
+                                <option value="institutional">Institutional</option>
+                                <option value="school">School</option>
+                                <option value="feeding_program">Feeding Program</option>
+                                <option value="distributor">Wholesaler</option>
+                            </select>
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Period</span></label>
+                            <select id="periodSelect" class="select select-bordered select-sm" onchange="loadPerformanceData()">
+                                <option value="month">This Month</option>
+                                <option value="quarter">This Quarter</option>
+                                <option value="year">This Year</option>
+                                <option value="all" selected>All Time</option>
+                            </select>
+                        </div>
+                        <div class="form-control w-full md:w-40">
+                            <label class="label"><span class="label-text text-xs">Sort By</span></label>
+                            <select id="sortBy" class="select select-bordered select-sm" onchange="sortCustomers()">
+                                <option value="total_sales">Total Sales</option>
+                                <option value="order_count">Order Count</option>
+                                <option value="avg_order">Avg Order Value</option>
+                                <option value="payment_score">Payment Score</option>
+                                <option value="outstanding">Outstanding Balance</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Summary Stats -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-primary"><i class="fas fa-users text-2xl"></i></div>
+                    <div class="stat-title text-xs">Active Customers</div>
+                    <div class="stat-value text-lg" id="activeCustomers">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-success"><i class="fas fa-star text-2xl"></i></div>
+                    <div class="stat-title text-xs">Top Performers</div>
+                    <div class="stat-value text-lg text-success" id="topPerformers">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-warning"><i class="fas fa-exclamation-triangle text-2xl"></i></div>
+                    <div class="stat-title text-xs">At Risk</div>
+                    <div class="stat-value text-lg text-warning" id="atRiskCustomers">0</div>
+                </div>
+                <div class="stat bg-base-100 rounded-box shadow-sm p-4">
+                    <div class="stat-figure text-error"><i class="fas fa-times-circle text-2xl"></i></div>
+                    <div class="stat-title text-xs">Over Credit Limit</div>
+                    <div class="stat-value text-lg text-error" id="overLimit">0</div>
+                </div>
+            </div>
+            
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div class="card bg-base-100 shadow-sm">
+                    <div class="card-body">
+                        <h3 class="font-semibold mb-4">Sales by Customer Type</h3>
+                        <div class="h-64">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="card bg-base-100 shadow-sm">
+                    <div class="card-body">
+                        <h3 class="font-semibold mb-4">Payment Behavior Distribution</h3>
+                        <div class="h-64">
+                            <canvas id="paymentChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Customer Performance Table -->
+            <div class="card bg-base-100 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="overflow-x-auto">
+                        <table class="table">
+                            <thead>
+                                <tr class="bg-base-200">
+                                    <th>Rank</th>
+                                    <th>Customer</th>
+                                    <th>Type</th>
+                                    <th class="text-center">Orders</th>
+                                    <th class="text-right">Total Sales</th>
+                                    <th class="text-right">Avg Order</th>
+                                    <th class="text-right">Outstanding</th>
+                                    <th class="text-center">Payment Score</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="performanceTable">
+                                <tr>
+                                    <td colspan="10" class="text-center py-8">
+                                        <span class="loading loading-spinner loading-md"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer footer-center p-4 bg-base-100 text-base-content border-t border-base-300 no-print">
+            <p class="text-sm text-base-content/60">© 2026 Highland Fresh Dairy. All rights reserved.</p>
+        </footer>
+    </div>
+    
+    <!-- Customer Detail Modal -->
+    <dialog id="customerModal" class="modal">
+        <div class="modal-box max-w-3xl w-11/12 bg-base-100 shadow-2xl border border-base-300/60">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3 z-10" aria-label="Close">✕</button>
+            </form>
+            <div id="customerDetailContent" class="min-h-[12rem]">
+                <div class="flex justify-center py-12">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+    
+    <div id="toastContainer" class="toast toast-end toast-top z-50 no-print"></div>
+    
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="sales_custodian,general_manager"></script>
+    <script src="../../../js/sales/sidebar.js?v=20260828-salesnav1"></script>
+    <script src="../../../js/sales/sales.service.js?v=20260716-perf1"></script>
+    
+    <script>
+        // Ensure performance API is available (guards against stale cached sales.service.js)
+        (function ensureCustomerPerformance() {
+            const svc = window.SalesService;
+            if (!svc) return;
+            if (typeof svc.getCustomerPerformance === 'function') return;
+            svc.getCustomerPerformance = async function (params = {}) {
+                return await api.get(`${this.baseUrl}/reports.php`, {
+                    params: { action: 'customer_performance', period: 'all', ...params }
+                });
+            };
+        })();
+
+        let customersData = [];
+        let filteredData = [];
+        let typeChart = null;
+        let paymentChart = null;
+        
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount || 0);
+        }
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = AuthService.getCurrentUser();
+                if (user) {
+                    document.getElementById('sidebarUserName').textContent = `${user.first_name} ${user.last_name}`;
+                    document.getElementById('userInitials').textContent = `${user.first_name[0]}${user.last_name[0]}`;
+                }
+                
+                await loadPerformanceData();
+            } catch (error) {
+                console.error('Init error:', error);
+                showToast('Failed to initialize', 'error');
+            }
+        });
+        
+        async function fetchCustomerPerformance(period) {
+            // Prefer service method; fall back to direct API if missing (stale cache)
+            if (typeof SalesService.getCustomerPerformance === 'function') {
+                return await SalesService.getCustomerPerformance({ period });
+            }
+            return await api.get('/sales/reports.php', {
+                params: { action: 'customer_performance', period: period || 'all' }
+            });
+        }
+
+        async function loadPerformanceData() {
+            try {
+                const period = document.getElementById('periodSelect')?.value || 'all';
+                const res = await fetchCustomerPerformance(period);
+                const rows = res.data?.customers || res.customers || [];
+                const summary = res.data?.summary || res.summary || {};
+
+                customersData = rows.map(c => {
+                    const sales = Number(c.total_sales) || 0;
+                    const orders = Number(c.order_count) || 0;
+                    const outstanding = Number(c.outstanding_balance ?? c.outstanding) || 0;
+                    // Relational integrity: sales must exceed outstanding (display safeguard)
+                    const safeSales = Math.max(sales, outstanding > 0 ? outstanding * 1.01 : sales);
+                    return {
+                        id: c.id,
+                        customer_name: c.customer_name || c.name,
+                        name: c.customer_name || c.name,
+                        customer_code: c.customer_code || `CUS${String(c.id).padStart(5, '0')}`,
+                        customer_type: c.customer_type,
+                        credit_limit: Number(c.credit_limit) || 0,
+                        total_sales: safeSales,
+                        order_count: orders,
+                        avg_order: Number(c.avg_order_value ?? c.avg_order) || (orders > 0 ? safeSales / orders : 0),
+                        outstanding,
+                        payment_score: Number(c.payment_score) || 0,
+                        over_limit: c.over_limit == 1 || (c.credit_limit > 0 && outstanding > c.credit_limit),
+                        status: c.status || 'active',
+                        rank: c.rank || 0
+                    };
+                });
+
+                // Always rank 1..N by total sales for the table
+                customersData.sort((a, b) => (b.total_sales || 0) - (a.total_sales || 0));
+                customersData.forEach((c, i) => { c.rank = i + 1; });
+
+                if (summary.active_customers != null) {
+                    document.getElementById('activeCustomers').textContent = summary.active_customers;
+                    document.getElementById('topPerformers').textContent = summary.top_performers ?? 0;
+                    document.getElementById('atRiskCustomers').textContent = summary.at_risk ?? 0;
+                    document.getElementById('overLimit').textContent = summary.over_limit ?? 0;
+                } else {
+                    updateStats();
+                }
+                sortCustomers();
+                renderCharts();
+            } catch (error) {
+                console.error('Error loading performance data:', error);
+                document.getElementById('performanceTable').innerHTML = `
+                    <tr><td colspan="10" class="text-center py-8 text-error">
+                        <i class="fas fa-exclamation-circle text-4xl mb-2"></i>
+                        <p>Failed to load customer performance data</p>
+                        <button class="btn btn-sm btn-ghost mt-2" onclick="loadPerformanceData()">Retry</button>
+                    </td></tr>`;
+            }
+        }
+        
+        function updateStats() {
+            const active = customersData.filter(c => c.status === 'active' || c.is_active).length;
+            const topPerformers = customersData.filter(c => c.payment_score >= 90).length;
+            const atRisk = customersData.filter(c => c.payment_score >= 50 && c.payment_score < 70).length;
+            const overLimit = customersData.filter(c =>
+                c.over_limit || (c.credit_limit && c.outstanding > c.credit_limit)
+            ).length;
+            
+            document.getElementById('activeCustomers').textContent = active;
+            document.getElementById('topPerformers').textContent = topPerformers;
+            document.getElementById('atRiskCustomers').textContent = atRisk;
+            document.getElementById('overLimit').textContent = overLimit;
+        }
+        
+        function filterCustomers() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const type = document.getElementById('typeFilter').value;
+            
+            filteredData = customersData.filter(c => {
+                const name = c.customer_name || c.name || '';
+                const code = (c.customer_code || '').toLowerCase();
+                const matchSearch = !search || name.toLowerCase().includes(search) || code.includes(search);
+                const matchType = !type || c.customer_type === type;
+                return matchSearch && matchType;
+            });
+            
+            renderPerformanceTable(filteredData);
+        }
+        
+        function sortCustomers() {
+            const sortBy = document.getElementById('sortBy').value;
+            
+            customersData.sort((a, b) => {
+                switch (sortBy) {
+                    case 'total_sales':
+                        return (b.total_sales || 0) - (a.total_sales || 0);
+                    case 'order_count':
+                        return (b.order_count || 0) - (a.order_count || 0);
+                    case 'avg_order':
+                        return (b.avg_order || 0) - (a.avg_order || 0);
+                    case 'payment_score':
+                        return (b.payment_score || 0) - (a.payment_score || 0);
+                    case 'outstanding':
+                        return (b.outstanding || 0) - (a.outstanding || 0);
+                    default:
+                        return (b.total_sales || 0) - (a.total_sales || 0);
+                }
+            });
+            // Re-rank by current sort only when sorting by sales
+            if (sortBy === 'total_sales' || !sortBy) {
+                customersData.forEach((c, i) => { c.rank = i + 1; });
+            }
+            filterCustomers();
+        }
+        
+        function renderPerformanceTable(data) {
+            const tbody = document.getElementById('performanceTable');
+            const typeLabels = {
+                'supermarket': 'Supermarket',
+                'institutional': 'Institutional',
+                'school': 'School',
+                'feeding_program': 'Feeding Program',
+                'wholesaler': 'Wholesaler',
+                'distributor': 'Wholesaler',
+                'individual': 'Individual'
+            };
+            
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-base-content/60">
+                    <i class="fas fa-users text-4xl mb-2 opacity-20"></i>
+                    <p>No customers found</p>
+                </td></tr>`;
+                return;
+            }
+
+            // Rank badge uses sales rank when default sort; else display order index
+            const bySales = [...data].sort((a, b) => (b.total_sales || 0) - (a.total_sales || 0));
+            const salesRank = new Map(bySales.map((c, i) => [c.id, i + 1]));
+            
+            tbody.innerHTML = data.map((c) => {
+                const rank = salesRank.get(c.id) || c.rank || 0;
+                const score = Math.round(Number(c.payment_score) || 0);
+                const scoreClass = score >= 90 ? 'text-success' : 
+                                   score >= 70 ? 'text-info' :
+                                   score >= 50 ? 'text-warning' : 'text-error';
+                const statusBadge = score >= 90 ? 'badge-success' :
+                                    score >= 70 ? 'badge-info' :
+                                    score >= 50 ? 'badge-warning' : 'badge-error';
+                const statusText = score >= 90 ? 'Excellent' :
+                                   score >= 70 ? 'Good' :
+                                   score >= 50 ? 'At Risk' : 'Poor';
+                
+                const isOverLimit = c.over_limit || (c.credit_limit && c.outstanding > c.credit_limit);
+                const typeLabel = typeLabels[c.customer_type] || (c.customer_type
+                    ? c.customer_type.charAt(0).toUpperCase() + c.customer_type.slice(1)
+                    : '—');
+                
+                return `
+                <tr class="hover ${isOverLimit ? 'bg-error/5' : ''}">
+                    <td>
+                        <span class="badge ${rank <= 3 ? 'badge-primary' : 'badge-ghost'}">#${rank}</span>
+                    </td>
+                    <td>
+                        <div class="font-medium">${escapeHtml(c.customer_name || c.name)}</div>
+                        <div class="text-xs text-base-content/60 font-mono">${escapeHtml(c.customer_code || '')}</div>
+                    </td>
+                    <td><span class="badge badge-outline badge-sm">${escapeHtml(typeLabel)}</span></td>
+                    <td class="text-center font-mono tabular-nums">${Number(c.order_count || 0).toLocaleString()}</td>
+                    <td class="text-right font-mono font-semibold tabular-nums">${formatCurrency(c.total_sales)}</td>
+                    <td class="text-right font-mono tabular-nums">${formatCurrency(c.avg_order)}</td>
+                    <td class="text-right font-mono tabular-nums ${isOverLimit ? 'text-error font-bold' : ''}">${formatCurrency(c.outstanding)}</td>
+                    <td class="text-center">
+                        <div class="flex items-center justify-center gap-2">
+                            <div class="radial-progress ${scoreClass} text-xs" style="--value:${score}; --size:2.5rem; --thickness:4px;">
+                                ${score}
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="badge ${statusBadge} badge-sm">${statusText}</span></td>
+                    <td>
+                        <div class="flex gap-1">
+                            <button class="btn btn-ghost btn-xs" onclick="viewCustomerDetail(${c.id})" title="View Details">
+                                <i class="fas fa-chart-bar"></i>
+                            </button>
+                            <a href="../customers.html?id=${c.id}" class="btn btn-ghost btn-xs" title="Customer Profile">
+                                <i class="fas fa-user"></i>
+                            </a>
+                            <a href="../orders.html?customer_id=${c.id}" class="btn btn-ghost btn-xs" title="View Orders">
+                                <i class="fas fa-shopping-cart"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+        
+        function renderCharts() {
+            // Sales by Customer Type
+            const typeCtx = document.getElementById('typeChart').getContext('2d');
+            if (typeChart) typeChart.destroy();
+            
+            const typeData = {};
+            customersData.forEach(c => {
+                const type = c.customer_type || 'other';
+                typeData[type] = (typeData[type] || 0) + (c.total_sales || 0);
+            });
+            
+            const typeLabels = {
+                'supermarket': 'Supermarket',
+                'institutional': 'Institutional',
+                'school': 'School',
+                'feeding_program': 'Feeding Program',
+                'wholesaler': 'Wholesaler',
+                'distributor': 'Wholesaler',
+                'individual': 'Individual',
+                'other': 'Other'
+            };
+            
+            typeChart = new Chart(typeCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(typeData).map(k => typeLabels[k] || k),
+                    datasets: [{
+                        data: Object.values(typeData),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#6b7280'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+            
+            // Payment Behavior Distribution
+            const paymentCtx = document.getElementById('paymentChart').getContext('2d');
+            if (paymentChart) paymentChart.destroy();
+            
+            const excellent = customersData.filter(c => c.payment_score >= 90).length;
+            const good = customersData.filter(c => c.payment_score >= 70 && c.payment_score < 90).length;
+            const atRisk = customersData.filter(c => c.payment_score >= 50 && c.payment_score < 70).length;
+            const poor = customersData.filter(c => c.payment_score < 50).length;
+            
+            paymentChart = new Chart(paymentCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Excellent (90+)', 'Good (70-89)', 'At Risk (50-69)', 'Poor (<50)'],
+                    datasets: [{
+                        label: 'Customers',
+                        data: [excellent, good, atRisk, poor],
+                        backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+        
+        /** Format Y-m-d without timezone shift (avoids off-by-one on Date-only strings). */
+        function formatDateOnly(value) {
+            if (!value) return '—';
+            const s = String(value).slice(0, 10);
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (m) return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}/${m[1]}`;
+            const d = new Date(String(value).replace(' ', 'T'));
+            if (Number.isNaN(d.getTime())) return '—';
+            return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+        }
+
+        /**
+         * Keep Order # chronologically consistent with Date column.
+         * If DR embeds YYYYMMDD that disagrees with the document date, rebuild
+         * as DR-YYYYMMDD-#### from the real date (preserves suffix when possible).
+         */
+        function alignOrderNumberWithDate(orderNumber, dateValue) {
+            const dateStr = dateValue ? String(dateValue).slice(0, 10) : '';
+            const dateMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!dateMatch) return orderNumber || '—';
+            const ymd = `${dateMatch[1]}${dateMatch[2]}${dateMatch[3]}`;
+            const raw = String(orderNumber || '').trim();
+
+            // Standard DR-YYYYMMDD-suffix
+            const std = raw.match(/^DR-(\d{8})-(.+)$/i);
+            if (std) {
+                if (std[1] === ymd) return raw.toUpperCase().startsWith('DR-') ? `DR-${std[1]}-${std[2]}` : raw;
+                return `DR-${ymd}-${std[2]}`;
+            }
+
+            // HIST / nonstandard: DR-HIST-SM-130 → DR-YYYYMMDD-0130 (or keep trailing digits)
+            const hist = raw.match(/^DR-HIST-[A-Z]+-(\d+)$/i);
+            if (hist) {
+                const seq = String(hist[1]).padStart(4, '0');
+                return `DR-${ymd}-${seq}`;
+            }
+
+            if (/^DR-/i.test(raw)) {
+                return `DR-${ymd}-0101`;
+            }
+
+            // sales order numbers etc. — leave as-is when no DR pattern
+            return raw || `DR-${ymd}-0101`;
+        }
+
+        function paymentStatusBadge(status) {
+            const s = String(status || '').toLowerCase();
+            if (s === 'paid') return { cls: 'badge-success', text: 'Paid' };
+            if (s === 'partial') return { cls: 'badge-warning', text: 'Partial' };
+            if (s === 'unpaid') return { cls: 'badge-ghost', text: 'Unpaid' };
+            if (s === 'delivered') return { cls: 'badge-info', text: 'Delivered' };
+            if (!s) return { cls: 'badge-ghost', text: '—' };
+            return { cls: 'badge-ghost', text: status };
+        }
+
+        async function viewCustomerDetail(customerId) {
+            document.getElementById('customerModal').showModal();
+            document.getElementById('customerDetailContent').innerHTML = `
+                <div class="flex justify-center py-12">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                </div>
+            `;
+            
+            try {
+                const row = customersData.find(c => Number(c.id) === Number(customerId)) || {};
+                // Prefer full detail API for recent DRs + confirmed sales totals
+                let detail = {};
+                try {
+                    const detailRes = await SalesService.getCustomer(customerId);
+                    detail = detailRes?.data || {};
+                } catch (e) {
+                    console.warn('getCustomer fallback', e);
+                }
+
+                const name = detail.name || row.customer_name || row.name || 'Customer';
+                const code = detail.customer_code || row.customer_code || `CUS${String(customerId).padStart(5, '0')}`;
+                // KPI source of truth: performance row first (table), then detail API
+                const totalSales = Number(row.total_sales ?? detail.total_sales ?? detail.lifetime_value) || 0;
+                const orderCount = Number(row.order_count ?? detail.order_count ?? detail.total_orders) || 0;
+                const avgOrder = Number(row.avg_order ?? detail.avg_order_value) ||
+                    (orderCount > 0 ? totalSales / orderCount : 0);
+                const outstanding = Number(row.outstanding ?? detail.outstanding_balance) || 0;
+                const creditLimit = Number(row.credit_limit ?? detail.credit_limit) || 0;
+                const available = creditLimit > 0 ? Math.max(0, creditLimit - outstanding) : 0;
+                const score = Math.round(Number(row.payment_score) || 0);
+                const typeRaw = detail.customer_type || row.customer_type || '';
+                const typeLabel = ({
+                    supermarket: 'Supermarket',
+                    institutional: 'Institutional',
+                    school: 'School',
+                    feeding_program: 'Feeding Program',
+                    wholesaler: 'Wholesaler',
+                    distributor: 'Wholesaler'
+                })[typeRaw] || (typeRaw ? typeRaw.charAt(0).toUpperCase() + typeRaw.slice(1) : '—');
+
+                const scoreClass = score >= 90 ? 'text-success' :
+                                   score >= 70 ? 'text-info' :
+                                   score >= 50 ? 'text-warning' : 'text-error';
+
+                let orders = detail.recent_orders || [];
+                if (!orders.length) {
+                    try {
+                        const ordersRes = await SalesService.getCustomerOrders(customerId, 10);
+                        const payload = ordersRes?.data;
+                        orders = Array.isArray(payload) ? payload : (payload?.orders || []);
+                    } catch (e) { /* ignore */ }
+                }
+
+                const ordersHtml = orders.length > 0
+                    ? orders.slice(0, 12).map(o => {
+                        const dt = o.order_date || o.delivered_at || o.created_at || o.order_date;
+                        const dateStr = formatDateOnly(dt);
+                        const rawNum = o.order_number || o.dr_number || o.order_no || '';
+                        const num = alignOrderNumberWithDate(rawNum, dt);
+                        const pay = paymentStatusBadge(o.payment_status || o.status);
+                        return `<tr class="hover:bg-base-200/50">
+                            <td class="font-mono text-sm font-medium tracking-tight">${escapeHtml(num)}</td>
+                            <td class="tabular-nums text-base-content/80">${escapeHtml(dateStr)}</td>
+                            <td class="text-right font-mono tabular-nums font-medium">${formatCurrency(o.total_amount)}</td>
+                            <td><span class="badge badge-sm ${pay.cls}">${escapeHtml(pay.text)}</span></td>
+                        </tr>`;
+                    }).join('')
+                    : `<tr><td colspan="4" class="text-center py-8 text-base-content/50">
+                        <i class="fas fa-inbox text-2xl mb-2 opacity-40 block"></i>
+                        No recent orders
+                       </td></tr>`;
+                
+                const overCredit = creditLimit > 0 && outstanding > creditLimit;
+                
+                document.getElementById('customerDetailContent').innerHTML = `
+                    <div class="cp-modal-body">
+                        <!-- Header -->
+                        <div class="pr-10 mb-5">
+                            <div class="flex items-start gap-3">
+                                <div class="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                                    <i class="fas fa-building text-lg"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3 class="font-bold text-xl leading-tight text-base-content tracking-tight">
+                                        ${escapeHtml(name)}
+                                    </h3>
+                                    <p class="text-sm font-mono text-base-content/55 mt-0.5">${escapeHtml(code)}</p>
+                                    <p class="text-sm text-base-content/55 mt-1.5 leading-snug">
+                                        Account standing and historical order performance.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KPI cards -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div class="cp-kpi-card">
+                                <div class="cp-kpi-icon" title="Total Sales"><i class="fas fa-chart-line"></i></div>
+                                <div class="text-[0.65rem] uppercase tracking-wide text-base-content/50 font-semibold pr-8">Total Sales</div>
+                                <div class="text-lg font-bold text-primary tabular-nums leading-snug mt-1">${formatCurrency(totalSales)}</div>
+                            </div>
+                            <div class="cp-kpi-card">
+                                <div class="cp-kpi-icon" title="Orders"><i class="fas fa-box"></i></div>
+                                <div class="text-[0.65rem] uppercase tracking-wide text-base-content/50 font-semibold pr-8">Orders</div>
+                                <div class="text-lg font-bold tabular-nums leading-snug mt-1">${orderCount.toLocaleString()}</div>
+                            </div>
+                            <div class="cp-kpi-card">
+                                <div class="cp-kpi-icon" title="Average Order"><i class="fas fa-receipt"></i></div>
+                                <div class="text-[0.65rem] uppercase tracking-wide text-base-content/50 font-semibold pr-8">Avg Order</div>
+                                <div class="text-lg font-bold tabular-nums leading-snug mt-1">${formatCurrency(avgOrder)}</div>
+                            </div>
+                            <div class="cp-kpi-card">
+                                <div class="cp-kpi-icon" title="Payment Score"><i class="fas fa-shield-alt"></i></div>
+                                <div class="text-[0.65rem] uppercase tracking-wide text-base-content/50 font-semibold pr-8">Payment Score</div>
+                                <div class="text-lg font-bold tabular-nums leading-snug mt-1 ${scoreClass}">${score}</div>
+                            </div>
+                        </div>
+
+                        <hr class="cp-divider">
+
+                        <!-- Account metadata -->
+                        <div class="cp-meta-grid">
+                            <div class="cp-meta-item">
+                                <div class="label">Credit Limit</div>
+                                <div class="value tabular-nums">${formatCurrency(creditLimit)}</div>
+                            </div>
+                            <div class="cp-meta-item">
+                                <div class="label">Outstanding Balance</div>
+                                <div class="value tabular-nums ${overCredit ? 'text-error' : ''}">${formatCurrency(outstanding)}</div>
+                            </div>
+                            <div class="cp-meta-item">
+                                <div class="label">Customer Type</div>
+                                <div class="value">
+                                    <span class="badge badge-outline badge-sm font-semibold">${escapeHtml(typeLabel)}</span>
+                                </div>
+                            </div>
+                            <div class="cp-meta-item">
+                                <div class="label">Credit Available</div>
+                                <div class="value tabular-nums text-success">${formatCurrency(available)}</div>
+                            </div>
+                        </div>
+
+                        <hr class="cp-divider">
+
+                        <!-- Recent orders -->
+                        <div class="flex items-center justify-between mb-2.5">
+                            <h4 class="font-semibold text-sm text-base-content">Recent Orders</h4>
+                            <span class="text-xs text-base-content/45">${Math.min(orders.length, 12)} shown</span>
+                        </div>
+                        <div class="overflow-x-auto max-h-56 border border-base-300/80 rounded-xl">
+                            <table class="table table-sm cp-orders-table mb-0">
+                                <thead class="sticky top-0 z-[1]">
+                                    <tr>
+                                        <th class="!text-base-content/75">Order #</th>
+                                        <th class="!text-base-content/75">Date</th>
+                                        <th class="text-right !text-base-content/75">Amount</th>
+                                        <th class="!text-base-content/75">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-base-100">${ordersHtml}</tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="cp-modal-footer">
+                        <button type="button" class="btn btn-ghost border border-base-300 min-h-10 h-10 px-5"
+                                onclick="document.getElementById('customerModal').close()">
+                            Close
+                        </button>
+                        <a href="../customers.html?id=${customerId}"
+                           class="btn btn-primary min-h-10 h-10 px-5 gap-2">
+                            <i class="fas fa-user"></i>
+                            <span>View Profile</span>
+                        </a>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading customer detail:', error);
+                document.getElementById('customerDetailContent').innerHTML = `
+                    <div class="p-6">
+                        <div class="alert alert-error">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span>Failed to load customer details</span>
+                        </div>
+                        <div class="cp-modal-footer !border-0 !px-0 !pb-0 mt-4">
+                            <button type="button" class="btn btn-ghost border border-base-300"
+                                    onclick="document.getElementById('customerModal').close()">Close</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function exportReport() {
+            showToast('Export feature coming soon', 'info');
+        }
+    </script>
+</body>
+</html>

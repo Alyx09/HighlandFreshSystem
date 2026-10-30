@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printable Receiving Report | Highland Fresh</title>
+
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --ink: #111827;
+            --muted: #6b7280;
+            --line: #d1d5db;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--ink);
+            margin: 0;
+            background: oklch(var(--b2));
+        }
+
+        .page {
+            max-width: 960px;
+            margin: 32px auto;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        .page-inner {
+            padding: 32px 40px 40px;
+        }
+
+        .document-frame {
+            border: 1px solid var(--ink);
+            padding: 18px;
+            margin-top: 20px;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 16px;
+        }
+
+        .brand {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .brand-logo {
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+        }
+
+        .brand h1 {
+            margin: 0 0 6px;
+            font-size: 24px;
+            letter-spacing: 0.4px;
+        }
+
+        .brand p,
+        .doc-title .meta,
+        .note {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .doc-title {
+            text-align: right;
+        }
+
+        .doc-title h2 {
+            margin: 0 0 8px;
+            font-size: 20px;
+        }
+
+        .section {
+            margin-top: 20px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .card {
+            border: 1px solid var(--line);
+            padding: 12px 14px;
+            min-height: 120px;
+        }
+
+        .card h3 {
+            margin: 0 0 8px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--muted);
+        }
+
+        .card p {
+            margin: 4px 0;
+            font-size: 13px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            border: 1px solid var(--ink);
+        }
+
+        thead th {
+            text-align: left;
+            font-size: 12px;
+            color: var(--ink);
+            border: 1px solid var(--ink);
+            padding: 8px 6px;
+            background: #f3f4f6;
+            text-transform: uppercase;
+        }
+
+        tbody td,
+        tfoot td {
+            padding: 8px 6px;
+            border: 1px solid var(--line);
+            font-size: 13px;
+        }
+
+        .right {
+            text-align: right;
+        }
+
+        .summary {
+            margin-top: 12px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .summary-box {
+            min-width: 300px;
+            border: 1px solid var(--line);
+            padding: 12px 14px;
+        }
+
+        .summary-box div {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            font-size: 13px;
+        }
+
+        .summary-box .total {
+            font-weight: 700;
+            font-size: 15px;
+            border-top: 1px solid var(--line);
+            padding-top: 6px;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-top: 42px;
+        }
+
+        .signature-line {
+            border-top: 1px solid var(--ink);
+            padding-top: 6px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .restricted-message {
+            text-align: right;
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 16px;
+        }
+
+        @media print {
+            body {
+                background: #ffffff;
+            }
+
+            .page {
+                margin: 0;
+                border: none;
+                box-shadow: none;
+            }
+
+            .actions {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <div class="page-inner">
+            <div class="actions" data-print-actions>
+                <button class="btn btn-sm btn-outline" onclick="window.close()"><i class="fas fa-times"></i> Close</button>
+                <button class="btn btn-sm btn-outline" onclick="window.print()"><i class="fas fa-download"></i> Download PDF</button>
+                <button class="btn btn-sm btn-primary" onclick="window.print()"><i class="fas fa-print"></i> Print</button>
+            </div>
+            <div class="restricted-message hidden" data-print-restricted>Printing is restricted for this account role.</div>
+
+            <div class="header">
+                <div class="brand">
+                    <img src="../../../highland_fresh_logo.png" alt="Highland Fresh Logo" class="brand-logo">
+                    <div>
+                        <h1>Highland Fresh Dairy</h1>
+                        <p>Receiving Report Document</p>
+                        <p>Warehouse Raw Department</p>
+                    </div>
+                </div>
+                <div class="doc-title">
+                    <h2>Receiving Report</h2>
+                    <div class="meta">
+                        <div>RR #: <span id="rrNumber">-</span></div>
+                        <div>PO #: <span id="poNumber">-</span></div>
+                        <div>Date Received: <span id="receivedAt">-</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="document-frame">
+                <div class="section grid-2">
+                    <div class="card">
+                        <h3>Supplier</h3>
+                        <p><strong id="supplierName">-</strong></p>
+                        <p>Code: <span id="supplierCode">-</span></p>
+                        <p>Contact: <span id="supplierContact">-</span></p>
+                        <p>Terms: <span id="supplierTerms">-</span></p>
+                    </div>
+                    <div class="card">
+                        <h3>Receiving Details</h3>
+                        <p>Document Number: <strong id="documentNumber">-</strong></p>
+                        <p>Document Date: <span id="documentDate">-</span></p>
+                        <p>PO Status: <span id="poStatus">-</span></p>
+                        <p>Order Date: <span id="orderDate">-</span></p>
+                        <p>Expected Delivery: <span id="expectedDelivery">-</span></p>
+                    </div>
+                </div>
+
+                <div class="section grid-2">
+                    <div class="card">
+                        <h3>Document Control</h3>
+                        <p>Prepared By: <strong id="preparedBy">-</strong></p>
+                        <p>Reviewed By: <strong id="reviewedBy">-</strong></p>
+                        <p>Approved By: <strong id="approvedBy">-</strong></p>
+                    </div>
+                    <div class="card">
+                        <h3>Reference</h3>
+                        <p>Purchase Order: <span id="linkedPo">-</span></p>
+                        <p>Linked PRS: <span id="linkedPr">-</span></p>
+                        <p>Received Date: <span id="receivedDateDetail">-</span></p>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3>Received Items</h3>
+                    <table>
+                    <thead>
+                        <tr>
+                            <th style="width:4%">#</th>
+                            <th style="width:16%">Item Name</th>
+                            <th>Description</th>
+                            <th style="width:10%">Unit</th>
+                            <th class="right" style="width:10%">Requested Qty</th>
+                            <th class="right" style="width:10%">Approved Qty</th>
+                            <th class="right" style="width:10%">Rejected Qty</th>
+                            <th class="right" style="width:11%">Unit Price</th>
+                            <th style="width:18%">Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsBody">
+                        <tr><td colspan="9" class="right">Loading...</td></tr>
+                    </tbody>
+                    </table>
+
+                    <div class="summary">
+                        <div class="summary-box">
+                            <div><span>Total Ordered</span><span id="totalOrdered">-</span></div>
+                            <div><span>Total Accepted</span><span id="totalAccepted">-</span></div>
+                            <div class="total"><span>Total Rejected</span><span id="totalRejected">-</span></div>
+                        </div>
+                    </div>
+
+                    <div class="note" id="notesBlock"></div>
+                </div>
+
+                <div class="signatures">
+                    <div class="signature-line"><span id="preparedBySignature">Prepared By</span></div>
+                    <div class="signature-line"><span id="reviewedBySignature">Reviewed By</span></div>
+                    <div class="signature-line"><span id="approvedBySignature">Approved By</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_raw,finance_officer,general_manager"></script>
+    <script src="../../../js/purchasing/purchasing.service.js"></script>
+    <script src="../../../js/finance/finance.service.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../../login.html';
+                return;
+            }
+            setupPrintControls(['warehouse_raw', 'finance_officer', 'general_manager']);
+
+            const params = new URLSearchParams(window.location.search);
+            const poId = params.get('po_id');
+            if (!poId) {
+                document.getElementById('itemsBody').innerHTML = '<tr><td colspan="9" class="right">Missing PO ID</td></tr>';
+                return;
+            }
+
+            try {
+                const signedInUser = AuthService.getCurrentUser();
+                const response = signedInUser?.role === 'finance_officer'
+                    ? await FinanceService.getPayableDetail(poId)
+                    : await PurchasingService.getPurchaseOrderDetail(poId);
+                const po = response?.data;
+                if (!po) {
+                    document.getElementById('itemsBody').innerHTML = '<tr><td colspan="9" class="right">PO not found</td></tr>';
+                    return;
+                }
+
+                if (signedInUser?.role === 'finance_officer' && po.latest_receiving_report) {
+                    const report = po.latest_receiving_report;
+                    const purchaseOrderStatus = po.status;
+                    Object.assign(po, report);
+                    po.id = poId;
+                    po.status = purchaseOrderStatus;
+                    po.items = response.data.items || [];
+                }
+
+                const receivedStatuses = ['partial_received', 'received', 'closed'];
+                if (!receivedStatuses.includes(po.status)) {
+                    document.querySelector('.actions .btn-primary')?.setAttribute('disabled', 'disabled');
+                    document.getElementById('itemsBody').innerHTML = '<tr><td colspan="9" class="right">Receiving Report is available after delivery has been received.</td></tr>';
+                }
+
+                const rrNumber = po.rr_number || `RR-${po.po_number || po.id}`;
+                document.getElementById('rrNumber').textContent = rrNumber;
+                document.getElementById('documentNumber').textContent = rrNumber;
+                document.getElementById('poNumber').textContent = po.po_number || '-';
+                document.getElementById('linkedPo').textContent = po.po_number || '-';
+                document.getElementById('linkedPr').textContent = po.pr_number || '-';
+                const receivedDate = po.latest_received_at || po.received_at || po.updated_at;
+                document.getElementById('receivedAt').textContent = formatDate(receivedDate);
+                document.getElementById('documentDate').textContent = formatDate(receivedDate);
+                document.getElementById('receivedDateDetail').textContent = formatDate(receivedDate);
+                document.getElementById('supplierName').textContent = po.supplier_name || '-';
+                document.getElementById('supplierCode').textContent = po.supplier_code || '-';
+                document.getElementById('supplierContact').textContent = po.supplier_contact || '-';
+                document.getElementById('supplierTerms').textContent = po.supplier_terms || '-';
+                document.getElementById('poStatus').textContent = PurchasingService.formatStatus(po.status);
+                document.getElementById('orderDate').textContent = formatDate(po.order_date);
+                document.getElementById('expectedDelivery').textContent = formatDate(po.expected_delivery);
+                document.getElementById('preparedBy').textContent = po.received_by_name || '-';
+                // Dynamic GM name: use frozen approver_name if approved, else live current GM
+                const frozenGM = po.approver_name || po.approved_by_name;
+                const liveGM = po.current_general_manager_name || '';
+                const gmSignatory = resolveGMName(frozenGM, liveGM) || 'General Manager';
+                const reviewedByName = resolveGMName(po.reviewed_by_name, gmSignatory) || gmSignatory;
+                document.getElementById('reviewedBy').textContent = reviewedByName || '-';
+                document.getElementById('approvedBy').textContent = gmSignatory || '-';
+                document.getElementById('preparedBySignature').textContent = po.received_by_name ? `${po.received_by_name} / Prepared By` : 'Prepared By';
+                document.getElementById('reviewedBySignature').textContent = `${reviewedByName} / Reviewed By`;
+                document.getElementById('approvedBySignature').textContent = `${gmSignatory} / Approved By`;
+
+                const items = po.items || [];
+                if (items.length && receivedStatuses.includes(po.status)) {
+                    document.getElementById('itemsBody').innerHTML = items.map((item, idx) => {
+                        const ordered = parseFloat(item.quantity || 0);
+                        const accepted = parseFloat(item.quantity_received || 0);
+                        const rejected = parseFloat(item.quantity_rejected || 0);
+                        const pending = Math.max(ordered - accepted - rejected, 0);
+                        const remarks = [];
+                        if (pending > 0) remarks.push(`Pending: ${pending.toFixed(2)}`);
+                        if (item.rejection_reason) remarks.push(item.rejection_reason);
+                        return `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td>${escapeHtml(item.ingredient_name || item.mro_item_name || item.item_description || '-')}</td>
+                                <td>${escapeHtml(item.item_description || '-')}</td>
+                                <td>${escapeHtml(item.unit || '-')}</td>
+                                <td class="right">${ordered.toFixed(2)}</td>
+                                <td class="right">${accepted.toFixed(2)}</td>
+                                <td class="right">${rejected.toFixed(2)}</td>
+                                <td class="right">${formatCurrency(item.unit_price || 0)}</td>
+                                <td>${remarks.length ? escapeHtml(remarks.join(' | ')) : '-'}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+
+                const totals = items.reduce((sum, item) => {
+                    sum.ordered += parseFloat(item.quantity || 0);
+                    sum.accepted += parseFloat(item.quantity_received || 0);
+                    sum.rejected += parseFloat(item.quantity_rejected || 0);
+                    return sum;
+                }, { ordered: 0, accepted: 0, rejected: 0 });
+
+                document.getElementById('totalOrdered').textContent = totals.ordered.toFixed(2);
+                document.getElementById('totalAccepted').textContent = totals.accepted.toFixed(2);
+                document.getElementById('totalRejected').textContent = totals.rejected.toFixed(2);
+
+                const reportBits = [];
+                if (po.delivery_reference) reportBits.push(`Delivery Reference: ${po.delivery_reference}`);
+                if (po.invoice_number) reportBits.push(`Invoice: ${po.invoice_number}`);
+                if (po.driver_name) reportBits.push(`Driver: ${po.driver_name}`);
+                if (po.vehicle_plate) reportBits.push(`Vehicle: ${po.vehicle_plate}`);
+                if (po.delivery_condition) reportBits.push(`Condition: ${PurchasingService.formatStatus(po.delivery_condition)}`);
+                if (po.driver_notes) reportBits.push(`Driver Notes: ${po.driver_notes}`);
+                if ((po.notes || '').trim()) reportBits.push(`PO Notes: ${po.notes.trim()}`);
+
+                if (reportBits.length) {
+                    document.getElementById('notesBlock').textContent = reportBits.join(' | ');
+                }
+            } catch (error) {
+                document.getElementById('itemsBody').innerHTML = '<tr><td colspan="9" class="right">Failed to load Receiving Report</td></tr>';
+            }
+        });
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function formatCurrency(amount) {
+            return 'PHP ' + parseFloat(amount || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        function setupPrintControls(allowedRoles) {
+            const user = AuthService.getCurrentUser();
+            const allowed = user && allowedRoles.includes(user.role);
+            const actions = document.querySelector('[data-print-actions]');
+            const restricted = document.querySelector('[data-print-restricted]');
+            if (!allowed && actions) actions.remove();
+            if (!allowed && restricted) restricted.classList.remove('hidden');
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function resolveGMName(primary, fallback) {
+            const primaryName = normalizeName(primary);
+            if (primaryName) return primaryName;
+            return normalizeName(fallback);
+        }
+
+        function normalizeName(value) {
+            const name = String(value || '').trim();
+            if (!name) return '';
+            const lower = name.toLowerCase();
+            if (lower === 'general manager' || lower === 'current general manager' || lower === 'gm') {
+                return '';
+            }
+            return name;
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waste & Byproducts - Production | Highland Fresh</title>
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stat-value { font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col"></aside>
+
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()"><i class="fas fa-bars text-lg"></i></button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content">Waste & Byproducts</h1>
+                <div class="text-sm breadcrumbs py-0">
+                    <ul class="text-xs">
+                        <li><a href="dashboard.html">Dashboard</a></li>
+                        <li>Waste & Byproducts</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex-none flex gap-2">
+                <button class="btn btn-ghost btn-square" onclick="loadPage()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                <button class="btn btn-primary gap-2" onclick="openByproductModal()"><i class="fas fa-plus"></i> Log Byproduct</button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 lg:p-6 space-y-5">
+            <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <button class="stat bg-base-100 rounded-lg border border-base-300 text-left p-4" onclick="setStatus('pending')">
+                    <div class="stat-title text-xs">Pending Decision</div>
+                    <div class="stat-value text-warning text-2xl" id="statPending">0</div>
+                </button>
+                <button class="stat bg-base-100 rounded-lg border border-base-300 text-left p-4" onclick="setStatus('stored')">
+                    <div class="stat-title text-xs">Stored</div>
+                    <div class="stat-value text-success text-2xl" id="statStored">0</div>
+                </button>
+                <button class="stat bg-base-100 rounded-lg border border-base-300 text-left p-4" onclick="setStatus('used')">
+                    <div class="stat-title text-xs">Used / Reprocessed</div>
+                    <div class="stat-value text-info text-2xl" id="statUsed">0</div>
+                </button>
+                <button class="stat bg-base-100 rounded-lg border border-base-300 text-left p-4" onclick="setStatus('disposed')">
+                    <div class="stat-title text-xs">Sent to Disposal</div>
+                    <div class="stat-value text-error text-2xl" id="statDisposed">0</div>
+                </button>
+            </section>
+
+            <section class="bg-base-100 border border-base-300 rounded-lg">
+                <div class="p-4 border-b border-base-300 flex flex-col lg:flex-row gap-3 lg:items-end lg:justify-between">
+                    <div>
+                        <h2 class="font-semibold flex items-center gap-2"><i class="fas fa-recycle text-primary"></i> Byproduct Records</h2>
+                        <p class="text-sm text-base-content/60">Manual records for whey, skim milk, buttermilk, cream, and other leftovers from production.</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <select id="typeFilter" class="select select-bordered select-sm" onchange="loadByproducts()">
+                            <option value="">All types</option>
+                            <option value="buttermilk">Buttermilk</option>
+                            <option value="whey">Whey</option>
+                            <option value="cream">Cream</option>
+                            <option value="skim_milk">Skim Milk</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <select id="statusFilter" class="select select-bordered select-sm" onchange="loadByproducts()">
+                            <option value="">All status</option>
+                            <option value="pending">Pending</option>
+                            <option value="stored">Stored</option>
+                            <option value="used">Used</option>
+                            <option value="disposed">Disposed</option>
+                        </select>
+                        <input id="searchInput" class="input input-bordered input-sm w-48" placeholder="Search run or notes" oninput="debouncedLoad()">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Run</th>
+                                <th>Source</th>
+                                <th>Byproduct</th>
+                                <th class="text-right">Quantity</th>
+                                <th>Status</th>
+                                <th>Destination</th>
+                                <th>Notes</th>
+                                <th class="text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="byproductsTable">
+                            <tr><td colspan="8" class="text-center py-8 text-base-content/50">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4 border-t border-base-300 flex justify-between items-center">
+                    <span class="text-sm text-base-content/60" id="recordCount">0 records</span>
+                    <div class="join" id="pagination"></div>
+                </div>
+            </section>
+
+            <section class="bg-base-100 border border-base-300 rounded-lg p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+                <div>
+                    <h2 class="font-semibold">Waste from spills or failed material</h2>
+                    <p class="text-sm text-base-content/60">Use Yield Tracking for normal floor losses. Send unusable byproducts to disposal from this page.</p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="yield-tracking.html" class="btn btn-outline btn-sm gap-2"><i class="fas fa-chart-line"></i> Yield Tracking</a>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <dialog id="byproductModal" class="modal">
+        <div class="modal-box max-w-xl">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">x</button>
+            </form>
+            <h3 class="font-bold text-lg mb-1">Log Byproduct</h3>
+            <p class="text-sm text-base-content/60 mb-5">Record the actual leftover material from the production floor.</p>
+            <form id="byproductForm" class="space-y-4" onsubmit="submitByproduct(event)">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Production Run *</span></label>
+                    <select id="runSelect" class="select select-bordered" required>
+                        <option value="">Select run...</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Byproduct *</span></label>
+                        <select id="byproductType" class="select select-bordered" required>
+                            <option value="">Select type...</option>
+                            <option value="whey">Whey</option>
+                            <option value="skim_milk">Skim Milk</option>
+                            <option value="buttermilk">Buttermilk</option>
+                            <option value="cream">Cream</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Next Step</span></label>
+                        <select id="destination" class="select select-bordered">
+                            <option value="">Decide later</option>
+                            <option value="warehouse">Store in warehouse</option>
+                            <option value="reprocess">Use for reprocessing</option>
+                            <option value="sale">For sale</option>
+                            <option value="dispose">Send to disposal</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="form-control col-span-2">
+                        <label class="label"><span class="label-text">Quantity *</span></label>
+                        <input id="quantity" class="input input-bordered" type="number" min="0.01" step="0.01" required placeholder="0.00">
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">Unit *</span></label>
+                        <select id="unit" class="select select-bordered" required>
+                            <option value="liters">liters</option>
+                            <option value="kg">kg</option>
+                            <option value="grams">grams</option>
+                            <option value="pieces">pieces</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Storage Location</span></label>
+                    <input id="storageLocation" class="input input-bordered" placeholder="Example: Chiller 2, byproduct hold">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">Notes</span></label>
+                    <textarea id="notes" class="textarea textarea-bordered" rows="3" placeholder="Condition, reason, or handling notes"></textarea>
+                </div>
+                <div class="modal-action">
+                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('byproductModal').close()">Cancel</button>
+                    <button class="btn btn-primary" type="submit"><i class="fas fa-save"></i> Save</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <div class="toast toast-end toast-top z-50" id="toastContainer"></div>
+
+    <script src="../../js/vendor/axios.min.js"></script>
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="production_staff,general_manager"></script>
+    <script>window.PRODUCTION_ACTIVE_PAGE = 'byproducts';</script>
+    <script src="../../js/production/sidebar.js"></script>
+    <script src="../../js/production/production.service.js"></script>
+    <script>
+        let currentPage = 1;
+        let searchTimer = null;
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) {
+                window.location.href = '../login.html';
+                return;
+            }
+            await loadRuns();
+            await loadPage();
+        });
+
+        async function loadPage() {
+            await Promise.all([loadStats(), loadByproducts()]);
+        }
+
+        async function loadRuns() {
+            const res = await ProductionService.getRuns({ limit: 100 });
+            const runs = res.data || [];
+            document.getElementById('runSelect').innerHTML = '<option value="">Select run...</option>' + runs.map(run => {
+                const label = `${escapeHtml(run.run_code || ('Run #' + run.id))} - ${escapeHtml(run.product_name || run.product_type || 'Production')}`;
+                return `<option value="${run.id}">${label}</option>`;
+            }).join('');
+        }
+
+        async function loadStats() {
+            const statuses = ['pending', 'stored', 'used', 'disposed'];
+            const results = await Promise.all(statuses.map(status => ProductionService.getByproducts({ status, limit: 1 })));
+            document.getElementById('statPending').textContent = results[0].pagination?.total || 0;
+            document.getElementById('statStored').textContent = results[1].pagination?.total || 0;
+            document.getElementById('statUsed').textContent = results[2].pagination?.total || 0;
+            document.getElementById('statDisposed').textContent = results[3].pagination?.total || 0;
+        }
+
+        function setStatus(status) {
+            document.getElementById('statusFilter').value = status;
+            currentPage = 1;
+            loadByproducts();
+        }
+
+        function debouncedLoad() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                currentPage = 1;
+                loadByproducts();
+            }, 250);
+        }
+
+        async function loadByproducts() {
+            const params = {
+                page: currentPage,
+                limit: 20,
+                byproduct_type: document.getElementById('typeFilter').value,
+                status: document.getElementById('statusFilter').value,
+                search: document.getElementById('searchInput').value.trim()
+            };
+            const res = await ProductionService.getByproducts(params);
+            renderRows(res.data || []);
+            renderPagination(res.pagination);
+            const total = res.pagination?.total || 0;
+            document.getElementById('recordCount').textContent = `${total} record${total === 1 ? '' : 's'}`;
+        }
+
+        function renderRows(rows) {
+            const tbody = document.getElementById('byproductsTable');
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-base-content/50">No byproducts found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = rows.map(row => {
+                const status = statusBadge(row.status);
+                return `
+                    <tr class="hover">
+                        <td><code class="text-xs">${escapeHtml(row.run_code || '-')}</code></td>
+                        <td>${escapeHtml(row.source_product || '-')}</td>
+                        <td class="font-medium">${formatType(row.byproduct_type)}</td>
+                        <td class="text-right font-semibold">${formatNumber(row.quantity)} ${escapeHtml(row.unit || '')}</td>
+                        <td><span class="badge ${status.cls} badge-sm">${status.label}</span></td>
+                        <td>${escapeHtml(row.storage_location || row.destination || '-')}</td>
+                        <td class="max-w-xs truncate" title="${escapeHtml(row.notes || '')}">${escapeHtml(row.notes || '-')}</td>
+                        <td class="text-right">${renderActions(row)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderActions(row) {
+            if (row.status !== 'pending') return '<span class="text-base-content/40">-</span>';
+            return `
+                <div class="join">
+                    <button class="btn btn-xs btn-success join-item" onclick="storeByproduct(${row.id})" title="Store"><i class="fas fa-warehouse"></i></button>
+                    <button class="btn btn-xs btn-info join-item" onclick="markUsed(${row.id})" title="Mark used"><i class="fas fa-check"></i></button>
+                    <button class="btn btn-xs btn-error join-item" onclick="sendToDisposal(${row.id})" title="Send to Disposal Report"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+        }
+
+        function renderPagination(p) {
+            const el = document.getElementById('pagination');
+            if (!p || p.total_pages <= 1) {
+                el.innerHTML = '';
+                return;
+            }
+            el.innerHTML = `
+                <button class="join-item btn btn-sm" ${p.page <= 1 ? 'disabled' : ''} onclick="goToPage(${p.page - 1})">Prev</button>
+                <button class="join-item btn btn-sm">Page ${p.page} of ${p.total_pages}</button>
+                <button class="join-item btn btn-sm" ${p.page >= p.total_pages ? 'disabled' : ''} onclick="goToPage(${p.page + 1})">Next</button>
+            `;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            loadByproducts();
+        }
+
+        function openByproductModal() {
+            document.getElementById('byproductForm').reset();
+            document.getElementById('byproductModal').showModal();
+        }
+
+        async function submitByproduct(event) {
+            event.preventDefault();
+            const data = {
+                run_id: document.getElementById('runSelect').value,
+                byproduct_type: document.getElementById('byproductType').value,
+                quantity: document.getElementById('quantity').value,
+                unit: document.getElementById('unit').value,
+                destination: document.getElementById('destination').value,
+                storage_location: document.getElementById('storageLocation').value,
+                notes: document.getElementById('notes').value
+            };
+            try {
+                const res = await ProductionService.recordByproduct(data);
+                document.getElementById('byproductModal').close();
+                showToast(res.message || 'Byproduct saved', 'success');
+                await loadPage();
+            } catch (error) {
+                showToast(error.response?.data?.message || error.message || 'Could not save byproduct', 'error');
+            }
+        }
+
+        async function storeByproduct(id) {
+            try {
+                await ProductionService.storeByproduct(id, 'Warehouse byproduct hold');
+                showToast('Marked as stored', 'success');
+                await loadPage();
+            } catch (error) {
+                showToast(error.response?.data?.message || 'Could not store byproduct', 'error');
+            }
+        }
+
+        async function markUsed(id) {
+            try {
+                await ProductionService.markByproductUsed(id);
+                showToast('Marked as used', 'success');
+                await loadPage();
+            } catch (error) {
+                showToast(error.response?.data?.message || 'Could not update byproduct', 'error');
+            }
+        }
+
+        async function sendToDisposal(id) {
+            try {
+                await ProductionService.sendByproductToDisposal(id, 'Byproduct cannot be reused and needs disposal');
+                showToast('Sent to Disposal Report for approval', 'success');
+                await loadPage();
+            } catch (error) {
+                showToast(error.response?.data?.message || 'Could not send to disposal', 'error');
+            }
+        }
+
+        function statusBadge(status) {
+            const map = {
+                pending: { cls: 'badge-warning', label: 'Pending' },
+                stored: { cls: 'badge-success', label: 'Stored' },
+                used: { cls: 'badge-info', label: 'Used' },
+                disposed: { cls: 'badge-error', label: 'Disposed' }
+            };
+            return map[status] || { cls: 'badge-ghost', label: status || '-' };
+        }
+
+        function formatType(value) {
+            return escapeHtml(String(value || '-').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+        }
+
+        function formatNumber(value) {
+            return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type} shadow-lg`;
+            toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>

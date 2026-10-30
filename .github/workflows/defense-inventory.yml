@@ -1,0 +1,50 @@
+name: One-time capstone demo inventory
+
+on:
+  schedule:
+    # Oct 8, 2026 at 00:05, 07:05, and 08:05 Asia/Manila.
+    - cron: '5 16,23 7 10 *'
+    - cron: '5 0 8 10 *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Inspect, validate with rollback, or apply labeled demo stock
+        required: true
+        type: choice
+        options:
+          - inspect
+          - validate
+          - apply
+          - inspect_locations
+          - validate_locations
+          - apply_locations
+          - inspect_raw
+          - validate_raw
+          - apply_raw
+          - inspect_gap_packaging
+          - validate_gap_packaging
+          - apply_gap_packaging
+          - inspect_low_stock_scenario
+          - validate_low_stock_scenario
+          - apply_low_stock_scenario
+          - inspect_qc_labels
+          - inspect_gm_demo
+          - validate_gm_demo
+          - apply_gm_demo
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Inspect or seed capstone demo inventory
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          DEFENSE_INVENTORY_MODE: ${{ github.event_name == 'schedule' && 'apply' || inputs.mode }}
+          DEFENSE_INVENTORY_SCHEDULED: ${{ github.event_name == 'schedule' }}
+        run: python .github/scripts/run_live_defense_inventory.py

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <meta charset="UTF-8">
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../../css/tailwind.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+        <!-- Populated by js/warehouse/raw-sidebar.js -->
+    </aside>
+
+<div class="lg:ml-72 min-h-screen flex flex-col">
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <h1 class="text-lg lg:text-xl font-bold text-base-content">Spoilage & Waste</h1>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <button class="btn btn-primary btn-sm gap-2" onclick="openWasteModal()">
+                    <i class="fas fa-plus"></i>
+                    <span class="hidden sm:inline">Record Waste</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 px-4 py-6 lg:px-8">
+            <div class="mx-auto max-w-7xl">
+        <section class="card bg-base-100 border border-base-300 mb-5 rounded-2xl p-4 sm:p-5">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#1f7a4d]">Raw Materials</p>
+                    <h2 class="mt-1 text-xl font-bold tracking-tight">Spoilage, expiry, and waste records</h2>
+                </div>
+                <div class="flex items-center gap-2 rounded-full border border-[#dfe7e2] bg-[#f9fbfa] px-3 py-1.5 text-xs font-medium text-[#65736b]">
+                    <i class="fas fa-user-shield text-[#1f7a4d]"></i>
+                    Warehouse controlled
+                </div>
+            </div>
+        </section>
+
+        <section class="mb-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <div class="card bg-base-100 border border-base-300 rounded-2xl p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#65736b]">Expired</p>
+                <p class="mt-2 text-3xl font-bold text-[#b42318]" id="expiredCount">0</p>
+            </div>
+            <div class="card bg-base-100 border border-base-300 rounded-2xl p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#65736b]">Spoiled</p>
+                <p class="mt-2 text-3xl font-bold text-[#a15c07]" id="spoiledCount">0</p>
+            </div>
+            <div class="card bg-base-100 border border-base-300 rounded-2xl p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#65736b]">Rejected Delivery</p>
+                <p class="mt-2 text-3xl font-bold text-[#1d5f86]" id="rejectedCount">0</p>
+            </div>
+            <div class="card bg-base-100 border border-base-300 rounded-2xl p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#65736b]">Waste Records</p>
+                <p class="mt-2 text-3xl font-bold text-[#1f7a4d]" id="wastedCount">0</p>
+            </div>
+        </section>
+
+        <section class="card bg-base-100 border border-base-300 rounded-2xl">
+            <div class="flex flex-col gap-3 border-b border-[#dfe7e2] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div class="tabs tabs-boxed bg-[#f3f7f4]">
+                    <button class="tab tab-active" data-tab="waste" onclick="switchTab('waste')">Waste</button>
+                    <button class="tab" data-tab="expired" onclick="switchTab('expired')">Expired</button>
+                    <button class="tab" data-tab="rejected" onclick="switchTab('rejected')">Rejected</button>
+                    <button class="tab" data-tab="spoiled" onclick="switchTab('spoiled')">Spoiled</button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead id="reportHead" class="bg-[#f9fbfa] text-[#65736b]"></thead>
+                    <tbody id="reportBody">
+                        <tr><td class="text-center py-8"><span class="loading loading-spinner"></span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+            </div>
+        </main>
+    </div>
+
+    <dialog id="wasteModal" class="modal">
+        <div class="modal-box max-w-3xl rounded-lg border border-[#dfe7e2] bg-white p-0 shadow-2xl">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">x</button></form>
+            <div class="border-b border-[#dfe7e2] bg-[#f9fbfa] p-5">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#1f7a4d]">Warehouse Raw</p>
+                <h3 class="mt-1 font-bold text-lg">Record Raw Material Waste</h3>
+            </div>
+            <form id="wasteForm" class="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+                <label class="form-control md:col-span-2">
+                    <span class="label-text mb-1 font-semibold text-[#17211b]">Item</span>
+                    <select id="wasteItem"
+                        class="select select-bordered rounded-lg border-[#dfe7e2] bg-white text-sm focus:border-[#1f7a4d]"
+                        required onchange="loadBatchesForSelectedItem()"></select>
+                </label>
+                <label class="form-control md:col-span-2">
+                    <span class="label-text mb-1 font-semibold text-[#17211b]">Batch</span>
+                    <select id="wasteBatch"
+                        class="select select-bordered rounded-lg border-[#dfe7e2] bg-white text-sm focus:border-[#1f7a4d]"
+                        required></select>
+                    <span class="mt-1 text-xs text-[#65736b]" id="batchHelpText"></span>
+                </label>
+                <label class="form-control">
+                    <span class="label-text mb-1 font-semibold text-[#17211b]">Quantity</span>
+                    <input type="number" id="wasteQuantity"
+                        class="input input-bordered rounded-lg border-[#dfe7e2] bg-white text-sm focus:border-[#1f7a4d]"
+                        min="0.01" step="0.01" required>
+                </label>
+                <label class="form-control">
+                    <span class="label-text mb-1 font-semibold text-[#17211b]">Waste Date</span>
+                    <input type="date" id="wasteDate"
+                        class="input input-bordered rounded-lg border-[#dfe7e2] bg-white text-sm focus:border-[#1f7a4d]"
+                        required>
+                </label>
+                <label class="form-control">
+                    <span class="label-text mb-1 font-semibold text-[#17211b]">Reason</span>
+                    <select id="wasteReasonCategory"
+                        class="select select-bordered rounded-lg border-[#dfe7e2] bg-white text-sm focus:border-[#1f7a4d]">
+                        <option value="">Select reason...</option>
+                        <option value="spoiled">Spoiled</option>
+                        <option value="expired">Expired</option>
+                        <option value="damaged">Damaged after receiving</option>
+                        <option value="contaminated">Contaminated</option>
+                        <option value="handling_loss">Handling loss</option>
+                        <option value="other">Other</option>
+                    </select>
+                </label>
+                <label class="form-control">
+                    <span class="label-text mb-1 font-semibold text-[#17211b]">Details</span>
+                    <input type="text" id="wasteReason"
+                        class="input input-bordered rounded-lg border-[#dfe7e2] bg-white text-sm focus:border-[#1f7a4d]"
+                        required placeholder="Short explanation">
+                </label>
+                <label class="form-control md:col-span-2">
+                    <span class="label-text mb-1 font-semibold text-[#17211b] flex items-center justify-between">
+                        <span>Photo Evidence <span id="evidenceRequiredMark" class="text-error hidden">*</span></span>
+                        <span id="evidenceRequiredHint" class="text-xs font-normal text-[#b42318] hidden">Required for damage / contamination / spoilage / handling loss</span>
+                    </span>
+                    <div id="evidenceDropzone"
+                        class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-[#dfe7e2] bg-[#f9fbfa] p-4 text-center cursor-pointer hover:border-[#1f7a4d] transition-colors"
+                        onclick="document.getElementById('evidencePhotoInput').click()">
+                        <i class="fas fa-camera text-2xl text-[#1f7a4d]"></i>
+                        <p class="text-sm font-semibold text-[#17211b]">Tap to take a photo</p>
+                        <p class="text-xs text-[#65736b]">Camera capture only — up to 5 MB</p>
+                    </div>
+                    <input type="file" id="evidencePhotoInput" accept="image/*" capture="environment"
+                        class="hidden" onchange="handleEvidencePhotoSelected(event)">
+                    <div id="evidencePreviewWrap" class="hidden mt-2 flex items-center gap-3 rounded-lg border border-[#dfe7e2] bg-white p-2">
+                        <img id="evidencePreview" class="w-20 h-20 rounded-md object-cover border border-[#dfe7e2]" alt="Evidence preview">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-[#17211b] truncate" id="evidenceFilename">photo.jpg</p>
+                            <p class="text-xs text-[#65736b]" id="evidenceSize">—</p>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="clearEvidencePhoto()">
+                            <i class="fas fa-rotate-left"></i> Retake
+                        </button>
+                    </div>
+                </label>
+                <div class="modal-action md:col-span-2">
+                    <button type="button" class="btn btn-ghost rounded-lg"
+                        onclick="document.getElementById('wasteModal').close()">Cancel</button>
+                    <button class="btn rounded-lg border-0 bg-[#1f7a4d] text-white hover:bg-[#155c3a]" id="saveWasteBtn">
+                        <i class="fas fa-check"></i> Save Waste
+                    </button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <div id="toastContainer" class="toast toast-end toast-top z-50"></div>
+
+    <!-- Evidence Lightbox -->
+    <dialog id="evidenceLightbox" class="modal">
+        <div class="modal-box max-w-3xl rounded-lg border border-[#dfe7e2] bg-white p-0 shadow-2xl">
+            <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-3 top-3">✕</button></form>
+            <div class="border-b border-[#dfe7e2] bg-[#f9fbfa] p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-[#1f7a4d]" id="evidenceLightboxCode">WST-—</p>
+                <h3 class="mt-1 font-bold text-lg" id="evidenceLightboxTitle">Evidence Photo</h3>
+            </div>
+            <div class="p-4">
+                <img id="evidenceLightboxImage" class="w-full max-h-[60vh] object-contain rounded-md bg-[#f3f7f4]" alt="Evidence">
+                <dl class="mt-4 grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+                    <div>
+                        <dt class="text-xs font-semibold uppercase tracking-wider text-[#65736b]">Item</dt>
+                        <dd class="font-semibold" id="evidenceLightboxItem">—</dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs font-semibold uppercase tracking-wider text-[#65736b]">Recorded by</dt>
+                        <dd id="evidenceLightboxBy">—</dd>
+                    </div>
+                    <div class="md:col-span-2">
+                        <dt class="text-xs font-semibold uppercase tracking-wider text-[#65736b]">Reason</dt>
+                        <dd id="evidenceLightboxReason">—</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <script src="../../../js/vendor/axios.min.js"></script>
+    <script src="../../../js/config/api.js"></script>
+    <script src="../../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../../js/security/role-guard.js" data-allowed-roles="warehouse_raw,general_manager"></script>
+    <script src="../../../js/warehouse/raw.service.js?v=20260825-2"></script>
+    <script src="../../../js/warehouse/sidebar.stats.js"></script>
+    <script>window.WAREHOUSE_RAW_ACTIVE_PAGE = "waste";</script>
+    <script src="../../../js/warehouse/raw-sidebar.js?v=20260727a"></script>
+
+    <script>
+        let wasteItems = [];
+        let reports = { wasted: [], expired: [], rejected: [], spoiled: [] };
+        let activeTab = 'waste';
+        let evidenceFile = null;
+        let lastSelectedWasteBatch = '';
+
+        const EVIDENCE_REQUIRED_REASONS = new Set(['damaged', 'contaminated', 'spoiled', 'handling_loss']);
+        const DEFAULT_REASON_DETAILS = {
+            expired: 'Expired batch removed from active inventory',
+            damaged: 'Damaged after receiving',
+            contaminated: 'Contamination observed during warehouse handling',
+            spoiled: 'Spoilage observed during warehouse inspection',
+            handling_loss: 'Handling loss recorded during warehouse operations',
+            other: ''
+        };
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+            document.getElementById('sidebarBackdrop').classList.toggle('hidden');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!AuthService.isAuthenticated()) { window.location.href = '../../login.html'; return; }
+            const user = AuthService.getCurrentUser();
+            if (user) {
+                document.getElementById('sidebarUserName').textContent =
+                    `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.name || 'Warehouse Staff';
+                const f = (user.first_name || user.name || '').charAt(0).toUpperCase();
+                const l = (user.last_name || '').charAt(0).toUpperCase();
+                document.getElementById('userInitials').textContent = (f + l) || 'WR';
+            }
+            document.getElementById('wasteDate').value = new Date().toISOString().slice(0, 10);
+            await loadItems();
+            await applyWastePrefillFromQuery();
+            await loadReports();
+        });
+
+        async function loadItems() {
+            const response = await WarehouseRawService.getWasteAvailableItems();
+            wasteItems = response?.data?.items || [];
+            const select = document.getElementById('wasteItem');
+            select.innerHTML = '<option value="">Select item...</option>' + wasteItems.map(item =>
+                `<option value="${item.item_type}:${item.item_id}">${formatWasteItemLabel(item)}</option>`
+            ).join('');
+        }
+
+        function formatWasteItemLabel(item) {
+            const usable = parseFloat(item.current_stock || 0);
+            const disposable = parseFloat(item.disposal_stock || usable || 0);
+            const unit = item.unit || '';
+            const prefix = `${item.item_code} - ${item.item_name}`;
+            if (Math.abs(disposable - usable) > 0.0005) {
+                return `${prefix} (${usable.toLocaleString()} ${unit} usable; ${disposable.toLocaleString()} ${unit} physical)`;
+            }
+            return `${prefix} (${usable.toLocaleString()} ${unit})`;
+        }
+
+        async function loadReports() {
+            const response = await WarehouseRawService.getRawMaterialWasteReports();
+            const data = response?.data || {};
+            reports = {
+                wasted: data.wasted || [],
+                expired: data.expired || [],
+                rejected: data.rejected || [],
+                spoiled: data.spoiled || []
+            };
+            document.getElementById('expiredCount').textContent = reports.expired.length;
+            document.getElementById('spoiledCount').textContent = reports.spoiled.length;
+            document.getElementById('rejectedCount').textContent = reports.rejected.length;
+            document.getElementById('wastedCount').textContent = reports.wasted.length;
+            renderActiveReport();
+        }
+
+        async function loadBatchesForSelectedItem() {
+            const value = document.getElementById('wasteItem').value;
+            const batchSelect = document.getElementById('wasteBatch');
+            const help = document.getElementById('batchHelpText');
+            const quantityInput = document.getElementById('wasteQuantity');
+            lastSelectedWasteBatch = '';
+            quantityInput.value = '';
+            quantityInput.max = '';
+            batchSelect.innerHTML = '<option value="">Select batch...</option>';
+            if (help) help.textContent = '';
+            if (!value) return;
+
+            const [itemType, itemId] = value.split(':');
+            const response = await WarehouseRawService.getWasteBatches(itemType, itemId);
+            const batches = response?.data?.batches || [];
+            if (batches.length === 0) {
+                const item = wasteItems.find(row => row.item_type === itemType && String(row.item_id) === String(itemId));
+                const maxStock = item?.current_stock || '';
+                batchSelect.innerHTML = `<option value="item_level" data-max="${maxStock}">No batch record - deduct from item stock</option>`;
+                if (help) help.textContent = 'This item has stock but no active batch record, so waste will be recorded at item level.';
+                quantityInput.max = maxStock;
+                return;
+            }
+            batchSelect.innerHTML += batches.map(batch =>
+                `<option value="${Number(batch.batch_id) || 0}"
+                    data-max="${Number(batch.remaining_quantity) || 0}"
+                    data-expired="${Number(batch.is_expired || 0)}"
+                    data-status="${escapeHtml(batch.status || '')}"
+                    data-expiry-date="${escapeHtml(batch.expiry_date || '')}"
+                    data-unit="${escapeHtml(batch.unit || '')}">${escapeHtml(formatWasteBatchLabel(batch))}</option>`
+            ).join('');
+            if (help) {
+                help.textContent = 'Waste can include expired physical batches. Usable stock excludes expired batches.';
+            }
+        }
+
+        function isDefaultReasonDetail(value) {
+            const text = (value || '').trim();
+            return Object.values(DEFAULT_REASON_DETAILS).some(defaultText => defaultText === text);
+        }
+
+        function setWasteReason(category, detail) {
+            document.getElementById('wasteReasonCategory').value = category;
+            document.getElementById('wasteReason').value = detail || DEFAULT_REASON_DETAILS[category] || '';
+            updateEvidenceRequiredState();
+        }
+
+        function applySelectedBatchDefaults({ forceReason = false } = {}) {
+            const batchSelect = document.getElementById('wasteBatch');
+            const selected = batchSelect.selectedOptions[0];
+            const quantityInput = document.getElementById('wasteQuantity');
+            const help = document.getElementById('batchHelpText');
+
+            if (!selected || !selected.value) {
+                quantityInput.max = '';
+                lastSelectedWasteBatch = '';
+                return;
+            }
+
+            const selectedValue = selected.value;
+            const maxQty = selected.dataset.max || '';
+            const batchChanged = selectedValue !== lastSelectedWasteBatch;
+            quantityInput.max = maxQty;
+            if (maxQty && (batchChanged || !quantityInput.value || parseFloat(quantityInput.value) <= 0)) {
+                quantityInput.value = maxQty;
+            }
+
+            const reasonSelect = document.getElementById('wasteReasonCategory');
+            const reasonInput = document.getElementById('wasteReason');
+            const reasonCanBeReplaced = !reasonInput.value.trim()
+                || isDefaultReasonDetail(reasonInput.value)
+                || reasonSelect.value === 'spoiled';
+
+            if (selected.dataset.expired === '1' && (forceReason || reasonCanBeReplaced)) {
+                setWasteReason('expired', DEFAULT_REASON_DETAILS.expired);
+                if (help) {
+                    help.textContent = 'Expired batch selected. Quantity was filled with the full remaining batch; edit it only for partial disposal.';
+                }
+            } else if (help && selectedValue === 'item_level') {
+                help.textContent = 'No batch record was found. Quantity is limited to the item stock on file.';
+            }
+
+            lastSelectedWasteBatch = selectedValue;
+        }
+
+        function formatWasteBatchLabel(batch) {
+            const qty = parseFloat(batch.remaining_quantity || 0).toLocaleString();
+            const unit = batch.unit || '';
+            const expiry = batch.expiry_date ? ` - Exp ${formatDate(batch.expiry_date)}` : '';
+            const expired = Number(batch.is_expired || 0) === 1 ? ' [Expired]' : '';
+            const status = batch.status && !['available', 'partially_used'].includes(batch.status)
+                ? ` [${batch.status}]`
+                : '';
+            return `${batch.batch_code} - ${qty} ${unit}${expiry}${expired}${status}`;
+        }
+
+        async function applyWastePrefillFromQuery() {
+            const params = new URLSearchParams(window.location.search);
+            const itemType = params.get('item_type');
+            const itemId = params.get('item_id');
+            const batchId = params.get('batch_id');
+            if (!itemType || !itemId) return;
+
+            document.getElementById('wasteItem').value = `${itemType}:${itemId}`;
+            await loadBatchesForSelectedItem();
+
+            if (batchId) {
+                const batchSelect = document.getElementById('wasteBatch');
+                const hasBatchOption = Array.from(batchSelect.options).some(option => option.value === batchId);
+                if (hasBatchOption) {
+                    batchSelect.value = batchId;
+                } else {
+                    showToast('The selected batch is no longer available for waste recording', 'error');
+                }
+                const selected = batchSelect.selectedOptions[0];
+                const maxQty = selected?.dataset?.max || '';
+                document.getElementById('wasteQuantity').max = maxQty;
+                if (maxQty) {
+                    document.getElementById('wasteQuantity').value = maxQty;
+                }
+                applySelectedBatchDefaults({ forceReason: true });
+            }
+
+            const reasonCategory = params.get('reason_category');
+            if (reasonCategory) {
+                document.getElementById('wasteReasonCategory').value = reasonCategory;
+                document.getElementById('wasteReason').value = params.get('reason')
+                    || DEFAULT_REASON_DETAILS[reasonCategory]
+                    || '';
+            }
+            updateEvidenceRequiredState();
+
+            document.getElementById('wasteModal').showModal();
+        }
+
+        function openWasteModal() {
+            document.getElementById('wasteForm').reset();
+            document.getElementById('wasteDate').value = new Date().toISOString().slice(0, 10);
+            document.getElementById('wasteBatch').innerHTML = '<option value="">Select item first...</option>';
+            lastSelectedWasteBatch = '';
+            clearEvidencePhoto();
+            updateEvidenceRequiredState();
+            document.getElementById('wasteModal').showModal();
+        }
+
+        document.getElementById('wasteReasonCategory').addEventListener('change', () => {
+            const reasonCategory = document.getElementById('wasteReasonCategory').value;
+            const reasonInput = document.getElementById('wasteReason');
+            if (!reasonInput.value.trim()) {
+                reasonInput.value = DEFAULT_REASON_DETAILS[reasonCategory] || '';
+            }
+            updateEvidenceRequiredState();
+        });
+
+        function updateEvidenceRequiredState() {
+            const reason = document.getElementById('wasteReasonCategory').value;
+            const required = EVIDENCE_REQUIRED_REASONS.has(reason);
+            document.getElementById('evidenceRequiredMark').classList.toggle('hidden', !required);
+            document.getElementById('evidenceRequiredHint').classList.toggle('hidden', !required);
+            document.getElementById('evidenceDropzone').classList.toggle('border-[#b42318]', required);
+        }
+
+        function handleEvidencePhotoSelected(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('Photo must be 5 MB or smaller', 'error');
+                event.target.value = '';
+                return;
+            }
+            evidenceFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('evidencePreview').src = e.target.result;
+                document.getElementById('evidenceFilename').textContent = file.name;
+                document.getElementById('evidenceSize').textContent = `${(file.size / 1024).toFixed(0)} KB`;
+                document.getElementById('evidencePreviewWrap').classList.remove('hidden');
+                document.getElementById('evidenceDropzone').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearEvidencePhoto() {
+            evidenceFile = null;
+            const input = document.getElementById('evidencePhotoInput');
+            if (input) input.value = '';
+            document.getElementById('evidencePreview').src = '';
+            document.getElementById('evidencePreviewWrap').classList.add('hidden');
+            document.getElementById('evidenceDropzone').classList.remove('hidden');
+        }
+
+        document.getElementById('wasteBatch').addEventListener('change', () => {
+            applySelectedBatchDefaults();
+        });
+
+        document.getElementById('wasteForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            if (!form.reportValidity()) return;
+
+            const [itemType, itemId] = document.getElementById('wasteItem').value.split(':');
+            const batchValue = document.getElementById('wasteBatch').value;
+            const reasonCategory = document.getElementById('wasteReasonCategory').value;
+            const quantity = document.getElementById('wasteQuantity').value;
+            const reason = document.getElementById('wasteReason').value.trim();
+            const btn = document.getElementById('saveWasteBtn');
+            btn.disabled = true;
+
+            if (!itemType || !itemId || !batchValue || !quantity || parseFloat(quantity) <= 0 || !reasonCategory || !reason) {
+                showToast('Choose an item, batch, quantity, reason, and details before saving waste', 'error');
+                btn.disabled = false;
+                return;
+            }
+
+            if (EVIDENCE_REQUIRED_REASONS.has(reasonCategory) && !evidenceFile) {
+                showToast('Photo evidence is required for damage / contamination / spoilage / handling loss', 'error');
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                const payload = {
+                    item_type: itemType,
+                    item_id: itemId,
+                    batch_id: batchValue === 'item_level' ? null : batchValue,
+                    quantity,
+                    waste_date: document.getElementById('wasteDate').value,
+                    reason_category: reasonCategory,
+                    reason
+                };
+                if (evidenceFile) {
+                    await WarehouseRawService.recordWasteWithEvidence(payload, evidenceFile);
+                } else {
+                    await WarehouseRawService.recordWaste(payload);
+                }
+                document.getElementById('wasteModal').close();
+                clearEvidencePhoto();
+                showToast('Waste recorded and inventory deducted', 'success');
+                await Promise.all([loadItems(), loadReports()]);
+            } catch (error) {
+                showToast(error?.message || 'Failed to record waste', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        function switchTab(tab) {
+            activeTab = tab;
+            document.querySelectorAll('.tab').forEach(btn => btn.classList.toggle('tab-active', btn.dataset.tab === tab));
+            renderActiveReport();
+        }
+
+        function renderActiveReport() {
+            const head = document.getElementById('reportHead');
+            const body = document.getElementById('reportBody');
+            const rows = activeTab === 'waste' ? reports.wasted : reports[activeTab];
+
+            if (activeTab === 'rejected') {
+                head.innerHTML = '<tr><th>Code</th><th>Item</th><th>Supplier</th><th>Qty</th><th>Reason</th><th>RR</th></tr>';
+                body.innerHTML = rows.length ? rows.map(r => `<tr><td>${r.rejection_code}</td><td>${r.item_description}</td><td>${r.supplier_name || '-'}</td><td>${fmt(r.quantity)} ${r.unit}</td><td>${r.rejection_reason || r.rejection_type}</td><td>${r.rr_number || '-'}</td></tr>`).join('') : emptyRow(6);
+                return;
+            }
+
+            if (activeTab === 'expired') {
+                head.innerHTML = '<tr><th>Type</th><th>Item</th><th>Batch</th><th>Qty</th><th>Expiry</th></tr>';
+                body.innerHTML = rows.length ? rows.map(r => `<tr><td>${escapeHtml(r.item_type)}</td><td>${escapeHtml(r.item_name)}</td><td class="font-mono text-xs">${escapeHtml(r.batch_code)}</td><td>${fmt(r.quantity)} ${escapeHtml(r.unit)}</td><td>${formatDate(r.expiry_date)}</td></tr>`).join('') : emptyRow(5);
+                return;
+            }
+
+            head.innerHTML = '<tr><th>Code</th><th>Item</th><th>Batch</th><th>Qty</th><th>Reason</th><th>Date</th><th>Status</th><th>Evidence</th></tr>';
+            body.innerHTML = rows.length ? rows.map(r => {
+                const hasEvidence = !!r.evidence_photo_path && Number(r.evidence_available || 0) === 1;
+                return `<tr>
+                    <td class="font-mono text-xs">${escapeHtml(r.waste_code)}</td>
+                    <td>${escapeHtml(r.item_name)}</td>
+                    <td class="font-mono text-xs">${escapeHtml(r.batch_code || '-')}</td>
+                    <td>${fmt(r.quantity)} ${escapeHtml(r.unit)}</td>
+                    <td>${escapeHtml(r.reason_category)}: ${escapeHtml(r.reason)}</td>
+                    <td>${formatDate(r.waste_date)}</td>
+                    <td><span class="badge badge-success badge-sm">${escapeHtml(r.status)}</span></td>
+                    <td>${hasEvidence
+                        ? `<button type="button" class="btn btn-ghost btn-xs gap-1" onclick="openEvidenceLightbox(${r.id})"><i class="fas fa-image text-[#1f7a4d]"></i> View</button>`
+                        : '<span class="text-xs text-[#65736b]">—</span>'}</td>
+                </tr>`;
+            }).join('') : emptyRow(8);
+        }
+
+        function openEvidenceLightbox(wasteId) {
+            const record = (reports.wasted || []).find(r => String(r.id) === String(wasteId));
+            if (!record || !record.evidence_photo_path) return;
+            const url = WarehouseRawService.getWasteEvidenceUrl(wasteId);
+            document.getElementById('evidenceLightboxCode').textContent = record.waste_code || '—';
+            document.getElementById('evidenceLightboxTitle').textContent = record.item_name || 'Evidence Photo';
+            document.getElementById('evidenceLightboxImage').src = url;
+            document.getElementById('evidenceLightboxItem').textContent = record.item_name || '—';
+            document.getElementById('evidenceLightboxBy').textContent = record.recorded_by_name
+                ? `${record.recorded_by_name} · ${formatDate(record.recorded_at || record.waste_date)}`
+                : formatDate(record.recorded_at || record.waste_date);
+            document.getElementById('evidenceLightboxReason').textContent = `${record.reason_category || ''} — ${record.reason || ''}`.replace(/^ — | — $/, '');
+            document.getElementById('evidenceLightbox').showModal();
+        }
+
+        function emptyRow(cols) {
+            return `<tr><td colspan="${cols}" class="text-center py-10 text-base-content/60">No records found</td></tr>`;
+        }
+
+        function fmt(value) {
+            return parseFloat(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function formatDate(value) {
+            return value ? new Date(value).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `alert ${type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info'} shadow-lg`;
+            HighlandSecurity.renderToastContent(toast, message);
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    </script>
+</body>
+</html>

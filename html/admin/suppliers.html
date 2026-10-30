@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="emerald">
+<head>
+    <style id="roleGuardPending">html { visibility: hidden; }</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suppliers Management | Highland Fresh Admin</title>
+    
+    <!-- Tailwind + DaisyUI (pre-built, no CDN runtime) -->
+    <link rel="stylesheet" href="../../css/tailwind.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Axios -->
+    <script src="../../js/vendor/axios.min.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: oklch(var(--b2)); border-radius: 3px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: oklch(var(--bc) / 0.2); border-radius: 3px; }
+        .sidebar-transition { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+        /* Keep supplier controls usable without shrinking the browser page. */
+        .supplier-table-scroll {
+            overflow-x: auto;
+            overscroll-behavior-inline: contain;
+        }
+        .supplier-table {
+            width: 100%;
+            min-width: 56rem;
+            table-layout: fixed;
+        }
+        .supplier-table .supplier-code-column { width: 6.5rem; }
+        .supplier-table .supplier-name-column { width: 11rem; }
+        .supplier-table .supplier-contact-column { width: 13rem; }
+        .supplier-table .supplier-payment-column { width: 8rem; }
+        .supplier-table .supplier-status-column { width: 7.5rem; }
+        .supplier-table .supplier-actions-column { width: 6rem; }
+        .supplier-table .supplier-actions-cell {
+            position: sticky;
+            right: 0;
+            z-index: 2;
+            background: oklch(var(--b1));
+            box-shadow: -0.45rem 0 0.65rem -0.65rem oklch(var(--bc) / 0.45);
+        }
+        .supplier-table thead .supplier-actions-cell {
+            z-index: 3;
+            background: oklch(var(--b2));
+        }
+        .supplier-table tbody tr:nth-child(even) .supplier-actions-cell {
+            background: oklch(var(--b2));
+        }
+        .supplier-table td,
+        .supplier-table th {
+            overflow: hidden;
+        }
+
+        @media (max-width: 767px) {
+            .supplier-table { min-width: 45rem; }
+            .supplier-table .supplier-code-column,
+            .supplier-table .supplier-code-cell,
+            .supplier-table .supplier-contact-column,
+            .supplier-table .supplier-contact-cell {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-base-200 min-h-screen">
+    
+    <div id="sidebarBackdrop" class="fixed inset-0 bg-black/50 z-40 lg:hidden hidden" onclick="toggleSidebar()"></div>
+    
+    <!-- Sidebar -->
+    <aside id="sidebar"
+        class="fixed left-0 top-0 h-full w-72 bg-base-100 border-r border-base-300 z-50 transform -translate-x-full lg:translate-x-0 sidebar-transition flex flex-col">
+
+        <!-- Sidebar Header -->
+        <div class="p-4 border-b border-base-300">
+            <div class="flex items-center gap-3">
+                <img src="../images/logo.jpg" alt="Highland Fresh Logo" class="w-10 h-10 rounded-xl object-cover">
+                <div class="flex-1 min-w-0">
+                    <h1 class="font-bold text-base-content truncate">Highland Fresh</h1>
+                    <p class="text-xs text-base-content/60 truncate">Admin Panel</p>
+                </div>
+                <button class="btn btn-ghost btn-sm btn-square lg:hidden" onclick="toggleSidebar()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
+            <!-- Main Menu -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Main Menu</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="dashboard.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-th-large w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Dashboard</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- User Management -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">User Management</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="users.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-users-cog w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Users &amp; Accounts</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Supply Chain -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Supply Chain</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="farmers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-tractor w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Farmers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="suppliers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-primary text-primary-content">
+                            <i class="fas fa-truck w-5 text-center"></i>
+                            <span class="flex-1">Suppliers</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="customers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-store w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Customers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Product Catalog -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Product Catalog</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="products.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-box w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Products</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recipes.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-list w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Recipes</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="ingredients.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-seedling w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Raw Ingredients</span>
+                        </a>
+                    </li>
+                    <li><a href="ingredients.html?view=packaging" class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200"><i class="fas fa-box-open w-5 text-center text-base-content/60"></i><span class="flex-1">Packaging Materials</span></a></li>
+                </ul>
+            </div>
+            <!-- Infrastructure -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Infrastructure</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="storage.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-warehouse w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Storage &amp; Tanks</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="chillers.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-snowflake w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Chillers</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Sales & Orders -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Sales & Orders</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="orders.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-list w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Orders for Approval</span>
+                            <span id="pendingOrdersBadge" class="badge badge-warning badge-sm"></span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <!-- Quality Control -->
+            <div>
+                <h2 class="text-xs font-semibold text-base-content/40 uppercase tracking-wider mb-2 px-3">Quality Control</h2>
+                <ul class="menu menu-sm p-0 gap-1">
+                    <li>
+                        <a href="disposals.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-trash-alt w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Disposals</span>
+                            <span id="pendingDisposalsBadge" class="badge badge-warning badge-sm"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="recalls.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-exclamation-triangle w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">Batch Recalls</span>
+                            <span id="activeRecallsBadge" class="badge badge-error badge-sm"></span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="qc-standards.html"
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-base-200">
+                            <i class="fas fa-clipboard-check w-5 text-center text-base-content/60"></i>
+                            <span class="flex-1">QC Standards</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- User Section -->
+        <div class="p-4 border-t border-base-300">
+            <div class="flex items-center gap-3">
+                <div class="avatar placeholder">
+                    <div class="w-10 rounded-xl bg-primary text-primary-content">
+                        <span class="text-sm font-semibold" id="userInitials">GM</span>
+                    </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-sm truncate" id="sidebarUserName">General Manager</p>
+                    <p class="text-xs text-base-content/60 truncate">Administrator</p>
+                </div>
+                <div class="dropdown dropdown-top dropdown-end">
+                    <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </label>
+                    <ul tabindex="0"
+                        class="dropdown-content menu menu-sm bg-base-100 rounded-box shadow-lg border border-base-300 w-44 p-2">
+                        <li><a><i class="fas fa-user-cog w-4"></i> Profile</a></li>
+                        <li><a><i class="fas fa-cog w-4"></i> Settings</a></li>
+                        <li class="border-t border-base-300 mt-1 pt-1">
+                            <a onclick="AuthService.logout()" class="text-error"><i class="fas fa-sign-out-alt w-4"></i>
+                                Logout</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <div class="lg:ml-72 min-h-screen flex flex-col">
+        <!-- Top Navbar -->
+        <header class="navbar bg-base-100 border-b border-base-300 sticky top-0 z-30 px-4 lg:px-6">
+            <div class="flex-none lg:hidden">
+                <button class="btn btn-ghost btn-square" onclick="toggleSidebar()">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1">
+                <div class="breadcrumbs text-sm">
+                    <ul>
+                        <li><a href="dashboard.html">Admin</a></li>
+                        <li class="font-semibold">Suppliers</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex-none flex items-center gap-2">
+                <label class="swap swap-rotate btn btn-ghost btn-circle">
+                    <input type="checkbox" id="themeToggle" />
+                    <i class="fas fa-sun swap-off text-lg"></i>
+                    <i class="fas fa-moon swap-on text-lg"></i>
+                </label>
+            </div>
+        </header>
+        
+        <!-- Content -->
+        <div class="p-4 md:p-6 space-y-6">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase text-primary">Supplier control</p>
+                    <h1 class="text-2xl font-bold">Supplier Management</h1>
+                    <p class="text-sm text-base-content/60">Register suppliers, confirm approval, and control which linked items Purchasing may order.</p>
+                </div>
+                <button type="button" class="btn btn-primary gap-2" onclick="openModal()">
+                    <i class="fas fa-plus"></i>
+                    Register Supplier
+                </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-base-100 rounded-2xl border border-base-300 p-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-truck text-primary text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Registered Suppliers</p>
+                            <p class="text-2xl font-bold" id="totalCount">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-base-100 rounded-2xl border border-base-300 p-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-success/10 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-check-circle text-success text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Active for Purchasing</p>
+                            <p class="text-2xl font-bold" id="activeCount">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-base-100 rounded-2xl border border-base-300 p-4">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-warning/10 rounded-xl flex items-center justify-center">
+                            <i class="fas fa-pause-circle text-warning text-xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-base-content/60">Archived</p>
+                            <p class="text-2xl font-bold" id="inactiveCount">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Search and Filter -->
+            <div class="bg-base-100 rounded-2xl border border-base-300 p-4">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <div class="input input-bordered flex items-center gap-2">
+                            <i class="fas fa-search text-base-content/40"></i>
+                            <input type="text" id="searchInput" placeholder="Search suppliers..." class="grow border-none focus:outline-none bg-transparent" onkeyup="handleSearch(event)">
+                        </div>
+                    </div>
+                    <select id="statusFilter" class="select select-bordered w-full md:w-48" onchange="loadData()">
+                        <option value="1" selected>Active for Purchasing</option>
+                        <option value="">All Statuses</option>
+                        <option value="0">Archived</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Data Table -->
+            <div class="bg-base-100 rounded-2xl border border-base-300 overflow-hidden">
+                <div class="supplier-table-scroll scrollbar-thin" role="region" aria-label="Supplier list" tabindex="0">
+                    <table class="table table-zebra supplier-table">
+                        <colgroup>
+                            <col class="supplier-code-column">
+                            <col class="supplier-name-column">
+                            <col class="supplier-contact-column">
+                            <col>
+                            <col class="supplier-payment-column">
+                            <col class="supplier-status-column">
+                            <col class="supplier-actions-column">
+                        </colgroup>
+                        <thead>
+                            <tr class="bg-base-200">
+                                <th class="supplier-code-cell">Code</th>
+                                <th>Supplier</th>
+                                <th class="supplier-contact-cell">Primary Contact</th>
+                                <th>Supplied Items</th>
+                                <th>Usual Payment Term</th>
+                                <th>Purchasing Status</th>
+                                <th class="supplier-actions-cell text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTable">
+                            <tr>
+                                <td colspan="7" class="text-center py-8">
+                                    <i class="fas fa-spinner fa-spin text-2xl text-base-content/40"></i>
+                                    <p class="mt-2 text-base-content/60">Loading...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                <div class="p-4 border-t border-base-300 flex justify-between items-center">
+                    <div class="text-sm text-base-content/60" id="paginationInfo">Showing 0 of 0</div>
+                    <div class="join" id="paginationButtons"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Add/Edit Modal -->
+    <dialog id="formModal" class="modal">
+        <div class="modal-box w-11/12 max-w-5xl max-h-[90vh] overflow-y-auto">
+            <form method="dialog">
+                <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" aria-label="Close supplier form" title="Close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </form>
+            <h3 class="font-bold text-lg mb-1" id="modalTitle">Register Supplier</h3>
+            <p class="text-sm text-base-content/60 mb-4">Enter the supplier details first. Linking items and standard prices is optional, but Purchasing will only see this supplier for items connected below or from the Items page.</p>
+            
+            <form id="dataForm" class="space-y-4" novalidate>
+                <input type="hidden" id="recordId">
+
+                <section class="border border-base-300 rounded-lg p-4 space-y-4" aria-labelledby="supplierDetailsHeading">
+                    <div>
+                        <h4 class="font-semibold" id="supplierDetailsHeading">1. Supplier details</h4>
+                        <p class="text-sm text-base-content/60">Identity, contact, and delivery information used on purchasing records.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label" for="supplier_code"><span class="label-text">Supplier Code</span></label>
+                            <input type="text" id="supplier_code" class="input input-bordered" placeholder="Created automatically when saved" readonly>
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="supplier_name"><span class="label-text">Supplier Name *</span></label>
+                            <input type="text" id="supplier_name" class="input input-bordered" required>
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="contact_person"><span class="label-text">Contact Person *</span></label>
+                            <input type="text" id="contact_person" class="input input-bordered" maxlength="160" data-person-name required>
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="phone"><span class="label-text">Phone *</span></label>
+                            <input type="tel" id="phone" class="input input-bordered" inputmode="numeric" maxlength="11" placeholder="09171234567" required>
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="email"><span class="label-text">Email *</span></label>
+                            <input type="email" id="email" class="input input-bordered" maxlength="254" placeholder="name@example.com" required>
+                            <label class="label py-1"><span class="label-text-alt text-base-content/60">Use this supplier's own PO mailbox. It cannot be shared with another supplier or system user.</span></label>
+                        </div>
+                        <div class="form-control md:col-span-2">
+                            <label class="label" for="address"><span class="label-text">Delivery / Business Address *</span></label>
+                            <textarea id="address" class="textarea textarea-bordered" rows="2" maxlength="500" required></textarea>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="border border-base-300 rounded-lg p-4 space-y-4" aria-labelledby="supplierTermsHeading">
+                    <div>
+                        <h4 class="font-semibold" id="supplierTermsHeading">2. Commercial terms and purchasing status</h4>
+                        <p class="text-sm text-base-content/60">These become the usual terms on new Purchase Orders. Purchasing must explain any change made for a specific order.</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-control">
+                            <label class="label" for="payment_terms"><span class="label-text">Usual Supplier Payment Term *</span></label>
+                            <select id="payment_terms" class="select select-bordered" required onchange="updatePaymentTermsHelp()">
+                                <option value="" disabled selected>Choose the agreed payment term...</option>
+                                <option value="7 days">Credit - 7 days</option>
+                                <option value="15 days">Credit - 15 days</option>
+                                <option value="30 days">Credit - 30 days</option>
+                                <option value="45 days">Credit - 45 days</option>
+                                <option value="60 days">Credit - 60 days</option>
+                                <option value="COD">Cash on Delivery (COD)</option>
+                            </select>
+                            <span class="label-text-alt text-base-content/60 mt-1" id="paymentTermsHelp">Choose the term agreed with the supplier.</span>
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="lead_time_days"><span class="label-text">Expected Delivery Lead Time (working days) *</span></label>
+                            <div class="join w-full">
+                                <input id="lead_time_days" type="number" min="1" max="60" step="1" inputmode="numeric" value="3" class="input input-bordered join-item w-full" required onkeydown="blockInvalidNumberCharacters(event)">
+                                <span class="btn join-item pointer-events-none">days</span>
+                            </div>
+                            <span class="label-text-alt text-base-content/60 mt-1">Example: local supplier = 3 days; regional supplier = 7 days.</span>
+                        </div>
+                        <div class="form-control">
+                            <label class="label" for="is_active"><span class="label-text">Approval & Purchasing Status *</span></label>
+                            <select id="is_active" class="select select-bordered" required>
+                                <option value="" disabled selected>Confirm the supplier status...</option>
+                                <option value="1">Accredited and active - available for linked items</option>
+                                <option value="0">Archived - unavailable for new orders</option>
+                            </select>
+                            <span class="label-text-alt text-base-content/60 mt-1">Selecting Accredited confirms that the General Manager has approved this supplier. Supporting documents and expiry dates are not stored on this screen.</span>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="border border-base-300 rounded-lg overflow-hidden" aria-labelledby="supplierItemsHeading">
+                    <div class="bg-base-200 px-4 py-3 flex items-start gap-3">
+                        <i class="fas fa-boxes-stacked text-primary mt-1"></i>
+                        <div>
+                            <h4 class="font-semibold" id="supplierItemsHeading">3. Items Supplied & Standard Pricing <span class="font-normal text-base-content/55">(optional)</span></h4>
+                            <p class="text-sm text-base-content/60">Connect the items this supplier may provide and record the current standard price. Purchasing compares offers using the Warehouse unit and confirms formal quote, VAT, and validity details during purchasing.</p>
+                        </div>
+                    </div>
+                    <div class="p-3 border-b border-base-300 bg-base-100 flex flex-col sm:flex-row gap-3 sm:items-center">
+                        <label class="input input-bordered input-sm flex items-center gap-2 flex-1" for="ingredientSearch">
+                            <i class="fas fa-search text-base-content/40"></i>
+                            <input type="search" id="ingredientSearch" class="grow" placeholder="Search items by name or code..." oninput="filterSupplierOffers()">
+                        </label>
+                        <label class="label cursor-pointer justify-start gap-2 py-0">
+                            <input type="checkbox" id="selectedIngredientsOnly" class="checkbox checkbox-sm checkbox-primary" onchange="filterSupplierOffers()">
+                            <span class="label-text">Selected items only</span>
+                        </label>
+                        <span class="badge badge-outline whitespace-nowrap" id="selectedIngredientCount">0 selected</span>
+                    </div>
+                    <div id="ingredientErrorSummary" class="hidden alert alert-error rounded-none text-sm" role="alert"></div>
+                    <div id="ingredientCatalog" class="grid grid-cols-1 gap-3 p-3 max-h-[32rem] overflow-y-auto">
+                        <p class="text-sm text-base-content/60 p-2">Loading items...</p>
+                    </div>
+                    <p id="ingredientFilterEmpty" class="hidden text-sm text-center text-base-content/60 p-5">No items match this filter.</p>
+                </section>
+
+                <section class="border border-base-300 rounded-lg overflow-hidden" aria-labelledby="supplierMroHeading">
+                    <div class="bg-base-200 px-4 py-3 flex items-start gap-3">
+                        <i class="fas fa-screwdriver-wrench text-primary mt-1"></i>
+                        <div>
+                            <h4 class="font-semibold" id="supplierMroHeading">4. MRO Items Supplied & Pricing <span class="font-normal text-base-content/55">(optional)</span></h4>
+                            <p class="text-sm text-base-content/60">Link maintenance, repair, and operating supplies to this supplier so validated MRO demand can appear on a supplier-first PO.</p>
+                        </div>
+                    </div>
+                    <div id="mroErrorSummary" class="hidden alert alert-error rounded-none text-sm" role="alert"></div>
+                    <div id="mroCatalog" class="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 max-h-80 overflow-y-auto">
+                        <p class="text-sm text-base-content/60 p-2">Loading MRO items...</p>
+                    </div>
+                </section>
+
+                <div class="form-control">
+                    <label class="label" for="notes"><span class="label-text">Internal Supplier Notes <span class="text-base-content/50">(optional)</span></span></label>
+                    <textarea id="notes" class="textarea textarea-bordered" rows="2" maxlength="1000" placeholder="Notes for internal staff; not printed as supplier instructions."></textarea>
+                </div>
+                
+                <div class="modal-action">
+                    <button type="button" class="btn" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveBtn">
+                        <span class="loading loading-spinner loading-sm hidden"></span>
+                        <span id="saveBtnText">Register Supplier</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </dialog>
+    
+    <!-- Toast Container -->
+    <div class="toast toast-end" id="toastContainer"></div>
+    
+    <script src="../../js/config/api.js"></script>
+    <script src="../../js/config/auth.js?v=20260814-3"></script>
+    <script src="../../js/ui/notification-layer.js?v=20260816-1"></script>
+    <script src="../../js/security/role-guard.js" data-allowed-roles="general_manager,admin"></script>
+    <script src="../../js/admin/admin.service.js"></script>
+    
+    <script>
+        let currentPage = 1;
+        let searchTimeout = null;
+        let availableIngredients = [];
+        let availableMroItems = [];
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = value == null ? '' : String(value);
+            return div.innerHTML;
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(Number(value || 0));
+        }
+
+        function formatComparisonCurrency(value) {
+            const amount = Number(value || 0);
+            const maximumFractionDigits = amount > 0 && amount < 0.01 ? 6 : amount < 1 ? 4 : 2;
+            return new Intl.NumberFormat('en-PH', {
+                style: 'currency',
+                currency: 'PHP',
+                minimumFractionDigits: 2,
+                maximumFractionDigits
+            }).format(amount);
+        }
+
+        function formatSupplierInputNumber(value, maximumDecimals, minimumDecimals = 0) {
+            if (value == null || String(value).trim() === '') return '';
+            const amount = Number(value);
+            if (!Number.isFinite(amount)) return '';
+            const fixed = amount.toFixed(maximumDecimals);
+            const parts = fixed.split('.');
+            let decimals = parts[1] || '';
+            while (decimals.length > minimumDecimals && decimals.endsWith('0')) {
+                decimals = decimals.slice(0, -1);
+            }
+            return decimals ? `${parts[0]}.${decimals}` : parts[0];
+        }
+
+        function formatSupplierOfferFieldOnBlur(id, fieldName) {
+            const input = document.getElementById(fieldName === 'size'
+                ? `offer-package-size-${id}`
+                : `offer-price-${id}`);
+            if (!input || input.value.trim() === '') return;
+            const amount = Number(input.value);
+            if (!Number.isFinite(amount)) return;
+            const packaged = document.getElementById(`offer-format-${id}`)?.value === 'packaged';
+            if (fieldName === 'size') {
+                input.value = formatSupplierInputNumber(amount, 3, 0);
+            } else {
+                input.value = formatSupplierInputNumber(amount, packaged ? 2 : 6, 2);
+            }
+            updateSupplierOffer(id);
+        }
+
+        function blockInvalidNumberCharacters(event) {
+            if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();
+        }
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+        
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const alertClass = type === 'success' ? 'alert-success' : type === 'error' ? 'alert-error' : 'alert-info';
+            const toast = document.createElement('div');
+            toast.className = `alert ${alertClass} shadow-lg`;
+            toast.style.maxWidth = 'min(560px, calc(100vw - 2rem))';
+            const text = document.createElement('span');
+            text.textContent = String(message ?? '');
+            text.style.whiteSpace = 'normal';
+            toast.appendChild(text);
+            container.appendChild(toast);
+            window.HighlandNotificationLayer?.sync();
+            setTimeout(() => toast.remove(), type === 'error' ? 10000 : 3000);
+        }
+        
+        function handleSearch(event) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                loadData();
+            }, 300);
+        }
+        
+        async function loadData() {
+            const tableBody = document.getElementById('dataTable');
+            tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-8"><i class="fas fa-spinner fa-spin text-2xl"></i></td></tr>';
+            
+            try {
+                const params = {
+                    page: currentPage,
+                    limit: 20,
+                    search: document.getElementById('searchInput').value,
+                    is_active: document.getElementById('statusFilter').value
+                };
+                
+                const response = await AdminService.getSuppliers(params);
+                
+                if (response.success) {
+                    renderTable(response.data.suppliers);
+                    renderPagination(response.data.pagination);
+                    loadStatistics();
+                } else {
+                    showToast('Failed to load data', 'error');
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                showToast('Error loading data', 'error');
+            }
+        }
+        
+        async function loadStatistics() {
+            try {
+                const response = await AdminService.getSuppliers({ action: 'statistics' });
+                if (response.success) {
+                    document.getElementById('totalCount').textContent = response.data.total || 0;
+                    document.getElementById('activeCount').textContent = response.data.active || 0;
+                    document.getElementById('inactiveCount').textContent = response.data.inactive || 0;
+                }
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+        
+        function renderTable(suppliers) {
+            const tableBody = document.getElementById('dataTable');
+            
+            if (!suppliers || suppliers.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-base-content/60">No suppliers found</td></tr>';
+                return;
+            }
+            
+            tableBody.innerHTML = suppliers.map(s => {
+                const supplied = [s.supplied_ingredients, s.supplied_mro_items]
+                    .filter(Boolean).join(', ').split(', ').filter(Boolean);
+                const suppliedPreview = supplied.length
+                    ? supplied.slice(0, 3).join(', ') + (supplied.length > 3 ? ` · +${supplied.length - 3} more` : '')
+                    : (Number(s.open_po_count || 0) > 0 ? 'Existing PO · no current catalog items' : 'No current items linked');
+                return `
+                <tr>
+                    <td class="supplier-code-cell"><span class="font-mono text-sm whitespace-nowrap">${escapeHtml(s.supplier_code)}</span></td>
+                    <td><span class="font-semibold block truncate" title="${escapeHtml(s.supplier_name)}">${escapeHtml(s.supplier_name)}</span></td>
+                    <td class="supplier-contact-cell">
+                        <span class="font-medium block truncate" title="${escapeHtml(s.contact_person || '')}">${escapeHtml(s.contact_person || 'No contact person')}</span>
+                        <span class="text-xs text-base-content/55 block truncate" title="${escapeHtml(s.phone || '')}">${escapeHtml(s.phone || 'No phone saved')}</span>
+                    </td>
+                    <td>
+                        <div class="flex flex-wrap gap-1">
+                            <span class="badge badge-outline badge-sm">${Number(s.ingredient_count || 0)} raw material(s)</span>
+                            <span class="badge badge-outline badge-sm">${Number(s.mro_item_count || 0)} MRO item(s)</span>
+                        </div>
+                        <div class="text-xs text-base-content/50 mt-1 truncate" title="${escapeHtml(supplied.join(', '))}">${escapeHtml(suppliedPreview)}</div>
+                    </td>
+                    <td class="whitespace-nowrap">
+                        <span class="block">${escapeHtml(s.payment_terms || '30 days')}</span>
+                        <span class="text-xs text-base-content/55">${Number(s.lead_time_days || 3)} working-day delivery</span>
+                    </td>
+                    <td class="whitespace-nowrap">
+                        <span class="badge ${s.is_active == 1 ? 'badge-success' : 'badge-warning'} badge-sm">
+                            ${s.is_active == 1 ? 'Active' : 'Archived'}
+                        </span>
+                    </td>
+                    <td class="supplier-actions-cell whitespace-nowrap text-right">
+                        <div class="flex justify-end gap-1">
+                            <button class="btn btn-ghost btn-xs" onclick="editRecord(${s.id})" title="Edit supplier">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-ghost btn-xs text-warning" onclick="deleteRecord(${s.id})" title="Archive">
+                                <i class="fas fa-box-archive"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+        }
+        
+        function renderPagination(pagination) {
+            const info = document.getElementById('paginationInfo');
+            const buttons = document.getElementById('paginationButtons');
+            
+            const start = (pagination.page - 1) * pagination.limit + 1;
+            const end = Math.min(pagination.page * pagination.limit, pagination.total);
+            info.textContent = `Showing ${start}-${end} of ${pagination.total}`;
+            
+            let html = '';
+            for (let i = 1; i <= pagination.pages; i++) {
+                html += `<button class="join-item btn btn-sm ${i === pagination.page ? 'btn-active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+            }
+            buttons.innerHTML = html;
+        }
+        
+        function goToPage(page) {
+            currentPage = page;
+            loadData();
+        }
+
+        async function loadIngredientOptions() {
+            try {
+                const response = await AdminService.getIngredients({ is_active: 1, limit: 100 });
+                availableIngredients = response?.data?.ingredients || [];
+                renderIngredientCatalog([]);
+            } catch (error) {
+                availableIngredients = [];
+                document.getElementById('ingredientCatalog').innerHTML = '<p class="text-sm text-error p-2">Ingredients could not be loaded.</p>';
+            }
+        }
+
+        function renderIngredientCatalog(selectedLinks = []) {
+            const selected = new Map((selectedLinks || []).map(link => [String(link.ingredient_id), link]));
+            const container = document.getElementById('ingredientCatalog');
+            if (!availableIngredients.length) {
+                container.innerHTML = '<p class="text-sm text-base-content/60 p-2">No active items are available.</p>';
+                return;
+            }
+
+            const orderedItems = [...availableIngredients].sort((a, b) => {
+                const selectedDifference = Number(selected.has(String(b.id))) - Number(selected.has(String(a.id)));
+                return selectedDifference || String(a.ingredient_name || '').localeCompare(String(b.ingredient_name || ''));
+            });
+            container.innerHTML = orderedItems.map(item => {
+                const link = selected.get(String(item.id)) || {};
+                const checked = selected.has(String(item.id));
+                const format = link.purchase_format || '';
+                const unitOptions = supplierOfferCompatibleUnits(item.unit_of_measure)
+                    .map(unit => `<option value="${escapeHtml(unit)}" ${unit === (link.package_size_unit || item.unit_of_measure) ? 'selected' : ''}>${escapeHtml(unit)}</option>`)
+                    .join('');
+                return `
+                    <div class="border border-base-300 rounded-lg p-3 supplier-offer-card" data-ingredient-id="${item.id}" data-stock-unit="${escapeHtml(item.unit_of_measure)}" data-search="${escapeHtml(`${item.ingredient_name || ''} ${item.ingredient_code || ''}`.toLowerCase())}">
+                        <label class="flex gap-3 items-start cursor-pointer">
+                            <input type="checkbox" class="checkbox checkbox-primary checkbox-sm mt-1 ingredient-link" value="${item.id}" ${checked ? 'checked' : ''} onchange="toggleSupplierOffer(${item.id}, this.checked)">
+                            <span class="min-w-0 flex-1">
+                                <span class="font-semibold block">${escapeHtml(item.ingredient_name)}</span>
+                                <span class="text-xs text-base-content/55 block">${escapeHtml(item.ingredient_code)} · Warehouse counts this item in: <strong>${escapeHtml(item.unit_of_measure)}</strong></span>
+                            </span>
+                        </label>
+                        <div id="supplier-offer-fields-${item.id}" class="supplier-offer-fields mt-3 pl-8 ${checked ? '' : 'hidden'}">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+                                <div class="form-control">
+                                    <label class="label py-1" for="offer-format-${item.id}"><span class="label-text text-xs">Supplier price is quoted *</span></label>
+                                    <select id="offer-format-${item.id}" class="select select-bordered select-sm" onchange="updateSupplierOffer(${item.id})" ${checked ? '' : 'disabled'}>
+                                        <option value="" disabled ${format ? '' : 'selected'}>Choose how the price is quoted...</option>
+                                        <option value="direct_unit" ${format === 'direct_unit' ? 'selected' : ''}>Per warehouse unit (for example, per kg)</option>
+                                        <option value="packaged" ${format === 'packaged' ? 'selected' : ''}>Per whole package (for example, per sack)</option>
+                                    </select>
+                                </div>
+                                <div class="form-control supplier-package-field-${item.id}">
+                                    <label class="label py-1" for="offer-package-type-${item.id}"><span class="label-text text-xs">Purchase package *</span></label>
+                                    <select id="offer-package-type-${item.id}" class="select select-bordered select-sm" onchange="updateSupplierOffer(${item.id})">
+                                        ${supplierOfferPackageOptions(link.package_type || '')}
+                                    </select>
+                                </div>
+                                <div class="form-control supplier-package-field-${item.id}">
+                                    <label class="label py-1" for="offer-package-size-${item.id}"><span class="label-text text-xs">Quantity inside one package *</span></label>
+                                    <div class="join w-full">
+                                        <input id="offer-package-size-${item.id}" type="number" min="0.001" step="0.001" inputmode="decimal" class="input input-bordered input-sm join-item w-full" placeholder="e.g. 25" value="${escapeHtml(formatSupplierInputNumber(link.package_size_value ?? '', 3, 0))}" onkeydown="blockInvalidNumberCharacters(event)" oninput="updateSupplierOffer(${item.id})" onblur="formatSupplierOfferFieldOnBlur(${item.id}, 'size')">
+                                        <span id="offer-package-size-unit-${item.id}" class="btn btn-ghost btn-sm join-item no-animation min-w-14">${escapeHtml(link.package_size_unit || item.unit_of_measure)}</span>
+                                    </div>
+                                </div>
+                                <div class="form-control supplier-package-field-${item.id}">
+                                    <label class="label py-1" for="offer-package-unit-${item.id}"><span class="label-text text-xs">Unit of measure *</span></label>
+                                    <select id="offer-package-unit-${item.id}" class="select select-bordered select-sm" onchange="updateSupplierOffer(${item.id})">${unitOptions}</select>
+                                </div>
+                                <div class="form-control">
+                                    <label class="label py-1" for="offer-price-${item.id}"><span class="label-text text-xs" id="offer-price-label-${item.id}">Standard supplier price (₱) *</span></label>
+                                    <div class="join">
+                                        <span class="btn btn-ghost btn-sm join-item no-animation">₱</span>
+                                        <input id="offer-price-${item.id}" type="number" min="${format === 'packaged' ? '0.01' : '0.000001'}" max="999999.99" step="${format === 'packaged' ? '0.01' : '0.000001'}" inputmode="decimal" class="input input-bordered input-sm join-item w-full" placeholder="0.00" value="${escapeHtml(formatSupplierInputNumber(link.quoted_price ?? link.reference_unit_price ?? '', format === 'packaged' ? 2 : 6, 2))}" onkeydown="blockInvalidNumberCharacters(event)" oninput="updateSupplierOffer(${item.id})" onblur="formatSupplierOfferFieldOnBlur(${item.id}, 'price')" ${checked ? '' : 'disabled'}>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="offer-preview-${item.id}" class="mt-3 rounded-lg border border-base-300 bg-base-200 px-4 py-3 text-sm" aria-live="polite"></div>
+                        </div>
+                    </div>`;
+            }).join('');
+            availableIngredients.forEach(item => updateSupplierOffer(item.id));
+            updateSelectedIngredientCount();
+            filterSupplierOffers();
+        }
+
+        async function loadMroOptions() {
+            try {
+                const response = await AdminService.getSupplierMroCatalog();
+                availableMroItems = response?.data?.mro_items || [];
+                renderMroCatalog([]);
+            } catch (error) {
+                availableMroItems = [];
+                document.getElementById('mroCatalog').innerHTML = '<p class="text-sm text-error p-2">MRO items could not be loaded.</p>';
+            }
+        }
+
+        function renderMroCatalog(selectedLinks = []) {
+            const selected = new Map((selectedLinks || []).map(link => [String(link.mro_item_id), link]));
+            const container = document.getElementById('mroCatalog');
+            if (!availableMroItems.length) {
+                container.innerHTML = '<p class="text-sm text-base-content/60 p-2">No active MRO items are available.</p>';
+                return;
+            }
+            container.innerHTML = [...availableMroItems].sort((a, b) => String(a.item_name).localeCompare(String(b.item_name))).map(item => {
+                const link = selected.get(String(item.id)) || {};
+                const checked = selected.has(String(item.id));
+                return `<div class="border border-base-300 rounded-lg p-3 mro-offer-card">
+                    <label class="flex gap-3 items-start cursor-pointer">
+                        <input type="checkbox" class="checkbox checkbox-primary checkbox-sm mt-1 mro-link" value="${item.id}" ${checked ? 'checked' : ''} onchange="toggleMroOffer(${item.id}, this.checked)">
+                        <span class="min-w-0 flex-1"><span class="font-semibold block">${escapeHtml(item.item_name)}</span><span class="text-xs text-base-content/55">${escapeHtml(item.item_code)} · Warehouse unit: <strong>${escapeHtml(item.unit_of_measure)}</strong></span></span>
+                    </label>
+                    <div id="mro-offer-${item.id}" class="form-control mt-3 pl-8 ${checked ? '' : 'hidden'}">
+                        <label class="label py-1"><span class="label-text text-xs">Price per ${escapeHtml(item.unit_of_measure)} *</span></label>
+                        <div class="join"><span class="btn btn-ghost btn-sm join-item no-animation">₱</span><input id="mro-price-${item.id}" type="number" min="0.000001" max="999999.999999" step="0.000001" inputmode="decimal" class="input input-bordered input-sm join-item w-full" value="${escapeHtml(formatSupplierInputNumber(link.reference_unit_price ?? '', 6, 2))}" onkeydown="blockInvalidNumberCharacters(event)" ${checked ? '' : 'disabled'}></div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function toggleMroOffer(id, checked) {
+            document.getElementById(`mro-offer-${id}`)?.classList.toggle('hidden', !checked);
+            const price = document.getElementById(`mro-price-${id}`);
+            if (price) { price.disabled = !checked; price.required = false; }
+        }
+
+        function getSelectedMroLinks() {
+            return Array.from(document.querySelectorAll('.mro-link:checked')).map(checkbox => ({
+                mro_item_id: Number(checkbox.value),
+                reference_unit_price: document.getElementById(`mro-price-${checkbox.value}`)?.value.trim() || null,
+            }));
+        }
+
+        function validateMroOffers() {
+            const errors = [];
+            document.querySelectorAll('.mro-link:checked').forEach(checkbox => {
+                const price = document.getElementById(`mro-price-${checkbox.value}`);
+                const raw = price?.value.trim() || '';
+                if (!isPlainDecimal(raw, 6) || !(Number(raw) > 0) || Number(raw) > 999999.999999) {
+                    markSupplierFieldError(price, 'Enter an ordinary positive price with no more than 6 decimal places.');
+                    errors.push(raw);
+                }
+            });
+            const summary = document.getElementById('mroErrorSummary');
+            summary.classList.toggle('hidden', errors.length === 0);
+            summary.textContent = errors.length ? `${errors.length} MRO price field${errors.length === 1 ? '' : 's'} need attention.` : '';
+            return errors.length === 0;
+        }
+
+        function supplierOfferCompatibleUnits(stockUnit) {
+            const unit = String(stockUnit || '').toLowerCase();
+            if (unit === 'kg') return ['kg', 'g'];
+            if (unit === 'g') return ['g', 'kg'];
+            if (['liter', 'l'].includes(unit)) return ['liter', 'ml'];
+            if (unit === 'ml') return ['ml', 'liter'];
+            return [stockUnit || 'pcs'];
+        }
+
+        function supplierOfferPackageOptions(selected = '') {
+            const groups = {
+                'Bags': ['sack', 'bag'],
+                'Boxes': ['box', 'case', 'crate'],
+                'Liquid containers': ['bottle', 'jug', 'drum', 'pail', 'tank', 'container'],
+                'Small packs': ['sachet', 'packet'],
+                'Other packaging': ['roll', 'bundle', 'package']
+            };
+            return '<option value="">Select the exact package...</option>' + Object.entries(groups).map(([label, options]) =>
+                `<optgroup label="${label}">${options.map(value =>
+                    `<option value="${value}" ${value === selected ? 'selected' : ''}>${value.charAt(0).toUpperCase() + value.slice(1)}</option>`
+                ).join('')}</optgroup>`
+            ).join('');
+        }
+
+        function supplierOfferMaximumPackageSize(unit) {
+            const normalized = String(unit || '').toLowerCase();
+            if (['kg', 'liter', 'l'].includes(normalized)) return 100000;
+            if (['g', 'ml'].includes(normalized)) return 100000000;
+            return 1000000;
+        }
+
+        function supplierOfferToStock(amount, fromUnit, stockUnit) {
+            const aliases = { l: 'liter', liters: 'liter', litre: 'liter', litres: 'liter' };
+            const from = aliases[String(fromUnit || '').toLowerCase()] || String(fromUnit || '').toLowerCase();
+            const to = aliases[String(stockUnit || '').toLowerCase()] || String(stockUnit || '').toLowerCase();
+            if (from === to) return amount;
+            const factors = { 'kg:g': 1000, 'g:kg': 0.001, 'liter:ml': 1000, 'ml:liter': 0.001 };
+            return factors[`${from}:${to}`] ? amount * factors[`${from}:${to}`] : NaN;
+        }
+
+        function toggleSupplierOffer(id, checked) {
+            document.getElementById(`supplier-offer-fields-${id}`).classList.toggle('hidden', !checked);
+            const format = document.getElementById(`offer-format-${id}`);
+            format.disabled = !checked;
+            const price = document.getElementById(`offer-price-${id}`);
+            price.disabled = !checked;
+            // Dynamic catalog fields use the clear validation summary below.
+            // Native `required` cannot focus a field hidden by search/filtering.
+            price.required = false;
+            updateSupplierOffer(id);
+            updateSelectedIngredientCount();
+            filterSupplierOffers();
+            if (checked && !format.value) format.focus();
+        }
+
+        function updateSelectedIngredientCount() {
+            const count = document.querySelectorAll('.ingredient-link:checked').length;
+            const badge = document.getElementById('selectedIngredientCount');
+            if (badge) badge.textContent = `${count} selected`;
+        }
+
+        function filterSupplierOffers() {
+            const search = String(document.getElementById('ingredientSearch')?.value || '').trim().toLowerCase();
+            const selectedOnly = document.getElementById('selectedIngredientsOnly')?.checked === true;
+            let visible = 0;
+            document.querySelectorAll('.supplier-offer-card').forEach(card => {
+                const checked = card.querySelector('.ingredient-link')?.checked === true;
+                const matches = (!search || String(card.dataset.search || '').includes(search)) && (!selectedOnly || checked);
+                card.classList.toggle('hidden', !matches);
+                if (matches) visible++;
+            });
+            document.getElementById('ingredientFilterEmpty')?.classList.toggle('hidden', visible !== 0);
+        }
+
+        function updateSupplierOffer(id) {
+            const checkbox = document.querySelector(`.ingredient-link[value="${id}"]`);
+            if (!checkbox) return;
+            const card = checkbox.closest('.supplier-offer-card');
+            const stockUnit = card?.dataset.stockUnit || 'unit';
+            const format = document.getElementById(`offer-format-${id}`)?.value || '';
+            const packaged = format === 'packaged';
+            const packageType = document.getElementById(`offer-package-type-${id}`);
+            const packageSize = document.getElementById(`offer-package-size-${id}`);
+            const packageUnit = document.getElementById(`offer-package-unit-${id}`);
+            const packageSizeUnit = document.getElementById(`offer-package-size-unit-${id}`);
+            document.querySelectorAll(`.supplier-package-field-${id}`).forEach(field => field.classList.toggle('hidden', !packaged));
+            [packageType, packageSize, packageUnit].forEach(field => {
+                if (!field) return;
+                field.disabled = !checkbox.checked || !packaged;
+                field.required = false;
+            });
+
+            const price = Number(document.getElementById(`offer-price-${id}`)?.value || 0);
+            const priceInput = document.getElementById(`offer-price-${id}`);
+            if (priceInput) {
+                priceInput.min = packaged ? '0.01' : '0.000001';
+                priceInput.step = packaged ? '0.01' : '0.000001';
+            }
+            if (packageSizeUnit) packageSizeUnit.textContent = packageUnit?.value || stockUnit;
+            const preview = document.getElementById(`offer-preview-${id}`);
+            const label = document.getElementById(`offer-price-label-${id}`);
+            const maximumPackageSize = supplierOfferMaximumPackageSize(packageUnit?.value);
+            if (packageSize) packageSize.max = String(maximumPackageSize);
+            if (!format) {
+                label.textContent = 'Standard supplier price (₱) *';
+                preview.innerHTML = '<span class="text-base-content/65">Choose whether the supplier charges per Warehouse unit or per whole package.</span>';
+                return;
+            }
+            if (!packaged) {
+                label.textContent = `Standard price per ${stockUnit} (₱) *`;
+                preview.innerHTML = price > 0
+                    ? `<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"><span>Supplier charges per measured Warehouse unit</span><strong class="text-primary text-base">${formatComparisonCurrency(price)} / ${escapeHtml(stockUnit)}</strong></div>
+                       <p class="text-xs text-warning mt-2"><i class="fas fa-triangle-exclamation mr-1"></i>Use this only when Receiving can verify an exact measured quantity, including decimals, from a scale, meter, or supplier document. If it arrives in sealed bottles, pails, sacks, or drums, choose <strong>Per whole package</strong>.</p>`
+                    : `Enter the supplier's standard price for one ${escapeHtml(stockUnit)}.`;
+                return;
+            }
+
+            label.textContent = `Price for one ${packageType.value || 'package'} (₱) *`;
+            const size = Number(packageSize.value || 0);
+            const quantityInStock = supplierOfferToStock(size, packageUnit.value, stockUnit);
+            if (!packageType.value || !(size > 0) || !Number.isFinite(quantityInStock)) {
+                preview.textContent = `Complete the purchase package, quantity inside it, and unit of measure.`;
+                return;
+            }
+            const normalized = price > 0 ? price / quantityInStock : 0;
+            preview.innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div><span class="block text-xs text-base-content/55">Supplier package</span><strong>1 ${escapeHtml(packageType.value)} = ${size.toLocaleString(undefined, { maximumFractionDigits: 3 })} ${escapeHtml(packageUnit.value)}</strong></div>
+                    <div><span class="block text-xs text-base-content/55">Supplier price</span><strong>${price > 0 ? `${formatCurrency(price)} / ${escapeHtml(packageType.value)}` : 'Enter the package price'}</strong></div>
+                    <div><span class="block text-xs text-base-content/55">Effective Stock Unit Cost</span><strong class="text-primary text-base">${price > 0 ? `${formatComparisonCurrency(normalized)} / ${escapeHtml(stockUnit)}` : 'Calculated automatically'}</strong></div>
+                </div>
+                <p class="text-xs text-base-content/60 mt-2"><i class="fas fa-scale-balanced mr-1"></i>This comparable cost lets Purchasing judge suppliers on the same ${escapeHtml(stockUnit)} basis. Whole-package orders may still be rounded up to cover the Warehouse request.</p>`;
+        }
+
+        function getSelectedIngredientLinks() {
+            return [...document.querySelectorAll('.ingredient-link:checked')].map(input => {
+                const id = input.value;
+                const format = document.getElementById(`offer-format-${id}`).value;
+                return {
+                    ingredient_id: Number(id),
+                    purchase_format: format,
+                    package_type: format === 'packaged' ? document.getElementById(`offer-package-type-${id}`).value : null,
+                    package_size_value: format === 'packaged' ? document.getElementById(`offer-package-size-${id}`).value : null,
+                    package_size_unit: format === 'packaged' ? document.getElementById(`offer-package-unit-${id}`).value : null,
+                    quoted_price: document.getElementById(`offer-price-${id}`).value || null
+                };
+            });
+        }
+
+        function updatePaymentTermsHelp() {
+            const value = document.getElementById('payment_terms')?.value || '';
+            const helper = document.getElementById('paymentTermsHelp');
+            if (!helper) return;
+            if (value === 'COD') {
+                helper.textContent = 'Payment becomes due after Receiving verifies the delivered goods.';
+                return;
+            }
+            const days = parseInt(value, 10);
+            helper.textContent = days > 0
+                ? `Payment is due ${days} days after the Purchase Order date.`
+                : 'Choose the term agreed with the supplier.';
+        }
+
+        function clearSupplierFormErrors() {
+            document.querySelectorAll('.supplier-field-error').forEach(error => error.remove());
+            document.querySelectorAll('.input-error, .select-error, .textarea-error').forEach(field => {
+                field.classList.remove('input-error', 'select-error', 'textarea-error');
+            });
+            document.querySelectorAll('.supplier-offer-card.border-error').forEach(card => card.classList.remove('border-error'));
+            const summary = document.getElementById('ingredientErrorSummary');
+            if (summary) {
+                summary.textContent = '';
+                summary.classList.add('hidden');
+            }
+            const mroSummary = document.getElementById('mroErrorSummary');
+            if (mroSummary) {
+                mroSummary.textContent = '';
+                mroSummary.classList.add('hidden');
+            }
+        }
+
+        function markSupplierFieldError(field, message) {
+            if (!field) return;
+            const errorClass = field.tagName === 'SELECT' ? 'select-error' : field.tagName === 'TEXTAREA' ? 'textarea-error' : 'input-error';
+            field.classList.add(errorClass);
+            field.closest('.supplier-offer-card')?.classList.add('border-error');
+            const control = field.closest('.form-control');
+            if (control && !control.querySelector('.supplier-field-error')) {
+                const error = document.createElement('p');
+                error.className = 'supplier-field-error text-xs text-error mt-1';
+                error.textContent = message;
+                control.appendChild(error);
+            }
+        }
+
+        function isPlainDecimal(value, maximumDecimals) {
+            const pattern = new RegExp(`^\\d+(?:\\.\\d{1,${maximumDecimals}})?$`);
+            return pattern.test(String(value || '').trim());
+        }
+
+        function isCountUnit(unit) {
+            return ['pcs', 'pc', 'piece', 'pieces', 'pack', 'packet', 'roll', 'bottle', 'unit', 'units'].includes(String(unit || '').toLowerCase());
+        }
+
+        function validateSupplierOffers() {
+            const errors = [];
+            let firstInvalid = null;
+            document.querySelectorAll('.ingredient-link:checked').forEach(checkbox => {
+                const id = checkbox.value;
+                const format = document.getElementById(`offer-format-${id}`);
+                const price = document.getElementById(`offer-price-${id}`);
+                const remember = (field, message) => {
+                    markSupplierFieldError(field, message);
+                    errors.push(message);
+                    if (!firstInvalid) firstInvalid = field;
+                };
+
+                if (!format.value) remember(format, 'Choose how this supplier price is quoted.');
+                const priceRaw = price.value.trim();
+                const priceNumber = Number(priceRaw);
+                const maximumPriceDecimals = format.value === 'packaged' ? 2 : 6;
+                if (!isPlainDecimal(priceRaw, maximumPriceDecimals) || !(priceNumber > 0) || priceNumber > 999999.99) {
+                    const precisionHelp = format.value === 'packaged'
+                        ? 'Use no more than two decimal places for a package price.'
+                        : 'Use an ordinary decimal number without scientific notation.';
+                    remember(price, `Enter a price greater than 0 and no more than ₱999,999.99. ${precisionHelp}`);
+                }
+
+                if (format.value !== 'packaged') return;
+                const packageType = document.getElementById(`offer-package-type-${id}`);
+                const packageSize = document.getElementById(`offer-package-size-${id}`);
+                const packageUnit = document.getElementById(`offer-package-unit-${id}`);
+                if (!packageType.value) remember(packageType, 'Choose the exact purchase package.');
+                const sizeRaw = packageSize.value.trim();
+                const sizeNumber = Number(sizeRaw);
+                const sizeMaximum = supplierOfferMaximumPackageSize(packageUnit.value);
+                if (!isPlainDecimal(sizeRaw, 3) || !(sizeNumber > 0) || sizeNumber > sizeMaximum) {
+                    remember(packageSize, `Enter a package quantity greater than 0 and no more than ${sizeMaximum.toLocaleString()}. Do not use scientific notation.`);
+                } else if (isCountUnit(packageUnit.value) && !Number.isInteger(sizeNumber)) {
+                    remember(packageSize, `Use a whole number when the package contains ${packageUnit.value}.`);
+                }
+            });
+
+            if (!errors.length) return true;
+            const summary = document.getElementById('ingredientErrorSummary');
+            summary.textContent = `${errors.length} item-pricing field${errors.length === 1 ? '' : 's'} need attention. The first problem is highlighted below.`;
+            summary.classList.remove('hidden');
+            document.getElementById('selectedIngredientsOnly').checked = false;
+            document.getElementById('ingredientSearch').value = '';
+            filterSupplierOffers();
+            firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstInvalid?.focus({ preventScroll: true });
+            return false;
+        }
+
+        function validateSupplierDetails() {
+            const checks = [
+                ['supplier_name', value => value.length > 0, 'Enter the supplier name.'],
+                ['contact_person', value => value.length > 0, 'Enter the supplier contact person.'],
+                ['phone', value => /^09\d{9}$/.test(value), 'Enter an 11-digit Philippine mobile number starting with 09.'],
+                ['email', value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), 'Enter a valid supplier email address.'],
+                ['address', value => value.length > 0, 'Enter the delivery or business address.'],
+                ['payment_terms', value => value.length > 0, 'Choose the agreed payment term.'],
+                ['lead_time_days', value => Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 60, 'Enter a delivery lead time from 1 to 60 working days.'],
+                ['is_active', value => value === '0' || value === '1', 'Confirm whether this supplier is accredited and active.'],
+            ];
+            let firstInvalid = null;
+            checks.forEach(([id, isValid, message]) => {
+                const field = document.getElementById(id);
+                const value = String(field?.value || '').trim();
+                if (!field || isValid(value)) return;
+                markSupplierFieldError(field, message);
+                if (!firstInvalid) firstInvalid = field;
+            });
+            if (!firstInvalid) return true;
+            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstInvalid.focus({ preventScroll: true });
+            return false;
+        }
+
+        function showServerValidationErrors(error) {
+            const errors = error?.errors;
+            if (!errors || typeof errors !== 'object') return false;
+            let firstInvalid = null;
+            Object.entries(errors).forEach(([fieldName, message]) => {
+                if (fieldName === 'ingredients') {
+                    const summary = document.getElementById('ingredientErrorSummary');
+                    summary.textContent = String(message);
+                    summary.classList.remove('hidden');
+                    if (!firstInvalid) firstInvalid = summary;
+                    return;
+                }
+                if (fieldName === 'mro_items') {
+                    const summary = document.getElementById('mroErrorSummary');
+                    summary.textContent = String(message);
+                    summary.classList.remove('hidden');
+                    if (!firstInvalid) firstInvalid = summary;
+                    return;
+                }
+                const field = document.getElementById(fieldName);
+                if (field) {
+                    markSupplierFieldError(field, String(message));
+                    if (!firstInvalid) firstInvalid = field;
+                }
+            });
+            firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            firstInvalid?.focus?.({ preventScroll: true });
+            return true;
+        }
+        
+        function openModal(id = null) {
+            document.getElementById('modalTitle').textContent = id ? 'Edit Supplier' : 'Register Supplier';
+            document.getElementById('saveBtnText').textContent = id ? 'Save Changes' : 'Register Supplier';
+            document.getElementById('dataForm').reset();
+            document.getElementById('recordId').value = '';
+            document.getElementById('ingredientSearch').value = '';
+            document.getElementById('selectedIngredientsOnly').checked = false;
+            clearSupplierFormErrors();
+            renderIngredientCatalog([]);
+            renderMroCatalog([]);
+            updatePaymentTermsHelp();
+            document.getElementById('formModal').showModal();
+        }
+        
+        function closeModal() {
+            document.getElementById('formModal').close();
+        }
+        
+        async function editRecord(id) {
+            try {
+                const response = await AdminService.getSupplier(id);
+                if (response.success) {
+                    const s = response.data.supplier;
+                    document.getElementById('dataForm').reset();
+                    document.getElementById('ingredientSearch').value = '';
+                    document.getElementById('selectedIngredientsOnly').checked = false;
+                    clearSupplierFormErrors();
+                    document.getElementById('recordId').value = s.id;
+                    document.getElementById('supplier_code').value = s.supplier_code;
+                    document.getElementById('supplier_name').value = s.supplier_name;
+                    document.getElementById('contact_person').value = s.contact_person || '';
+                    document.getElementById('phone').value = s.phone || '';
+                    document.getElementById('email').value = s.email || '';
+                    document.getElementById('payment_terms').value = s.payment_terms || '30 days';
+                    document.getElementById('lead_time_days').value = Number(s.lead_time_days || 3);
+                    document.getElementById('address').value = s.address || '';
+                    document.getElementById('is_active').value = s.is_active;
+                    document.getElementById('notes').value = s.notes || '';
+                    renderIngredientCatalog(s.ingredients || []);
+                    renderMroCatalog(s.mro_items || []);
+                    
+                    document.getElementById('modalTitle').textContent = 'Edit Supplier';
+                    document.getElementById('saveBtnText').textContent = 'Save Changes';
+                    updatePaymentTermsHelp();
+                    document.getElementById('formModal').showModal();
+                }
+            } catch (error) {
+                console.error('Error loading record:', error);
+                showToast('Failed to load supplier details', 'error');
+            }
+        }
+        
+        async function deleteRecord(id) {
+            const confirmed = await AuthService.confirmAction({
+                title: 'Archive Supplier',
+                message: 'Archive this supplier? This hides them from active purchasing, but keeps purchase history.',
+                confirmText: 'Archive',
+                tone: 'warning',
+                icon: 'fa-box-archive'
+            });
+            if (!confirmed) return;
+            
+            try {
+                const response = await AdminService.deleteSupplier(id);
+                if (response.success) {
+                    showToast(response.message || 'Supplier archived successfully', 'success');
+                    loadData();
+                } else {
+                    showToast(response.message || 'Failed to archive supplier', 'error');
+                }
+            } catch (error) {
+                console.error('Error archiving supplier:', error);
+                const details = error?.errors
+                    ? Object.values(error.errors).flat().filter(Boolean).join(' ')
+                    : '';
+                showToast(details || error?.message || 'Error archiving supplier', 'error');
+            }
+        }
+        
+        document.getElementById('dataForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearSupplierFormErrors();
+            const detailsValid = validateSupplierDetails();
+            const ingredientsValid = validateSupplierOffers();
+            const mroValid = validateMroOffers();
+            if (!detailsValid || !ingredientsValid || !mroValid) return;
+            
+            const recordId = document.getElementById('recordId').value;
+            const ingredientLinks = getSelectedIngredientLinks();
+            const mroLinks = getSelectedMroLinks();
+            const formData = {
+                supplier_name: document.getElementById('supplier_name').value.trim(),
+                contact_person: document.getElementById('contact_person').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                payment_terms: document.getElementById('payment_terms').value,
+                lead_time_days: document.getElementById('lead_time_days').value,
+                address: document.getElementById('address').value.trim(),
+                is_active: document.getElementById('is_active').value,
+                notes: document.getElementById('notes').value.trim(),
+                ingredients: ingredientLinks,
+                mro_items: mroLinks
+            };
+            
+            try {
+                const saveBtn = document.getElementById('saveBtn');
+                saveBtn.classList.add('loading');
+                saveBtn.disabled = true;
+                
+                let response;
+                if (recordId) {
+                    response = await AdminService.updateSupplier(recordId, formData);
+                } else {
+                    response = await AdminService.createSupplier(formData);
+                }
+                
+                if (response.success) {
+                    const savedWithoutIngredients = !recordId && ingredientLinks.length === 0;
+                    showToast(
+                        recordId
+                            ? 'Supplier updated successfully'
+                            : savedWithoutIngredients
+                                ? 'Supplier registered. You can now connect it while adding the new ingredient.'
+                                : 'Supplier created successfully',
+                        'success'
+                    );
+                    closeModal();
+                    if (!recordId) currentPage = 1;
+                    loadData();
+                } else {
+                    showToast(response.message || 'Failed to save', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving:', error);
+                const message = Object.values(error?.errors || {})[0] || error?.message || 'Error saving supplier';
+                showServerValidationErrors(error);
+                showToast(message, 'error');
+            } finally {
+                const saveBtn = document.getElementById('saveBtn');
+                saveBtn.classList.remove('loading');
+                saveBtn.disabled = false;
+            }
+        });
+        
+        // Theme toggle
+        document.getElementById('themeToggle').addEventListener('change', function() {
+            document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'emerald');
+            localStorage.setItem('theme', this.checked ? 'dark' : 'emerald');
+        });
+        const savedTheme = localStorage.getItem('theme') || 'emerald';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        document.getElementById('themeToggle').checked = savedTheme === 'dark';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await Promise.all([loadIngredientOptions(), loadMroOptions()]);
+            loadData();
+        });
+    </script>
+</body>
+</html>
